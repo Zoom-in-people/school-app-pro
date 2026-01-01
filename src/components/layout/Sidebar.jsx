@@ -9,11 +9,9 @@ export default function Sidebar({
   handbooks, currentHandbook, onSelectHandbook, onOpenAddHandbook, onOpenHandbookSettings 
 }) {
   
-  // 🔥 [수정] 드롭다운 상태 관리 (클릭으로만 열리게)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // 화면의 다른 곳을 클릭하면 드롭다운 닫기
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -26,12 +24,10 @@ export default function Sidebar({
     };
   }, [dropdownRef]);
 
-  // 교무수첩 정렬 (최신순)
   const sortedHandbooks = [...handbooks].sort((a, b) => {
     return b.title.localeCompare(a.title);
   });
 
-  // 카테고리별 메뉴
   const menuGroups = [
     {
       title: "메인",
@@ -89,32 +85,30 @@ export default function Sidebar({
       <div className="p-4">
         <div className="flex items-center gap-2">
           
-          {/* 드롭다운 영역 (ref 연결) */}
+          {/* 드롭다운 영역 */}
           <div className="relative flex-1" ref={dropdownRef}>
-            {/* 🔥 [수정] onClick 이벤트로 상태 변경 (hover 제거) */}
             <button 
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className={`w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border rounded-xl px-4 py-3 text-left transition shadow-sm ${isDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200 dark:border-gray-600 hover:border-indigo-500'}`}
+              className={`w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border rounded-xl px-3 py-2 text-left transition shadow-sm ${isDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200 dark:border-gray-600 hover:border-indigo-500'}`}
             >
-              <span className="font-bold text-gray-700 dark:text-gray-200 truncate">
+              <span className="font-bold text-sm text-gray-700 dark:text-gray-200 truncate">
                 {currentHandbook ? currentHandbook.title : '교무수첩 선택'}
               </span>
-              <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown size={14} className={`text-gray-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
             
-            {/* 드롭다운 메뉴 (isDropdownOpen이 true일 때만 표시) */}
             {isDropdownOpen && (
               <div className="absolute top-full left-0 w-full pt-2 z-20">
                 <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl animate-in fade-in slide-in-from-top-2 overflow-hidden">
-                  <div className="max-h-60 overflow-y-auto py-1">
+                  <div className="max-h-52 overflow-y-auto py-1">
                     {sortedHandbooks.map((handbook) => (
                       <button
                         key={handbook.id}
                         onClick={() => {
                           onSelectHandbook(handbook);
-                          setIsDropdownOpen(false); // 선택 후 닫기
+                          setIsDropdownOpen(false);
                         }}
-                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition ${currentHandbook?.id === handbook.id ? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/20' : 'text-gray-700 dark:text-gray-300'}`}
+                        className={`w-full text-left px-4 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition ${currentHandbook?.id === handbook.id ? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/20' : 'text-gray-700 dark:text-gray-300'}`}
                       >
                         {handbook.title}
                       </button>
@@ -123,11 +117,11 @@ export default function Sidebar({
                     <button 
                       onClick={() => {
                         onOpenAddHandbook();
-                        setIsDropdownOpen(false); // 선택 후 닫기
+                        setIsDropdownOpen(false);
                       }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-bold flex items-center gap-2"
+                      className="w-full text-left px-4 py-2 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-bold flex items-center gap-2"
                     >
-                      <Plus size={14}/> 새 교무수첩 만들기
+                      <Plus size={12}/> 새 교무수첩 만들기
                     </button>
                   </div>
                 </div>
@@ -135,20 +129,19 @@ export default function Sidebar({
             )}
           </div>
 
-          {/* 설정 버튼 (위치 유지) */}
+          {/* 🔥 [수정] 설정 버튼 크기 축소 (p-2) */}
           {currentHandbook && (
             <button 
               onClick={onOpenHandbookSettings}
-              className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-400 hover:text-indigo-600 hover:border-indigo-500 dark:hover:text-indigo-400 transition shadow-sm"
+              className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-400 hover:text-indigo-600 hover:border-indigo-500 dark:hover:text-indigo-400 transition shadow-sm"
               title="현재 교무수첩 설정"
             >
-              <Settings size={20}/>
+              <Settings size={18}/>
             </button>
           )}
         </div>
       </div>
 
-      {/* 메뉴 리스트 (카테고리 유지) */}
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6">
         {menuGroups.map((group, index) => (
           <div key={index}>
@@ -178,7 +171,6 @@ export default function Sidebar({
         ))}
       </nav>
 
-      {/* 하단 로그아웃 */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <button 
           onClick={logout}

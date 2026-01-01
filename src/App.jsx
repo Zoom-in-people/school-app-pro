@@ -85,11 +85,11 @@ export default function App() {
   const currentHandbookId = currentHandbook ? currentHandbook.id : null;
   const collectionPrefix = currentHandbookId ? `_${currentHandbookId}` : '';
 
-  // 🔥 [핵심 수정] 데이터 분리 (homeroom vs subject)
+  // 데이터 분리 호출
   const { 
     data: homeroomStudents, 
     add: addHomeroomStudent, 
-    addMany: addManyHomeroomStudents, // 엑셀용
+    addMany: addManyHomeroomStudents, 
     remove: removeHomeroomStudent, 
     update: updateHomeroomStudent 
   } = useGoogleDriveDB(`students_homeroom${collectionPrefix}`, userId);
@@ -97,7 +97,7 @@ export default function App() {
   const { 
     data: subjectStudents, 
     add: addSubjectStudent, 
-    addMany: addManySubjectStudents, // 엑셀용
+    addMany: addManySubjectStudents,
     remove: removeSubjectStudent, 
     update: updateSubjectStudent 
   } = useGoogleDriveDB(`students_subject${collectionPrefix}`, userId);
@@ -206,7 +206,6 @@ export default function App() {
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (
               <>
-                {/* 대시보드는 우리반(homeroom) 데이터를 기본으로 보여줌 */}
                 {activeView === 'dashboard' && (
                   <Dashboard 
                     widgets={widgets} 
@@ -221,12 +220,13 @@ export default function App() {
                 )}
                 {activeView === 'monthly' && <MonthlyEvents handbook={currentHandbook} isHomeroom={currentHandbook.isHomeroom} students={homeroomStudents} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} events={events} onUpdateEvent={handleUpdateEvent} />}
                 
-                {/* 🔥 [핵심 수정] 학급관리(homeroom) vs 수업관리(subject) 데이터 분리 */}
+                {/* 🔥 [핵심 수정] key 속성 추가로 완전 분리 */}
                 {activeView === 'students_homeroom' && (
                   <StudentManager 
+                    key="homeroom-manager" 
                     students={homeroomStudents} 
                     onAddStudent={addHomeroomStudent} 
-                    onAddStudents={addManyHomeroomStudents} // 일괄 추가
+                    onAddStudents={addManyHomeroomStudents} 
                     onUpdateStudent={updateHomeroomStudent} 
                     onDeleteStudent={removeHomeroomStudent} 
                     apiKey={apiKey} 
@@ -234,11 +234,13 @@ export default function App() {
                   />
                 )}
                 
+                {/* 🔥 [핵심 수정] key 속성 추가로 완전 분리 */}
                 {activeView === 'students_subject' && (
                   <StudentManager 
+                    key="subject-manager"
                     students={subjectStudents} 
                     onAddStudent={addSubjectStudent} 
-                    onAddStudents={addManySubjectStudents} // 일괄 추가
+                    onAddStudents={addManySubjectStudents} 
                     onUpdateStudent={updateSubjectStudent} 
                     onDeleteStudent={removeSubjectStudent} 
                     apiKey={apiKey} 
@@ -248,7 +250,6 @@ export default function App() {
                 
                 {activeView === 'lessons' && <LessonManager lessonGroups={lessonGroups} onAddGroup={addLessonGroup} onUpdateGroup={updateLessonGroup} onDeleteGroup={removeLessonGroup} />}
                 
-                {/* 상담일지는 우리반 데이터 사용 */}
                 {activeView === 'consultation' && <ConsultationLog students={homeroomStudents} consultations={consultations} onAddConsultation={addConsultation} onDeleteConsultation={removeConsultation} />}
                 
                 {activeView === 'tasks' && <TaskList todos={todos} onAddTodo={addTodo} onUpdateTodo={updateTodo} onDeleteTodo={removeTodo} />}
