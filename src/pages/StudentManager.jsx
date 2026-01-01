@@ -2,8 +2,10 @@ import React, { useState, useRef } from 'react';
 import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, AlertTriangle, FileText, BookOpen, StickyNote, PenTool } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-// 🔥 메인 컴포넌트
-export default function StudentManager({ students = [], onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, apiKey, isHomeroomView }) {
+// ----------------------------------------------------------------------
+// 메인 컴포넌트: StudentManager
+// ----------------------------------------------------------------------
+export default function StudentManager({ students = [], onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, onUpdateStudentsMany, apiKey, isHomeroomView }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBatchAiModalOpen, setIsBatchAiModalOpen] = useState(false);
@@ -11,8 +13,10 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
   const [isCreatingSheet, setIsCreatingSheet] = useState(false);
   const fileInputRef = useRef(null);
 
+  // 데이터 로딩 중 에러 방지 (null 체크)
   const safeStudents = Array.isArray(students) ? students : [];
 
+  // 검색 필터링 및 정렬 (번호순 -> 이름순)
   const filteredStudents = safeStudents.filter(student => 
     student.name.includes(searchTerm) || 
     (student.studentId && student.studentId.includes(searchTerm)) ||
@@ -24,7 +28,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
     return a.name.localeCompare(b.name);
   });
 
-  // 엑셀 업로드
+  // 1. 엑셀 업로드 핸들러
   const handleExcelUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -39,9 +43,11 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
         const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
         const newStudents = [];
+        // 헤더 제외하고 1번째 줄부터 데이터 파싱
         for (let i = 1; i < data.length; i++) {
           const row = data[i];
           if (row.length === 0) continue;
+          
           const name = row[3] || row[0]; 
           if (!name) continue;
 
@@ -52,9 +58,9 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
             name: name,
             phone: row[4] || '',
             gender: row[5] === '남' ? 'male' : row[5] === '여' ? 'female' : 'other',
-            note: row[6] || '',        
-            record_note: row[7] || '', 
-            ai_remark: row[8] || '',   
+            note: row[6] || '',        // 단순 메모
+            record_note: row[7] || '', // 생기부 기초자료
+            ai_remark: row[8] || '',   // AI 결과
             studentId: `${row[0]}${row[1]}${row[2]}`
           });
         }
@@ -76,7 +82,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
     e.target.value = null;
   };
 
-  // 엑셀 다운로드
+  // 2. 전체 데이터 엑셀 다운로드 핸들러
   const downloadExcel = () => {
     const dataToExport = filteredStudents.map(s => ({
       '학년': s.grade,
@@ -96,7 +102,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
     XLSX.writeFile(wb, `${isHomeroomView ? '우리반' : '교과'}_학생명단.xlsx`);
   };
 
-  // 구글 시트 생성
+  // 3. 구글 드라이브에 시트 자동 생성 핸들러 (Gemini 함수용)
   const createGoogleSheetInDrive = async () => {
     const token = localStorage.getItem('google_access_token');
     const folderId = localStorage.getItem('cached_folder_id'); 
@@ -114,7 +120,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
       filteredStudents.forEach((s, index) => {
         const sourceText = s.record_note && s.record_note.trim() !== '' ? s.record_note.replace(/"/g, '""') : '(기초자료 없음)';
         
-        // 🔥 [프롬프트 수정] 생기부 문체(~함, ~임) 및 전문 교사 페르소나 적용
+        // 생활기록부 전용 프롬프트 (베테랑 교사 페르소나 적용)
         const prompt = `역할: 당신은 초등학교와 고등학교에서 모두 20년 경력을 쌓은 교육 전문가이자 베테랑 교사입니다.\n` +
                        `임무: 다음 [학생 기초자료]를 바탕으로 학교생활기록부 '행동특성 및 종합의견'을 작성하세요.\n\n` +
                        `[작성 기준]\n` +
@@ -125,6 +131,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
                        `이름: ${s.name}\n` +
                        `기초자료: ${sourceText}`;
         
+        // 행 번호 계산 (헤더가 1행이므로 데이터는 2행부터 시작)
         const currentRow = index + 2;
         const formula = `=GEMINI(F${currentRow})`;
 
@@ -134,7 +141,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
           s.number,
           s.name,
           `"${sourceText}"`,
-          `"${prompt.replace(/"/g, '""')}"`,
+          `"${prompt.replace(/"/g, '""')}"`, // CSV 따옴표 이스케이프
           formula 
         ];
         csvContent += row.join(",") + "\n";
@@ -160,7 +167,16 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
       });
 
       if (res.ok) {
-        alert(`✅ 구글 드라이브에 스프레드시트가 생성되었습니다!\n\n파일명: ${fileName}\n위치: '교무수첩 데이터' 폴더`);
+        alert(
+          `✅ 구글 시트 생성 완료!\n('교무수첩 데이터' 폴더를 확인하세요)\n\n` +
+          `[⚠️ 중요: AI 내용 고정하는 법]\n` +
+          `함수로 생성된 내용은 계속 로딩될 수 있습니다.\n` +
+          `내용을 완성한 뒤에는 반드시 아래 순서대로 고정해주세요:\n\n` +
+          `1. AI 결과 열 전체 복사 (Ctrl + C)\n` +
+          `2. 바로 옆 열 클릭\n` +
+          `3. '값만 붙여넣기' (단축키: Ctrl + Shift + V)\n\n` +
+          `이렇게 해야 내용이 사라지지 않고 텍스트로 저장됩니다!`
+        );
       } else {
         throw new Error("업로드 실패");
       }
@@ -175,6 +191,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
 
   return (
     <div className="h-full flex flex-col space-y-4">
+      {/* 상단 헤더 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold dark:text-white flex items-center gap-2">
@@ -205,6 +222,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
         </div>
       </div>
 
+      {/* 툴바 영역 */}
       <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 items-center">
         <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
           <FileSpreadsheet size={16} className="text-green-600"/> 엑셀 업로드
@@ -227,6 +245,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
         </button>
       </div>
 
+      {/* 학생 목록 테이블 */}
       <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
@@ -323,15 +342,15 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
         onClose={() => setIsBatchAiModalOpen(false)}
         students={filteredStudents}
         apiKey={apiKey}
-        onUpdateStudents={onUpdateStudent}
+        onUpdateStudentsMany={onUpdateStudentsMany}
       />
     </div>
   );
 }
 
-// --------------------------------------------------------------------------------
-// [하위 컴포넌트] 학생 추가/수정 모달
-// --------------------------------------------------------------------------------
+// ----------------------------------------------------------------------
+// 하위 컴포넌트: 학생 관리 모달 (수정/추가)
+// ----------------------------------------------------------------------
 function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   const [formData, setFormData] = useState({ 
     grade: '1', class: '1', number: '1', name: '', phone: '', gender: 'male', 
@@ -377,28 +396,49 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
 
           <hr className="border-gray-100 dark:border-gray-700 my-2" />
 
+          {/* 생기부용 기초자료 */}
           <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-800">
              <div className="flex items-center gap-2 mb-1">
                 <BookOpen size={16} className="text-blue-600 dark:text-blue-400"/>
                 <label className="block text-sm font-bold text-blue-800 dark:text-blue-300">생기부용 기초 자료 (AI 작성용)</label>
              </div>
-             <textarea value={formData.record_note || ''} onChange={e => setFormData({...formData, record_note: e.target.value})} rows="3" placeholder="예: 과학 실험에 흥미가 많고..." className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+             <textarea 
+               value={formData.record_note || ''} 
+               onChange={e => setFormData({...formData, record_note: e.target.value})}
+               rows="3"
+               placeholder="예: 과학 실험에 흥미가 많고 친구들을 잘 도와줌..."
+               className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+             ></textarea>
           </div>
 
+          {/* AI 결과 수정 영역 */}
           <div className="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800">
              <div className="flex items-center gap-2 mb-1">
                 <Sparkles size={16} className="text-indigo-600 dark:text-indigo-400"/>
                 <label className="block text-sm font-bold text-indigo-800 dark:text-indigo-300">AI 생성 결과 (수정 가능)</label>
              </div>
-             <textarea value={formData.ai_remark || ''} onChange={e => setFormData({...formData, ai_remark: e.target.value})} rows="3" placeholder="AI 작성 버튼을 누르면 내용이 생성됩니다." className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+             <textarea 
+               value={formData.ai_remark || ''} 
+               onChange={e => setFormData({...formData, ai_remark: e.target.value})}
+               rows="3"
+               placeholder="AI 작성 버튼을 누르면 내용이 생성됩니다."
+               className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+             ></textarea>
           </div>
 
+          {/* 단순 메모 */}
           <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700">
              <div className="flex items-center gap-2 mb-1">
                 <StickyNote size={16} className="text-gray-500 dark:text-gray-400"/>
                 <label className="block text-sm font-bold text-gray-600 dark:text-gray-400">기타 특이사항 (단순 메모)</label>
              </div>
-             <textarea value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} rows="2" placeholder="예: 알레르기 있음" className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"></textarea>
+             <textarea 
+               value={formData.note} 
+               onChange={e => setFormData({...formData, note: e.target.value})}
+               rows="2"
+               placeholder="예: 우유 알레르기 있음"
+               className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
+             ></textarea>
           </div>
 
           <div className="pt-2 flex gap-2">
@@ -411,10 +451,10 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   );
 }
 
-// --------------------------------------------------------------------------------
-// [하위 컴포넌트] 일괄 작성 모달
-// --------------------------------------------------------------------------------
-function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudents }) {
+// ----------------------------------------------------------------------
+// 하위 컴포넌트: 일괄 작성 모달
+// ----------------------------------------------------------------------
+function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudentsMany }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState('');
   const targets = students.filter(s => s.record_note && s.record_note.trim() !== '');
@@ -424,15 +464,17 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
     if (targets.length === 0) { alert("생기부용 기초 자료가 입력된 학생이 없습니다."); return; }
     setLoading(true);
     setProgress(`대상 학생 ${targets.length}명의 데이터를 처리 중입니다...`);
+    
     try {
       const promptData = targets.map(s => ({ id: s.id, name: s.name, note: s.record_note }));
-      // 🔥 [프롬프트 수정] 생기부 문체 및 베테랑 교사 페르소나 적용
+      // 🔥 [핵심] 일괄 작성용 프롬프트 강화 (20년차 교사 페르소나 + 문체 지정)
       const systemPrompt = `너는 초등학교와 고등학교에서 모두 20년 경력을 가진 베테랑 교사야. 
       아래 학생들의 [이름, 기초자료]를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘. 
       [작성 규칙] 
-      1. 문체: 반드시 '~함.', '~임.', '~보임.', '~기대됨.' 등으로 끝나는 명사형 종결 어미(개조식)를 사용할 것. (절대 '~합니다'체 금지)
+      1. 문체: 반드시 '~함.', '~임.', '~보임.', '~기대됨.' 등과 같이 명사형 종결 어미(개조식)를 사용할 것. (절대 '~합니다'체 금지)
       2. 분량: 학생당 3~4문장. 
-      3. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘. 다른 말은 절대 하지 마.** [응답형식] [{"id": "...", "remark": "..."}]`;
+      3. 내용: 교육적이고 긍정적인 관점에서 학생의 성장을 구체적으로 서술할 것.
+      4. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘. 다른 말은 절대 하지 마.** [응답형식] [{"id": "...", "remark": "..."}]`;
       
       const userPrompt = JSON.stringify(promptData);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
@@ -442,13 +484,22 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
       let rawText = data.candidates[0].content.parts[0].text;
       rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
       const results = JSON.parse(rawText);
+      
       setProgress("데이터 저장 중...");
-      let updatedCount = 0;
+      
+      const updates = [];
       for (const res of results) {
         const student = students.find(s => String(s.id) === String(res.id));
-        if (student) { await onUpdateStudents(student.id, { ...student, ai_remark: res.remark }); updatedCount++; }
+        if (student) { updates.push({ id: student.id, fields: { ai_remark: res.remark } }); }
       }
-      alert(`${updatedCount}명의 특기사항이 일괄 생성되었습니다!`); onClose();
+      
+      if (updates.length > 0) { 
+        await onUpdateStudentsMany(updates); 
+        alert(`${updates.length}명의 특기사항이 일괄 생성 및 저장되었습니다!`); 
+      } else { 
+        alert("생성된 데이터와 학생 ID 매칭에 실패했습니다."); 
+      }
+      onClose();
     } catch (error) { console.error("Batch Error:", error); alert(`오류가 발생했습니다: ${error.message}`); } finally { setLoading(false); setProgress(''); }
   };
 

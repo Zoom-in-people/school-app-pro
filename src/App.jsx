@@ -85,12 +85,14 @@ export default function App() {
   const currentHandbookId = currentHandbook ? currentHandbook.id : null;
   const collectionPrefix = currentHandbookId ? `_${currentHandbookId}` : '';
 
+  // 🔥 [수정] updateMany 받아오기
   const { 
     data: homeroomStudents, 
     add: addHomeroomStudent, 
     addMany: addManyHomeroomStudents, 
     remove: removeHomeroomStudent, 
-    update: updateHomeroomStudent 
+    update: updateHomeroomStudent,
+    updateMany: updateManyHomeroomStudents // 추가됨
   } = useGoogleDriveDB(`students_homeroom${collectionPrefix}`, userId);
 
   const { 
@@ -98,7 +100,8 @@ export default function App() {
     add: addSubjectStudent, 
     addMany: addManySubjectStudents,
     remove: removeSubjectStudent, 
-    update: updateSubjectStudent 
+    update: updateSubjectStudent,
+    updateMany: updateManySubjectStudents // 추가됨
   } = useGoogleDriveDB(`students_subject${collectionPrefix}`, userId);
     
   const { data: consultations, add: addConsultation, remove: removeConsultation, update: updateConsultation } 
@@ -193,7 +196,6 @@ export default function App() {
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
       <div className={`${isSidebarOpen ? 'block' : 'hidden'} md:block h-full relative border-r border-gray-200 dark:border-gray-700`}>
-        {/* 🔥 Sidebar에 설정 모달 여는 함수 전달 확인 */}
         <Sidebar 
           activeView={activeView} 
           setActiveView={setActiveView} 
@@ -238,7 +240,9 @@ export default function App() {
                     onAddStudent={addHomeroomStudent} 
                     onAddStudents={addManyHomeroomStudents} 
                     onUpdateStudent={updateHomeroomStudent} 
-                    onDeleteStudent={removeHomeroomStudent} 
+                    onDeleteStudent={removeHomeroomStudent}
+                    // 🔥 [추가] 일괄 업데이트 함수 전달
+                    onUpdateStudentsMany={updateManyHomeroomStudents} 
                     apiKey={apiKey} 
                     isHomeroomView={true} 
                   />
@@ -251,7 +255,9 @@ export default function App() {
                     onAddStudent={addSubjectStudent} 
                     onAddStudents={addManySubjectStudents} 
                     onUpdateStudent={updateSubjectStudent} 
-                    onDeleteStudent={removeSubjectStudent} 
+                    onDeleteStudent={removeSubjectStudent}
+                    // 🔥 [추가] 일괄 업데이트 함수 전달
+                    onUpdateStudentsMany={updateManySubjectStudents}
                     apiKey={apiKey} 
                     isHomeroomView={false} 
                   />

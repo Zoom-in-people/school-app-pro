@@ -12,7 +12,6 @@ export function useGoogleDriveDB(collectionName, userId) {
   const [dbFileId, setDbFileId] = useState(null);
   const isLoaded = useRef(false);
 
-  // 이벤트 발송 헬퍼
   const dispatchSaveEvent = (status) => {
     window.dispatchEvent(new CustomEvent('db-save-status', { detail: status }));
   };
@@ -41,7 +40,6 @@ export function useGoogleDriveDB(collectionName, userId) {
         return;
       }
 
-      // 🔥 [추가] 로딩 시작 알림
       if (!isLoaded.current) dispatchSaveEvent('loading');
 
       if (!globalInitPromise) {
@@ -95,7 +93,6 @@ export function useGoogleDriveDB(collectionName, userId) {
         }
         
         isLoaded.current = true;
-        // 🔥 [추가] 로딩 완료 (아주 짧게 보여주고 사라지게)
         setTimeout(() => dispatchSaveEvent('idle'), 500);
 
       } catch (error) {
@@ -160,27 +157,13 @@ export function useGoogleDriveDB(collectionName, userId) {
 
   const addMany = async (items) => {
     if (data === null) return;
-
-    const filteredItems = items.filter(newItem => {
-      const isDuplicate = data.some(existing => 
-        existing.grade == newItem.grade &&
-        existing.class == newItem.class &&
-        existing.number == newItem.number &&
-        existing.name === newItem.name
-      );
-      return !isDuplicate;
-    });
-
-    if (filteredItems.length === 0) return 0;
-
-    const newItemsWithIds = filteredItems.map((item, index) => ({
+    const newItemsWithIds = items.map((item, index) => ({
       id: `${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
       ...item
     }));
-
     const newData = [...data, ...newItemsWithIds];
     saveDataToDrive(newData);
-    return filteredItems.length;
+    return items.length;
   };
 
   const remove = async (id) => {
@@ -195,5 +178,19 @@ export function useGoogleDriveDB(collectionName, userId) {
     saveDataToDrive(newData);
   };
 
-  return { data: data || [], add, addMany, remove, update };
+  // 🔥 [핵심 추가] 여러 항목을 한 번에 업데이트하는 함수
+  const updateMany = async (updates) => {
+    if (data === null) return;
+    // updates: [{id: '...', fields: {...}}, ...]
+    const newData = data.map(item => {
+      const updateItem = updates.find(u => String(u.id) === String(item.id));
+      if (updateItem) {
+        return { ...item, ...updateItem.fields }; // 기존 데이터 + 변경된 필드 병합
+      }
+      return item;
+    });
+    saveDataToDrive(newData);
+  };
+
+  return { data: data || [], add, addMany, remove, update, updateMany }; // updateMany 내보내기
 }
