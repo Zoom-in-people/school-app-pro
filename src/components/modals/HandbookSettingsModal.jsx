@@ -44,10 +44,14 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         
-        {/* 헤더 */}
-        <div className="flex justify-between items-center p-6 border-b dark:border-gray-700">
-          <h2 className="text-xl font-bold dark:text-white">교무수첩 설정</h2>
-          <button onClick={onClose}><X className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" /></button>
+        {/* 헤더 (새로만들기 창과 동일한 Indigo 배경) */}
+        <div className="bg-indigo-600 p-6 flex justify-between items-center">
+           <h2 className="text-xl font-bold text-white flex items-center gap-2">
+             교무수첩 설정
+           </h2>
+           <button onClick={onClose} className="p-1 rounded-full hover:bg-white/20 transition">
+             <X className="text-white" />
+           </button>
         </div>
 
         <div className="p-6 space-y-6">

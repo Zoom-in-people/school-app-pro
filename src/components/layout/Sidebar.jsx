@@ -12,7 +12,6 @@ export default function Sidebar({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // 화면 클릭 시 드롭다운 닫기
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -25,12 +24,11 @@ export default function Sidebar({
     };
   }, [dropdownRef]);
 
-  // 교무수첩 정렬 (최신순)
   const sortedHandbooks = [...handbooks].sort((a, b) => {
     return b.title.localeCompare(a.title);
   });
 
-  // 메뉴 카테고리
+  // 🔥 [수정] 메뉴 구조: 맨 아래에 설정 추가
   const menuGroups = [
     {
       title: "메인",
@@ -62,17 +60,16 @@ export default function Sidebar({
         { id: 'materials', label: '자료함 (드라이브)', icon: FolderOpen },
       ]
     },
-    // 🔥 [추가] 설정 메뉴를 최하단에 배치
+    // 🔥 [추가] 교무수첩 설정 메뉴
     {
       title: "설정",
       items: [
-        // id를 'handbook_settings'로 지정하여 클릭 시 모달이 열리게 함
         { id: 'handbook_settings', label: '교무수첩 설정', icon: Settings },
       ]
     }
   ];
 
-  // 메뉴 클릭 핸들러
+  // 메뉴 클릭 처리
   const handleMenuClick = (itemId) => {
     if (itemId === 'handbook_settings') {
       onOpenHandbookSettings(); // 설정 모달 열기
@@ -84,7 +81,7 @@ export default function Sidebar({
   return (
     <aside className="w-64 bg-white dark:bg-gray-800 h-full flex flex-col border-r border-gray-200 dark:border-gray-700 transition-colors duration-300">
       {/* 프로필 영역 */}
-      <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
         {user?.photoURL ? (
           <img src={user.photoURL} alt="Profile" className="w-9 h-9 rounded-full border border-gray-300 dark:border-gray-600" />
         ) : (
@@ -96,18 +93,17 @@ export default function Sidebar({
           <p className="font-bold text-gray-900 dark:text-white truncate text-sm">{user?.displayName || '선생님'}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
         </div>
-        {/* 전체 앱 설정(테마 등) 버튼 */}
         <button onClick={onOpenSettings} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
           <Settings size={16} />
         </button>
       </div>
 
-      {/* 교무수첩 선택 영역 (깔끔하게 정리됨) */}
+      {/* 교무수첩 선택 영역 (버튼 삭제됨) */}
       <div className="p-3">
         <div className="relative" ref={dropdownRef}>
           <button 
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className={`w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border rounded-lg px-3 py-2.5 text-left transition shadow-sm ${isDropdownOpen ? 'border-indigo-500 ring-1 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200 dark:border-gray-600 hover:border-indigo-500'}`}
+            className={`w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border rounded-lg px-3 py-2 text-left transition shadow-sm ${isDropdownOpen ? 'border-indigo-500 ring-1 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200 dark:border-gray-600 hover:border-indigo-500'}`}
           >
             <span className="font-bold text-sm text-gray-700 dark:text-gray-200 truncate">
               {currentHandbook ? currentHandbook.title : '교무수첩 선택'}
@@ -146,6 +142,7 @@ export default function Sidebar({
             </div>
           )}
         </div>
+        {/* 기존 설정 버튼 제거됨 */}
       </div>
 
       {/* 메뉴 리스트 */}
@@ -158,11 +155,9 @@ export default function Sidebar({
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const isActive = activeView === item.id;
-                // 설정 메뉴는 뷰가 활성화되는 것이 아니므로 스타일 처리를 약간 다르게 할 수도 있으나 통일성 유지
-                // 'handbook_settings'는 active 상태가 될 수 없으므로(모달이라서) 항상 기본 스타일
-                const isSettingsItem = item.id === 'handbook_settings';
-                const highlight = !isSettingsItem && isActive;
-                
+                const isSettings = item.id === 'handbook_settings';
+                const highlight = !isSettings && isActive;
+
                 return (
                   <button
                     key={item.id}
