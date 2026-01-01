@@ -1,25 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { Key, CheckCircle, ExternalLink, HelpCircle } from 'lucide-react';
+import { Key, CheckCircle, ExternalLink, HelpCircle, ArrowRight } from 'lucide-react';
 
+// 🔥 [수정] props에 onClose(완료처리함수)가 제대로 넘어오는지 확인
 export default function SetupWizardModal({ isOpen, onClose, apiKey, setApiKey }) {
-  // 🔥 [핵심 수정] 입력 중인 값은 여기서 따로 관리 (바로 저장되지 않음)
   const [localKey, setLocalKey] = useState("");
 
-  // 모달이 열릴 때 기존 키가 있다면 불러옴
   useEffect(() => {
     if (isOpen) {
       setLocalKey(apiKey || "");
     }
   }, [isOpen, apiKey]);
 
-  // 저장 버튼을 눌렀을 때만 부모(App.jsx)에 알림 -> 이때 모달이 닫힘
+  // 저장하고 시작하기
   const handleSave = () => {
     if (!localKey.trim()) {
       alert("API 키를 입력해주세요!");
       return;
     }
     setApiKey(localKey.trim());
-    // onClose는 App.jsx에서 isOpen={!apiKey} 로직에 의해 자동으로 처리됨
+    onClose(); // 설정 완료 처리 (App.jsx의 handleSetupComplete 실행)
+  };
+
+  // 🔥 [추가] 건너뛰기 함수
+  const handleSkip = () => {
+    if (window.confirm("API 키 없이 시작하시겠습니까?\n(AI 기능은 사용할 수 없지만, 나중에 설정에서 언제든 입력할 수 있습니다.)")) {
+      onClose(); // 설정 완료 처리
+    }
   };
 
   if (!isOpen) return null;
@@ -50,7 +56,6 @@ export default function SetupWizardModal({ isOpen, onClose, apiKey, setApiKey })
               </div>
             </label>
             
-            {/* 🔥 [수정] 입력 필드 */}
             <input
               type="text"
               value={localKey}
@@ -81,13 +86,23 @@ export default function SetupWizardModal({ isOpen, onClose, apiKey, setApiKey })
             </div>
           </div>
 
-          {/* 🔥 [수정] 저장 버튼 */}
-          <button
-            onClick={handleSave}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition shadow-lg shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-2"
-          >
-            시작하기
-          </button>
+          <div className="flex flex-col gap-3">
+            {/* 저장 버튼 */}
+            <button
+              onClick={handleSave}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition shadow-lg shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-2"
+            >
+              입력하고 시작하기
+            </button>
+            
+            {/* 🔥 [추가] 건너뛰기 버튼 */}
+            <button
+              onClick={handleSkip}
+              className="w-full bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300 font-bold py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition flex items-center justify-center gap-2 text-sm"
+            >
+              나중에 입력하기 <ArrowRight size={14}/>
+            </button>
+          </div>
         </div>
       </div>
     </div>

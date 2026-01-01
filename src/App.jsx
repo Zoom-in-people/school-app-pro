@@ -30,6 +30,8 @@ export default function App() {
   const [isHandbookSettingsOpen, setIsHandbookSettingsOpen] = useState(false);
 
   const [apiKey, setApiKey] = useLocalStorage('gemini_api_key', "");
+  // 🔥 [추가] 설정 완료 여부를 체크하는 상태
+  const [isSetupDone, setIsSetupDone] = useLocalStorage('is_setup_done', false);
   const [theme, setTheme] = useLocalStorage('theme', 'light');
   const [fontSize, setFontSize] = useLocalStorage('fontSize', 'normal');
   
@@ -133,6 +135,9 @@ export default function App() {
   const resetLayout = () => {
     if(window.confirm("배치를 초기화하시겠습니까?")) setWidgets(INITIAL_WIDGETS);
   };
+  const handleSetupComplete = () => {
+  setIsSetupDone(true);
+  };
 
   if (loading) return <div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin text-4xl">⏳</div></div>;
 
@@ -194,7 +199,15 @@ export default function App() {
         </div>
       </main>
 
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={{ apiKey, theme, fontSize }} setSettings={{ setApiKey, setTheme, setFontSize }} />
+      <SetupWizardModal 
+  isOpen={!isSetupDone} 
+  onClose={handleSetupComplete} 
+  apiKey={apiKey} 
+  setApiKey={setApiKey} 
+/>
+
+<AddHandbookModal isOpen={isAddHandbookOpen} onClose={() => setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
+{/* ... 기존 코드 ... */}
       <SetupWizardModal isOpen={!apiKey} onClose={() => {}} apiKey={apiKey} setApiKey={setApiKey} />
       <AddHandbookModal isOpen={isAddHandbookOpen} onClose={() => setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
       <HandbookSettingsModal isOpen={isHandbookSettingsOpen} onClose={() => setIsHandbookSettingsOpen(false)} handbook={currentHandbook} onUpdate={handleUpdateHandbook} />
