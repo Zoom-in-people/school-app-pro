@@ -1,11 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, CheckCircle } from 'lucide-react';
+import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, AlertTriangle, FileText } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function StudentManager({ students, onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, apiKey, isHomeroomView }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isBatchAiModalOpen, setIsBatchAiModalOpen] = useState(false); // 일괄 생성 모달 상태
+  const [isBatchAiModalOpen, setIsBatchAiModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -20,6 +20,7 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
     return a.name.localeCompare(b.name);
   });
 
+  // 엑셀 업로드 (기존 유지)
   const handleExcelUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -37,7 +38,6 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
         for (let i = 1; i < data.length; i++) {
           const row = data[i];
           if (row.length === 0) continue;
-          
           const name = row[3] || row[0]; 
           if (!name) continue;
 
@@ -71,6 +71,7 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
     e.target.value = null;
   };
 
+  // 일반 엑셀 다운로드
   const downloadExcel = () => {
     const dataToExport = filteredStudents.map(s => ({
       '학년': s.grade,
@@ -87,6 +88,31 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "학생명단");
     XLSX.writeFile(wb, `${isHomeroomView ? '우리반' : '교과'}_학생명단.xlsx`);
+  };
+
+  // 🔥 [신규] 구글 시트용(Gemini 함수) 다운로드
+  const downloadForGoogleSheet = () => {
+    const dataToExport = filteredStudents.map(s => {
+      // Gemini 함수에 들어갈 프롬프트를 미리 만들어서 엑셀에 넣어줍니다.
+      const prompt = `역할: 초등학교 교사. 다음 학생의 특기사항을 바탕으로 생활기록부 행동특성 및 종합의견을 3문장으로 작성해줘. [학생이름: ${s.name}, 특기사항: ${s.note || '없음'}]`;
+      
+      return {
+        '학년': s.grade,
+        '반': s.class,
+        '번호': s.number,
+        '이름': s.name,
+        '특이사항': s.note,
+        'Gemini_프롬프트(함수참조용)': prompt, // 이 열을 참조하면 됨
+        '사용법': '구글 시트에서 확장프로그램 설치 후 =GEMINI(F2) 입력'
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "구글시트_AI작성용");
+    XLSX.writeFile(wb, `구글시트용_${isHomeroomView ? '우리반' : '교과'}_명단.xlsx`);
+    
+    alert("파일이 다운로드 되었습니다.\n\n[사용법]\n1. 구글 스프레드시트에 업로드하세요.\n2. 'Gemini for Google Sheets' 확장프로그램을 설치하세요.\n3. 빈 셀에 =GEMINI(F2) 라고 입력하면 자동 생성됩니다. (F열이 프롬프트)");
   };
 
   return (
@@ -129,12 +155,16 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
         <input type="file" ref={fileInputRef} onChange={handleExcelUpload} accept=".xlsx, .xls" className="hidden" />
         
         <button onClick={downloadExcel} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
-          <Download size={16} className="text-blue-600"/> 엑셀 다운로드 (전체)
+          <Download size={16} className="text-blue-600"/> 전체 다운로드
         </button>
 
-        <div className="flex-1"></div> {/* 우측 정렬을 위한 여백 */}
+        {/* 🔥 [신규] 구글 시트용 다운로드 버튼 */}
+        <button onClick={downloadForGoogleSheet} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
+          <FileText size={16} className="text-orange-600"/> 구글 시트용(Gemini) 다운로드
+        </button>
 
-        {/* 🔥 [신규] AI 일괄 작성 버튼 */}
+        <div className="flex-1"></div>
+
         <button 
           onClick={() => setIsBatchAiModalOpen(true)}
           className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 rounded-lg transition shadow-md"
@@ -143,7 +173,6 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
         </button>
       </div>
 
-      {/* 학생 리스트 테이블 */}
       <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
@@ -213,19 +242,18 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
         initialData={editingStudent}
       />
 
-      {/* 🔥 [신규] 일괄 작성 모달 컴포넌트 사용 */}
       <BatchAiRemarkModal 
         isOpen={isBatchAiModalOpen}
         onClose={() => setIsBatchAiModalOpen(false)}
         students={filteredStudents}
         apiKey={apiKey}
-        onUpdateStudents={onUpdateStudent} // 개별 업데이트 함수 사용
+        onUpdateStudents={onUpdateStudent}
       />
     </div>
   );
 }
 
-// 학생 추가/수정 모달 (기존 유지)
+// 학생 추가/수정 모달
 function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   const [formData, setFormData] = useState({ 
     grade: '1', class: '1', number: '1', name: '', phone: '', gender: 'male', note: '' 
@@ -344,12 +372,11 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   );
 }
 
-// 🔥 [핵심] 일괄 작성 모달 (1회 호출로 전체 처리)
+// 일괄 작성 모달
 function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudents }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState('');
 
-  // 특기사항(note)이 있는 학생만 필터링
   const targets = students.filter(s => s.note && s.note.trim() !== '');
 
   const handleBatchGenerate = async () => {
@@ -366,7 +393,6 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
     setProgress(`대상 학생 ${targets.length}명의 데이터를 처리 중입니다...`);
 
     try {
-      // 1. 프롬프트 구성: JSON 형태로 응답하도록 강력하게 지시
       const promptData = targets.map(s => ({
         id: s.id,
         name: s.name,
@@ -378,11 +404,11 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
         아래 제공되는 학생들의 [이름, 특기사항] 데이터를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘.
         
         [작성 규칙]
-        1. 문체: 교육적이고 긍정적이며, '~~함', '~~임' 등으로 끝나는 개조식이 아니라 '~~합니다.' 식의 완성된 문장으로 작성할 것.
+        1. 문체: 교육적이고 긍정적이며, '~~함' 대신 '~~합니다.' 식의 완성된 문장.
         2. 분량: 학생당 3~4문장.
-        3. **중요: 반드시 아래와 같은 JSON 형식의 리스트(Array)로만 응답해줘. 다른 말은 절대 하지 마.**
+        3. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘. 다른 말은 절대 하지 마.**
         
-        [응답 형식 예시]
+        [응답 형식]
         [
           { "id": "학생ID1", "remark": "이 학생은..." },
           { "id": "학생ID2", "remark": "밝은 성격으로..." }
@@ -391,7 +417,7 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
 
       const userPrompt = JSON.stringify(promptData);
 
-      // 2. API 호출 (gemini-2.5-flash)
+      // Gemini 2.5 Flash 사용 (Batch 처리용)
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       
       const response = await fetch(url, {
@@ -405,19 +431,15 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
         })
       });
 
-      if (!response.ok) throw new Error("API 호출 실패");
+      if (!response.ok) throw new Error("API 호출 실패 (무료 사용량 초과 가능성)");
 
       const data = await response.json();
       let rawText = data.candidates[0].content.parts[0].text;
-
-      // 3. JSON 파싱 (마크다운 코드블록 제거)
       rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
       const results = JSON.parse(rawText);
 
-      // 4. 결과 업데이트
       setProgress("데이터 저장 중...");
       
-      // 순차적으로 업데이트 (DB 부하 방지 및 안정성)
       let updatedCount = 0;
       for (const res of results) {
         const student = students.find(s => s.id === res.id);
@@ -432,7 +454,7 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
 
     } catch (error) {
       console.error("Batch Error:", error);
-      alert(`오류가 발생했습니다: ${error.message}\n(JSON 형식이 깨졌거나 네트워크 문제일 수 있습니다.)`);
+      alert(`오류가 발생했습니다: ${error.message}\n(무료 사용량 한도 초과이거나, 데이터가 너무 많을 수 있습니다.)`);
     } finally {
       setLoading(false);
       setProgress('');
@@ -452,6 +474,18 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
         </div>
         
         <div className="p-6 space-y-6">
+          {/* 🔥 [신규] 제한사항 경고 표시 */}
+          <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-100 dark:border-red-800 flex items-start gap-3">
+            <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20}/>
+            <div>
+              <h3 className="font-bold text-red-700 dark:text-red-400 text-sm mb-1">사용량 제한 안내 (필독)</h3>
+              <p className="text-xs text-red-600 dark:text-red-300 leading-relaxed">
+                현재 무료 API 키 사용 시 <strong>하루 20회</strong>까지만 AI 작성이 가능합니다.<br/>
+                생기부 시즌 등 대량 작업이 필요할 경우, <strong>'구글 시트용 다운로드'</strong> 기능을 이용해주세요.
+              </p>
+            </div>
+          </div>
+
           <div className="text-center">
             <div className="text-4xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">
               {targets.length}명
@@ -467,7 +501,7 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl text-sm text-blue-800 dark:text-blue-300">
             <p className="font-bold mb-1">🚀 효율적인 API 사용</p>
             이 기능을 사용하면 <strong>단 1회의 API 호출</strong>로 위 {targets.length}명의 특기사항을 모두 생성합니다. 
-            (하루 20회 제한 걱정 없이 반 전체를 처리할 수 있습니다.)
+            (20회 제한 안에서 반 전체를 충분히 처리할 수 있습니다.)
           </div>
 
           {loading ? (
