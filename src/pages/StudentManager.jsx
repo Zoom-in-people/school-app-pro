@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Search, Plus, Upload, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader } from 'lucide-react';
+import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function StudentManager({ students, onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, apiKey, isHomeroomView }) {
@@ -49,7 +49,7 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
             phone: row[4] || '',
             gender: row[5] === '남' ? 'male' : row[5] === '여' ? 'female' : 'other',
             note: row[6] || '',
-            ai_remark: row[7] || '', // 엑셀 로드 시 AI 특기사항도 읽기
+            ai_remark: row[7] || '', 
             studentId: `${row[0]}${row[1]}${row[2]}`
           });
         }
@@ -72,7 +72,6 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
   };
 
   const downloadExcel = () => {
-    // 🔥 [수정] 엑셀 다운로드에 AI 특기사항 포함
     const dataToExport = filteredStudents.map(s => ({
       '학년': s.grade,
       '반': s.class,
@@ -167,7 +166,6 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
                       {student.gender === 'female' && <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded text-xs font-bold dark:bg-pink-900/30 dark:text-pink-300">여</span>}
                     </td>
                     <td className="p-4 text-right flex justify-end gap-2">
-                      {/* 🔥 [추가] AI 특기사항 버튼 */}
                       <button 
                         onClick={() => { setEditingStudent(student); setIsAiModalOpen(true); }}
                         className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition dark:hover:bg-indigo-900/20"
@@ -191,7 +189,6 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
         </div>
       </div>
 
-      {/* 학생 추가/수정 모달 */}
       <StudentModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
@@ -211,7 +208,6 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
         initialData={editingStudent}
       />
 
-      {/* 🔥 [추가] AI 특기사항 생성 모달 */}
       <AiRemarkModal 
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
@@ -345,7 +341,7 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   );
 }
 
-// 🔥 [신규 컴포넌트] AI 특기사항 생성 모달
+// AI 특기사항 생성 모달
 function AiRemarkModal({ isOpen, onClose, student, apiKey, onSave }) {
   const [loading, setLoading] = useState(false);
   const [remark, setRemark] = useState('');
@@ -368,22 +364,23 @@ function AiRemarkModal({ isOpen, onClose, student, apiKey, onSave }) {
 
     setLoading(true);
     try {
-      // Gemini API 호출 (REST 방식)
-      const prompt = `다음 학생의 특기사항(메모)을 바탕으로 생활기록부에 입력할 '행동특성 및 종합의견'을 교육적이고 긍정적인 문체로 3~4문장 정도로 작성해줘. 
+      // 🔥 [핵심 수정] 모델 이름 'gemini-1.5-flash-latest' 사용
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
       
-      [학생 정보]
-      이름: ${student.name}
-      특기사항(메모): ${student.note}
-      
-      [작성 결과]`;
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
+          contents: [{ parts: [{ text: `다음 학생의 특기사항(메모)을 바탕으로 생활기록부에 입력할 '행동특성 및 종합의견'을 교육적이고 긍정적인 문체로 3~4문장 정도로 작성해줘.\n\n[학생 정보]\n이름: ${student.name}\n특기사항(메모): ${student.note}\n\n[작성 결과]` }] }]
         })
       });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        // 🔥 [추가] 상세 에러 메시지 출력
+        console.error("AI API Error:", errData);
+        throw new Error(errData.error?.message || "API 호출 실패");
+      }
 
       const data = await response.json();
       if (data.candidates && data.candidates[0].content) {
@@ -393,7 +390,7 @@ function AiRemarkModal({ isOpen, onClose, student, apiKey, onSave }) {
       }
     } catch (error) {
       console.error("AI Generation Error", error);
-      alert("오류가 발생했습니다.");
+      alert(`오류가 발생했습니다: ${error.message}`);
     } finally {
       setLoading(false);
     }
