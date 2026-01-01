@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2, AlertTriangle, GraduationCap } from 'lucide-react';
 
 export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpdate, onDelete }) {
-  // 🔥 [수정] isHomeroom 필드 추가 (새로만들기 창과 통일)
   const [formData, setFormData] = useState({ 
     title: '', 
     isHomeroom: true,
@@ -13,7 +12,7 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
     if (handbook) {
       setFormData({
         title: handbook.title || '',
-        isHomeroom: handbook.isHomeroom ?? true, // 기존 값이 없으면 true
+        isHomeroom: handbook.isHomeroom ?? true,
         schoolInfo: handbook.schoolInfo || { name: '', grade: '', class: '' }
       });
     }
@@ -41,14 +40,14 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 dark:border-gray-700">
         
-        {/* 헤더 */}
-        <div className="flex justify-between items-center p-6 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-          <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">
-            <SettingsIcon size={24} className="text-indigo-600"/> 교무수첩 설정 변경
-          </h2>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition">
-            <X className="text-gray-500 dark:text-gray-400" />
-          </button>
+        {/* 헤더 (새로만들기와 통일) */}
+        <div className="bg-indigo-600 p-6 flex justify-between items-center">
+           <h2 className="text-xl font-bold text-white flex items-center gap-2">
+             교무수첩 설정 변경
+           </h2>
+           <button onClick={onClose} className="p-1 rounded-full hover:bg-white/20 transition">
+             <X className="text-white" />
+           </button>
         </div>
 
         <div className="p-8">
@@ -67,7 +66,7 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
               />
             </div>
 
-            {/* 2. 담임 여부 (새로만들기와 동일하게) */}
+            {/* 2. 담임 여부 */}
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-800 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-200">
@@ -148,25 +147,4 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
       </div>
     </div>
   );
-}
-
-// 아이콘 컴포넌트 (내부용)
-function SettingsIcon({ size, className }) {
-    return (
-        <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            width={size} 
-            height={size} 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2" 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            className={className}
-        >
-            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-        </svg>
-    );
 }

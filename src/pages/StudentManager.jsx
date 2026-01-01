@@ -59,7 +59,7 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
           // 🔥 [수정] 일괄 저장 함수 호출 (엑셀 버그 해결)
           if (onAddStudents) {
             onAddStudents(newStudents);
-            alert(`${newStudents.length}명의 학생이 등록되었습니다.`);
+            alert(`${newStudents.length}명의 학생이 처리되었습니다. (중복 제외)`);
           } else {
             // 호환성 유지
             newStudents.forEach(s => onAddStudent(s));
@@ -198,7 +198,6 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
   );
 }
 
-// 🔥 [별도 컴포넌트] 학생 추가/수정 모달 (드롭다운 적용됨)
 function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   const [formData, setFormData] = useState({ 
     grade: '1', class: '1', number: '1', name: '', phone: '', gender: 'male', note: '' 
@@ -222,7 +221,6 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-bold mb-1 dark:text-gray-300">학년</label>
-              {/* 🔥 [수정] 드롭다운 (1~6학년) */}
               <select 
                 value={formData.grade} 
                 onChange={e => setFormData({...formData, grade: e.target.value})}
@@ -233,7 +231,6 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
             </div>
             <div>
               <label className="block text-sm font-bold mb-1 dark:text-gray-300">반</label>
-              {/* 🔥 [수정] 드롭다운 (1~20반) */}
               <select 
                 value={formData.class} 
                 onChange={e => setFormData({...formData, class: e.target.value})}
@@ -244,7 +241,6 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
             </div>
             <div>
               <label className="block text-sm font-bold mb-1 dark:text-gray-300">번호</label>
-              {/* 🔥 [수정] 드롭다운 (1~60번) */}
               <select 
                 value={formData.number} 
                 onChange={e => setFormData({...formData, number: e.target.value})}
@@ -305,7 +301,6 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
               <Save size={18}/> 저장
             </button>
             
-            {/* 🔥 [추가] 삭제 버튼 (수정 모드일 때만) */}
             {initialData && (
               <button 
                 onClick={onDelete} 

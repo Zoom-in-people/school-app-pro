@@ -4,7 +4,6 @@ import { getOrCreateFolder, uploadFileToDrive } from '../utils/googleDrive';
 const DB_FILE_NAME = 'school_app_db.json';
 
 // 전역 변수 (중복 실행 및 저장 충돌 방지)
-let isSaving = false;
 let saveQueue = Promise.resolve();
 let globalInitPromise = null;
 
@@ -140,17 +139,17 @@ export function useGoogleDriveDB(collectionName, userId) {
 
   const add = async (item) => {
     if (data === null) return;
-    const newItem = { id: Date.now().toString(), ...item };
+    const newItem = { id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, ...item };
     const newData = [...data, newItem];
     saveDataToDrive(newData);
     return newItem.id;
   };
 
-  // 🔥 [핵심 수정] 일괄 추가 (중복 방지 및 ID 안전 생성)
+  // 🔥 [핵심] 일괄 추가 (중복 방지 및 ID 안전 생성)
   const addMany = async (items) => {
     if (data === null) return;
 
-    // 중복 체크: 학년, 반, 번호, 이름이 모두 같으면 이미 있는 것으로 간주
+    // 중복 체크: 학년, 반, 번호, 이름이 모두 같으면 이미 있는 것으로 간주하여 제외
     const filteredItems = items.filter(newItem => {
       const isDuplicate = data.some(existing => 
         existing.grade == newItem.grade &&
@@ -165,7 +164,7 @@ export function useGoogleDriveDB(collectionName, userId) {
       return 0; // 추가된 학생 없음
     }
 
-    // ID 생성 시 난수 추가하여 충돌 완전 방지
+    // ID 생성 시 난수와 인덱스를 조합하여 절대 충돌하지 않게 함
     const newItemsWithIds = filteredItems.map((item, index) => ({
       id: `${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
       ...item

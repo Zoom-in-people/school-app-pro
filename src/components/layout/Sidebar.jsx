@@ -129,11 +129,11 @@ export default function Sidebar({
             )}
           </div>
 
-          {/* 🔥 [수정] 설정 버튼 크기 축소 (p-2) */}
+          {/* 🔥 [수정] 설정 버튼 크기 축소 (p-1.5) */}
           {currentHandbook && (
             <button 
               onClick={onOpenHandbookSettings}
-              className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-400 hover:text-indigo-600 hover:border-indigo-500 dark:hover:text-indigo-400 transition shadow-sm"
+              className="p-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-400 hover:text-indigo-600 hover:border-indigo-500 dark:hover:text-indigo-400 transition shadow-sm"
               title="현재 교무수첩 설정"
             >
               <Settings size={18}/>
