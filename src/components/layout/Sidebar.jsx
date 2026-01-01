@@ -9,7 +9,6 @@ export default function Sidebar({
   handbooks, currentHandbook, onSelectHandbook, onOpenAddHandbook, onOpenHandbookSettings 
 }) {
   
-  // 교무수첩 목록을 제목(연도) 기준 내림차순 정렬 (최신이 위로)
   const sortedHandbooks = [...handbooks].sort((a, b) => {
     return b.title.localeCompare(a.title);
   });
@@ -47,50 +46,56 @@ export default function Sidebar({
         </button>
       </div>
 
-      {/* 교무수첩 선택 (드롭다운) */}
+      {/* 교무수첩 선택 영역 */}
       <div className="p-4">
-        <div className="relative group">
-          <button className="w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-left hover:border-indigo-500 transition shadow-sm">
-            <span className="font-bold text-gray-700 dark:text-gray-200 truncate">
-              {currentHandbook ? currentHandbook.title : '교무수첩 선택'}
-            </span>
-            <ChevronDown size={16} className="text-gray-500" />
-          </button>
+        {/* 🔥 [수정] flex 컨테이너로 버튼과 설정 아이콘을 한 줄에 배치 */}
+        <div className="flex items-center gap-2">
           
-          {/* 드롭다운 메뉴 */}
-          <div className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20 hidden group-hover:block animate-in fade-in slide-in-from-top-2">
-            <div className="max-h-60 overflow-y-auto py-1">
-              {sortedHandbooks.map((handbook) => (
-                <button
-                  key={handbook.id}
-                  onClick={() => onSelectHandbook(handbook)}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition ${currentHandbook?.id === handbook.id ? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/20' : 'text-gray-700 dark:text-gray-300'}`}
-                >
-                  {handbook.title}
-                </button>
-              ))}
-              <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-              <button 
-                onClick={onOpenAddHandbook}
-                className="w-full text-left px-4 py-2.5 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-bold flex items-center gap-2"
-              >
-                <Plus size={14}/> 새 교무수첩 만들기
-              </button>
+          {/* 드롭다운 영역 */}
+          <div className="relative group flex-1">
+            <button className="w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-left hover:border-indigo-500 transition shadow-sm">
+              <span className="font-bold text-gray-700 dark:text-gray-200 truncate">
+                {currentHandbook ? currentHandbook.title : '교무수첩 선택'}
+              </span>
+              <ChevronDown size={16} className="text-gray-500" />
+            </button>
+            
+            {/* 🔥 [수정] 끊김 현상 해결: pt-2로 투명한 연결 다리 생성 */}
+            <div className="absolute top-full left-0 w-full pt-2 z-20 hidden group-hover:block">
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl animate-in fade-in slide-in-from-top-2 overflow-hidden">
+                <div className="max-h-60 overflow-y-auto py-1">
+                  {sortedHandbooks.map((handbook) => (
+                    <button
+                      key={handbook.id}
+                      onClick={() => onSelectHandbook(handbook)}
+                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition ${currentHandbook?.id === handbook.id ? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/20' : 'text-gray-700 dark:text-gray-300'}`}
+                    >
+                      {handbook.title}
+                    </button>
+                  ))}
+                  <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+                  <button 
+                    onClick={onOpenAddHandbook}
+                    className="w-full text-left px-4 py-2.5 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-bold flex items-center gap-2"
+                  >
+                    <Plus size={14}/> 새 교무수첩 만들기
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* 설정 바로가기 (현재 수첩이 있을 때만) */}
-        {currentHandbook && (
-          <div className="flex justify-end mt-1">
+          {/* 🔥 [수정] 설정 버튼을 드롭다운 바로 옆으로 이동 */}
+          {currentHandbook && (
             <button 
               onClick={onOpenHandbookSettings}
-              className="text-xs text-gray-400 hover:text-indigo-500 underline flex items-center gap-1"
+              className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-400 hover:text-indigo-600 hover:border-indigo-500 dark:hover:text-indigo-400 transition shadow-sm"
+              title="현재 교무수첩 설정"
             >
-              <Settings size={10}/> 수첩 설정
+              <Settings size={20}/>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* 메뉴 리스트 */}
