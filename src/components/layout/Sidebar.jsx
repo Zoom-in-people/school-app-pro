@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, BookOpen, CheckSquare, 
   MessageSquare, FileText, Settings, LogOut, ChevronDown, Plus, FolderOpen 
@@ -9,21 +9,60 @@ export default function Sidebar({
   handbooks, currentHandbook, onSelectHandbook, onOpenAddHandbook, onOpenHandbookSettings 
 }) {
   
+  // 🔥 [수정] 드롭다운 상태 관리 (클릭으로만 열리게)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // 화면의 다른 곳을 클릭하면 드롭다운 닫기
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownRef]);
+
+  // 교무수첩 정렬 (최신순)
   const sortedHandbooks = [...handbooks].sort((a, b) => {
     return b.title.localeCompare(a.title);
   });
 
-  const menuItems = [
-    { id: 'dashboard', label: '대시보드', icon: LayoutDashboard },
-    { id: 'monthly', label: '월간행사/일정', icon: Calendar },
-    { id: 'students_homeroom', label: '학생 명렬표 (우리반)', icon: Users },
-    { id: 'students_subject', label: '학생 명렬표 (교과)', icon: Users },
-    { id: 'lessons', label: '수업 시간표', icon: BookOpen },
-    { id: 'consultation', label: '상담 일지', icon: MessageSquare },
-    { id: 'tasks', label: '업무 체크리스트', icon: CheckSquare },
-    { id: 'schedule', label: '학사일정', icon: Calendar },
-    { id: 'edu_plan', label: '교육계획서 분석', icon: FileText },
-    { id: 'materials', label: '자료함 (드라이브)', icon: FolderOpen },
+  // 카테고리별 메뉴
+  const menuGroups = [
+    {
+      title: "메인",
+      items: [
+        { id: 'dashboard', label: '대시보드', icon: LayoutDashboard },
+        { id: 'monthly', label: '월간행사/일정', icon: Calendar },
+      ]
+    },
+    {
+      title: "학급 관리",
+      items: [
+        { id: 'students_homeroom', label: '학생 명렬표 (우리반)', icon: Users },
+        { id: 'consultation', label: '상담 일지', icon: MessageSquare },
+      ]
+    },
+    {
+      title: "수업 관리",
+      items: [
+        { id: 'students_subject', label: '학생 명렬표 (교과)', icon: Users },
+        { id: 'lessons', label: '수업 시간표', icon: BookOpen },
+      ]
+    },
+    {
+      title: "행정/업무",
+      items: [
+        { id: 'tasks', label: '업무 체크리스트', icon: CheckSquare },
+        { id: 'schedule', label: '학사일정', icon: Calendar },
+        { id: 'edu_plan', label: '교육계획서 분석', icon: FileText },
+        { id: 'materials', label: '자료함 (드라이브)', icon: FolderOpen },
+      ]
+    }
   ];
 
   return (
@@ -48,44 +87,55 @@ export default function Sidebar({
 
       {/* 교무수첩 선택 영역 */}
       <div className="p-4">
-        {/* 🔥 [수정] flex 컨테이너로 버튼과 설정 아이콘을 한 줄에 배치 */}
         <div className="flex items-center gap-2">
           
-          {/* 드롭다운 영역 */}
-          <div className="relative group flex-1">
-            <button className="w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-left hover:border-indigo-500 transition shadow-sm">
+          {/* 드롭다운 영역 (ref 연결) */}
+          <div className="relative flex-1" ref={dropdownRef}>
+            {/* 🔥 [수정] onClick 이벤트로 상태 변경 (hover 제거) */}
+            <button 
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className={`w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border rounded-xl px-4 py-3 text-left transition shadow-sm ${isDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200 dark:border-gray-600 hover:border-indigo-500'}`}
+            >
               <span className="font-bold text-gray-700 dark:text-gray-200 truncate">
                 {currentHandbook ? currentHandbook.title : '교무수첩 선택'}
               </span>
-              <ChevronDown size={16} className="text-gray-500" />
+              <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
             
-            {/* 🔥 [수정] 끊김 현상 해결: pt-2로 투명한 연결 다리 생성 */}
-            <div className="absolute top-full left-0 w-full pt-2 z-20 hidden group-hover:block">
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl animate-in fade-in slide-in-from-top-2 overflow-hidden">
-                <div className="max-h-60 overflow-y-auto py-1">
-                  {sortedHandbooks.map((handbook) => (
-                    <button
-                      key={handbook.id}
-                      onClick={() => onSelectHandbook(handbook)}
-                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition ${currentHandbook?.id === handbook.id ? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/20' : 'text-gray-700 dark:text-gray-300'}`}
+            {/* 드롭다운 메뉴 (isDropdownOpen이 true일 때만 표시) */}
+            {isDropdownOpen && (
+              <div className="absolute top-full left-0 w-full pt-2 z-20">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl animate-in fade-in slide-in-from-top-2 overflow-hidden">
+                  <div className="max-h-60 overflow-y-auto py-1">
+                    {sortedHandbooks.map((handbook) => (
+                      <button
+                        key={handbook.id}
+                        onClick={() => {
+                          onSelectHandbook(handbook);
+                          setIsDropdownOpen(false); // 선택 후 닫기
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition ${currentHandbook?.id === handbook.id ? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/20' : 'text-gray-700 dark:text-gray-300'}`}
+                      >
+                        {handbook.title}
+                      </button>
+                    ))}
+                    <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+                    <button 
+                      onClick={() => {
+                        onOpenAddHandbook();
+                        setIsDropdownOpen(false); // 선택 후 닫기
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-bold flex items-center gap-2"
                     >
-                      {handbook.title}
+                      <Plus size={14}/> 새 교무수첩 만들기
                     </button>
-                  ))}
-                  <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-                  <button 
-                    onClick={onOpenAddHandbook}
-                    className="w-full text-left px-4 py-2.5 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-bold flex items-center gap-2"
-                  >
-                    <Plus size={14}/> 새 교무수첩 만들기
-                  </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* 🔥 [수정] 설정 버튼을 드롭다운 바로 옆으로 이동 */}
+          {/* 설정 버튼 (위치 유지) */}
           {currentHandbook && (
             <button 
               onClick={onOpenHandbookSettings}
@@ -98,25 +148,34 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* 메뉴 리스트 */}
-      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
-        {menuItems.map((item) => {
-          const isActive = activeView === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveView(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
-                isActive 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none' 
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              <item.icon size={20} className={isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'} />
-              {item.label}
-            </button>
-          );
-        })}
+      {/* 메뉴 리스트 (카테고리 유지) */}
+      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6">
+        {menuGroups.map((group, index) => (
+          <div key={index}>
+            <h3 className="px-4 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+              {group.title}
+            </h3>
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const isActive = activeView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveView(item.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 font-medium text-sm ${
+                      isActive 
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none' 
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    <item.icon size={18} className={isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'} />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* 하단 로그아웃 */}
