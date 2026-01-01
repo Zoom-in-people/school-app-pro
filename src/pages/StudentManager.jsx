@@ -111,10 +111,23 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
     try {
       let csvContent = "학년,반,번호,이름,생기부용 기초자료,Gemini_프롬프트(함수참조용),사용법\n";
       
-      filteredStudents.forEach(s => {
+      filteredStudents.forEach((s, index) => {
         const sourceText = s.record_note && s.record_note.trim() !== '' ? s.record_note.replace(/"/g, '""') : '(기초자료 없음)';
-        const prompt = `역할: 초등학교 교사. 다음 학생의 기초 자료를 바탕으로 생활기록부 행동특성 및 종합의견을 교육적인 문체로 3문장 작성해줘. [학생이름: ${s.name}, 기초자료: ${sourceText}]`;
         
+        // 🔥 [프롬프트 수정] 생기부 문체(~함, ~임) 및 전문 교사 페르소나 적용
+        const prompt = `역할: 당신은 초등학교와 고등학교에서 모두 20년 경력을 쌓은 교육 전문가이자 베테랑 교사입니다.\n` +
+                       `임무: 다음 [학생 기초자료]를 바탕으로 학교생활기록부 '행동특성 및 종합의견'을 작성하세요.\n\n` +
+                       `[작성 기준]\n` +
+                       `1. 문체: 반드시 '~함.', '~임.', '~보임.', '~기대됨.' 등과 같이 명사형 종결 어미(개조식)로 작성하십시오. ('~합니다'체 절대 금지)\n` +
+                       `2. 내용: 학생의 구체적인 장점과 변화 과정을 교육적이고 객관적인 관점에서 3~4문장으로 서술하십시오.\n` +
+                       `3. 전문성: 초등의 세심한 관찰과 고등의 진로 연계성을 아우르는 전문적인 교육 용어를 사용하십시오.\n\n` +
+                       `[학생 정보]\n` +
+                       `이름: ${s.name}\n` +
+                       `기초자료: ${sourceText}`;
+        
+        const currentRow = index + 2;
+        const formula = `=GEMINI(F${currentRow})`;
+
         const row = [
           s.grade,
           s.class,
@@ -122,7 +135,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
           s.name,
           `"${sourceText}"`,
           `"${prompt.replace(/"/g, '""')}"`,
-          '=GEMINI(F2)'
+          formula 
         ];
         csvContent += row.join(",") + "\n";
       });
@@ -192,7 +205,6 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
         </div>
       </div>
 
-      {/* 툴바 */}
       <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 items-center">
         <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
           <FileSpreadsheet size={16} className="text-green-600"/> 엑셀 업로드
@@ -215,7 +227,6 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
         </button>
       </div>
 
-      {/* 메인 테이블 */}
       <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
@@ -225,7 +236,6 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">이름</th>
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">학번/정보</th>
                 
-                {/* 🔥 [수정] 열 분리: 생기부 기초자료 / 특이사항(메모) / AI 결과 */}
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell w-1/5">생기부 기초자료</th>
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell w-1/5">특이사항(메모)</th>
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell w-1/5">AI 결과</th>
@@ -249,21 +259,18 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
                       {student.grade}학년 {student.class}반
                     </td>
                     
-                    {/* 생기부 기초자료 */}
                     <td className="p-4 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
                       <div className="truncate max-w-[150px] text-blue-600 dark:text-blue-400 font-medium" title={student.record_note}>
                         {student.record_note || "-"}
                       </div>
                     </td>
 
-                    {/* 특이사항(메모) */}
                     <td className="p-4 text-sm text-gray-500 dark:text-gray-400 hidden lg:table-cell">
                       <div className="truncate max-w-[150px]" title={student.note}>
                         {student.note || "-"}
                       </div>
                     </td>
 
-                    {/* 🔥 [수정] AI 결과 (실제 내용 표시) */}
                     <td className="p-4 text-sm hidden xl:table-cell">
                       {student.ai_remark ? (
                         <div className="truncate max-w-[150px] text-indigo-600 dark:text-indigo-400" title={student.ai_remark}>
@@ -323,12 +330,12 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
 }
 
 // --------------------------------------------------------------------------------
-// [하위 컴포넌트] 학생 추가/수정 모달 (AI 결과 수정 기능 추가됨)
+// [하위 컴포넌트] 학생 추가/수정 모달
 // --------------------------------------------------------------------------------
 function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   const [formData, setFormData] = useState({ 
     grade: '1', class: '1', number: '1', name: '', phone: '', gender: 'male', 
-    note: '', record_note: '', ai_remark: '' // 🔥 ai_remark 추가
+    note: '', record_note: '', ai_remark: '' 
   });
 
   React.useEffect(() => {
@@ -370,49 +377,28 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
 
           <hr className="border-gray-100 dark:border-gray-700 my-2" />
 
-          {/* 생기부용 기초자료 (AI 학습용) */}
           <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-800">
              <div className="flex items-center gap-2 mb-1">
                 <BookOpen size={16} className="text-blue-600 dark:text-blue-400"/>
                 <label className="block text-sm font-bold text-blue-800 dark:text-blue-300">생기부용 기초 자료 (AI 작성용)</label>
              </div>
-             <textarea 
-               value={formData.record_note || ''} 
-               onChange={e => setFormData({...formData, record_note: e.target.value})}
-               rows="3"
-               placeholder="예: 과학 실험에 흥미가 많고..."
-               className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-             ></textarea>
+             <textarea value={formData.record_note || ''} onChange={e => setFormData({...formData, record_note: e.target.value})} rows="3" placeholder="예: 과학 실험에 흥미가 많고..." className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
           </div>
 
-          {/* 🔥 [신규] AI 결과 수정 영역 */}
           <div className="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800">
              <div className="flex items-center gap-2 mb-1">
                 <Sparkles size={16} className="text-indigo-600 dark:text-indigo-400"/>
                 <label className="block text-sm font-bold text-indigo-800 dark:text-indigo-300">AI 생성 결과 (수정 가능)</label>
              </div>
-             <textarea 
-               value={formData.ai_remark || ''} 
-               onChange={e => setFormData({...formData, ai_remark: e.target.value})}
-               rows="3"
-               placeholder="AI 작성 버튼을 누르면 내용이 생성됩니다."
-               className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-             ></textarea>
+             <textarea value={formData.ai_remark || ''} onChange={e => setFormData({...formData, ai_remark: e.target.value})} rows="3" placeholder="AI 작성 버튼을 누르면 내용이 생성됩니다." className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
           </div>
 
-          {/* 기존 특이사항 (메모) */}
           <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700">
              <div className="flex items-center gap-2 mb-1">
                 <StickyNote size={16} className="text-gray-500 dark:text-gray-400"/>
                 <label className="block text-sm font-bold text-gray-600 dark:text-gray-400">기타 특이사항 (단순 메모)</label>
              </div>
-             <textarea 
-               value={formData.note} 
-               onChange={e => setFormData({...formData, note: e.target.value})}
-               rows="2"
-               placeholder="예: 알레르기 있음"
-               className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
-             ></textarea>
+             <textarea value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} rows="2" placeholder="예: 알레르기 있음" className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"></textarea>
           </div>
 
           <div className="pt-2 flex gap-2">
@@ -425,7 +411,9 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   );
 }
 
-// 일괄 작성 모달 (기존 유지)
+// --------------------------------------------------------------------------------
+// [하위 컴포넌트] 일괄 작성 모달
+// --------------------------------------------------------------------------------
 function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudents }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState('');
@@ -438,7 +426,14 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
     setProgress(`대상 학생 ${targets.length}명의 데이터를 처리 중입니다...`);
     try {
       const promptData = targets.map(s => ({ id: s.id, name: s.name, note: s.record_note }));
-      const systemPrompt = `너는 초등학교 생활기록부 전문가야. 아래 학생들의 [이름, 기초자료]를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘. [작성 규칙] 1. 교육적이고 긍정적인 문체(~합니다). 2. 학생당 3~4문장. 3. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘.**`;
+      // 🔥 [프롬프트 수정] 생기부 문체 및 베테랑 교사 페르소나 적용
+      const systemPrompt = `너는 초등학교와 고등학교에서 모두 20년 경력을 가진 베테랑 교사야. 
+      아래 학생들의 [이름, 기초자료]를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘. 
+      [작성 규칙] 
+      1. 문체: 반드시 '~함.', '~임.', '~보임.', '~기대됨.' 등으로 끝나는 명사형 종결 어미(개조식)를 사용할 것. (절대 '~합니다'체 금지)
+      2. 분량: 학생당 3~4문장. 
+      3. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘. 다른 말은 절대 하지 마.** [응답형식] [{"id": "...", "remark": "..."}]`;
+      
       const userPrompt = JSON.stringify(promptData);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }] }) });
@@ -450,7 +445,7 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
       setProgress("데이터 저장 중...");
       let updatedCount = 0;
       for (const res of results) {
-        const student = students.find(s => s.id === res.id);
+        const student = students.find(s => String(s.id) === String(res.id));
         if (student) { await onUpdateStudents(student.id, { ...student, ai_remark: res.remark }); updatedCount++; }
       }
       alert(`${updatedCount}명의 특기사항이 일괄 생성되었습니다!`); onClose();
