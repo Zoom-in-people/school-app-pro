@@ -29,7 +29,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddHandbookOpen, setIsAddHandbookOpen] = useState(false);
   const [isHandbookSettingsOpen, setIsHandbookSettingsOpen] = useState(false);
-  const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false); // API 키 입력창
+  const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
   // 로컬 설정 저장
   const [apiKey, setApiKey] = useLocalStorage('gemini_api_key', "");
@@ -40,7 +40,7 @@ export default function App() {
 
   const [currentHandbook, setCurrentHandbook] = useState(null);
 
-  // 🔥 [핵심 기능] 로그인 시 API 키가 없으면 설정창 자동 팝업
+  // 로그인 시 API 키가 없으면 설정창 자동 팝업
   useEffect(() => {
     if (user && !apiKey) {
       setIsSetupWizardOpen(true);
@@ -59,20 +59,22 @@ export default function App() {
     else document.documentElement.classList.remove('dark');
   }, [theme]);
 
-  // 🔥 [복구] 글자 크기 5단계 적용
+  // 글자 크기 적용 (5단계)
   useEffect(() => {
     const root = document.documentElement;
     if (fontSize === 'xsmall') root.style.fontSize = '75%';
     else if (fontSize === 'small') root.style.fontSize = '87.5%';
     else if (fontSize === 'large') root.style.fontSize = '112.5%';
     else if (fontSize === 'xlarge') root.style.fontSize = '125%';
-    else root.style.fontSize = '100%'; // normal
+    else root.style.fontSize = '100%';
   }, [fontSize]);
 
   const userId = user ? user.uid : null;
 
   // 📂 교무수첩 목록 (구글 드라이브 DB)
-  const { data: handbooks, add: addHandbook, update: updateHandbook } = useGoogleDriveDB('handbooks', userId);
+  // remove 기능 추가 (이름을 removeHandbook으로 변경해서 사용)
+  const { data: handbooks, add: addHandbook, update: updateHandbook, remove: removeHandbook } 
+    = useGoogleDriveDB('handbooks', userId);
 
   useEffect(() => {
     if (handbooks.length > 0) {
@@ -127,6 +129,24 @@ export default function App() {
   const handleUpdateHandbook = async (id, data) => {
     await updateHandbook(id, data);
     setCurrentHandbook(prev => ({ ...prev, ...data }));
+  };
+
+  // 🔥 교무수첩 삭제 핸들러
+  const handleDeleteHandbook = async (id) => {
+    await removeHandbook(id); 
+    
+    // 삭제된 수첩이 현재 보고 있는 수첩이라면
+    if (currentHandbook && currentHandbook.id === id) {
+      const remaining = handbooks.filter(h => h.id !== id);
+      if (remaining.length > 0) {
+        setCurrentHandbook(remaining[0]);
+        setLastHandbookId(remaining[0].id);
+      } else {
+        setCurrentHandbook(null);
+        setLastHandbookId(null);
+      }
+    }
+    setIsHandbookSettingsOpen(false);
   };
 
   const handleSelectHandbook = (handbook) => {
@@ -213,19 +233,17 @@ export default function App() {
         </div>
       </main>
 
-      {/* 설정 모달 (버튼 누르면 마법사 열림) */}
       <SettingsModal 
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
         settings={{ apiKey, theme, fontSize }} 
         setSettings={{ setApiKey, setTheme, setFontSize }} 
         onOpenSetupWizard={() => {
-          setIsSettingsOpen(false); // 설정 닫고
-          setIsSetupWizardOpen(true); // 마법사 열기
+          setIsSettingsOpen(false);
+          setIsSetupWizardOpen(true);
         }}
       />
       
-      {/* API 키 입력 마법사 (자동 팝업 or 버튼 호출) */}
       <SetupWizardModal 
         isOpen={isSetupWizardOpen} 
         onClose={() => setIsSetupWizardOpen(false)} 
@@ -234,7 +252,15 @@ export default function App() {
       />
       
       <AddHandbookModal isOpen={isAddHandbookOpen} onClose={() => setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
-      <HandbookSettingsModal isOpen={isHandbookSettingsOpen} onClose={() => setIsHandbookSettingsOpen(false)} handbook={currentHandbook} onUpdate={handleUpdateHandbook} />
+      
+      {/* 삭제 함수 전달 */}
+      <HandbookSettingsModal 
+        isOpen={isHandbookSettingsOpen} 
+        onClose={() => setIsHandbookSettingsOpen(false)} 
+        handbook={currentHandbook} 
+        onUpdate={handleUpdateHandbook}
+        onDelete={handleDeleteHandbook} 
+      />
     </div>
   );
 }
