@@ -1,0 +1,5 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 추가 커스텀 스타일이 있다면 그 아래에... */
