@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, LogIn, Plus } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
-// 🔥 [핵심 변경] Firestore 대신 구글 드라이브 DB 훅 사용
 import { useGoogleDriveDB } from './hooks/useGoogleDriveDB'; 
 import { useLocalStorage } from './utils/useLocalStorage';
 import { INITIAL_WIDGETS } from './constants/data';
@@ -29,15 +28,14 @@ export default function App() {
   const [isAddHandbookOpen, setIsAddHandbookOpen] = useState(false);
   const [isHandbookSettingsOpen, setIsHandbookSettingsOpen] = useState(false);
 
+  // 로컬 설정 저장
   const [apiKey, setApiKey] = useLocalStorage('gemini_api_key', "");
-  // 🔥 [추가] 설정 완료 여부를 체크하는 상태
   const [isSetupDone, setIsSetupDone] = useLocalStorage('is_setup_done', false);
   const [theme, setTheme] = useLocalStorage('theme', 'light');
   const [fontSize, setFontSize] = useLocalStorage('fontSize', 'normal');
-  
   const [widgets, setWidgets] = useLocalStorage('widgets', INITIAL_WIDGETS);
-  
   const [lastHandbookId, setLastHandbookId] = useLocalStorage('lastHandbookId', null);
+
   const [currentHandbook, setCurrentHandbook] = useState(null);
 
   useEffect(() => {
@@ -61,21 +59,27 @@ export default function App() {
 
   const userId = user ? user.uid : null;
 
-  // 🔥 [변경] 교무수첩 목록 불러오기 (구글 드라이브)
+  // 교무수첩 목록 (구글 드라이브 DB)
   const { data: handbooks, add: addHandbook, update: updateHandbook } = useGoogleDriveDB('handbooks', userId);
 
   useEffect(() => {
-    if (handbooks.length > 0 && lastHandbookId) {
-      const found = handbooks.find(h => h.id === lastHandbookId);
-      if (found) setCurrentHandbook(found);
+    if (handbooks.length > 0) {
+      if (lastHandbookId) {
+        const found = handbooks.find(h => h.id === lastHandbookId);
+        if (found) setCurrentHandbook(found);
+        else setCurrentHandbook(handbooks[0]);
+      } else {
+        setCurrentHandbook(handbooks[0]);
+      }
+    } else {
+      setCurrentHandbook(null);
     }
   }, [handbooks, lastHandbookId]);
 
   const currentHandbookId = currentHandbook ? currentHandbook.id : null;
-
-  // 🔥 [변경] 각 데이터 컬렉션 이름을 'students_수첩ID' 형식으로 변환하여 분리 저장
   const collectionPrefix = currentHandbookId ? `_${currentHandbookId}` : '';
 
+  // 각 데이터 컬렉션 (수첩별 분리)
   const { data: students, add: addStudent, remove: removeStudent, update: updateStudent } 
     = useGoogleDriveDB(`students${collectionPrefix}`, userId);
     
@@ -135,8 +139,9 @@ export default function App() {
   const resetLayout = () => {
     if(window.confirm("배치를 초기화하시겠습니까?")) setWidgets(INITIAL_WIDGETS);
   };
+
   const handleSetupComplete = () => {
-  setIsSetupDone(true);
+    setIsSetupDone(true);
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin text-4xl">⏳</div></div>;
@@ -176,9 +181,7 @@ export default function App() {
                     widgets={widgets} students={students} todos={todos} setActiveView={setActiveView} isHomeroom={currentHandbook.isHomeroom} schoolInfo={currentHandbook.schoolInfo || {}} 
                     attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => updateStudent(id, data)} lessonGroups={lessonGroups} onUpdateLessonGroup={updateLessonGroup} 
                     currentHandbook={currentHandbook} onUpdateHandbook={handleUpdateHandbook}
-                    onLayoutChange={onLayoutChange}
-                    resetLayout={resetLayout}
-                    // 🔥 위젯 추가/삭제 함수 전달
+                    onLayoutChange={onLayoutChange} resetLayout={resetLayout}
                     addWidget={(newWidget) => setWidgets(prev => [...prev, { ...newWidget, id: Date.now().toString(), x: 0, y: Infinity }])}
                     deleteWidget={(id) => setWidgets(prev => prev.filter(w => w.id !== id))}
                   />
@@ -191,7 +194,6 @@ export default function App() {
                 {activeView === 'tasks' && <TaskList todos={todos} onAddTodo={addTodo} onUpdateTodo={updateTodo} onDeleteTodo={removeTodo} />}
                 {activeView === 'schedule' && <AcademicSchedule apiKey={apiKey} />}
                 {activeView === 'edu_plan' && <EducationPlan apiKey={apiKey} />}
-                {/* 🔥 [변경] 교무수첩 정보를 자료함에 전달 */}
                 {activeView === 'materials' && <MaterialManager handbook={currentHandbook} />}
               </>
             )}
@@ -199,16 +201,8 @@ export default function App() {
         </div>
       </main>
 
-      <SetupWizardModal 
-  isOpen={!isSetupDone} 
-  onClose={handleSetupComplete} 
-  apiKey={apiKey} 
-  setApiKey={setApiKey} 
-/>
-
-<AddHandbookModal isOpen={isAddHandbookOpen} onClose={() => setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
-{/* ... 기존 코드 ... */}
-      <SetupWizardModal isOpen={!apiKey} onClose={() => {}} apiKey={apiKey} setApiKey={setApiKey} />
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={{ apiKey, theme, fontSize }} setSettings={{ setApiKey, setTheme, setFontSize }} />
+      <SetupWizardModal isOpen={!isSetupDone} onClose={handleSetupComplete} apiKey={apiKey} setApiKey={setApiKey} />
       <AddHandbookModal isOpen={isAddHandbookOpen} onClose={() => setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
       <HandbookSettingsModal isOpen={isHandbookSettingsOpen} onClose={() => setIsHandbookSettingsOpen(false)} handbook={currentHandbook} onUpdate={handleUpdateHandbook} />
     </div>
