@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, AlertTriangle, FileText, BookOpen } from 'lucide-react';
+import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, AlertTriangle, FileText, BookOpen, StickyNote, PenTool } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-// 🔥 [수정] students 기본값을 []로 설정하여 에러 방지
+// 🔥 메인 컴포넌트
 export default function StudentManager({ students = [], onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, apiKey, isHomeroomView }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -11,7 +11,6 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
   const [isCreatingSheet, setIsCreatingSheet] = useState(false);
   const fileInputRef = useRef(null);
 
-  // 🔥 [수정] 안전 장치: students가 null이거나 배열이 아닐 경우 빈 배열로 처리
   const safeStudents = Array.isArray(students) ? students : [];
 
   const filteredStudents = safeStudents.filter(student => 
@@ -25,6 +24,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
     return a.name.localeCompare(b.name);
   });
 
+  // 엑셀 업로드
   const handleExcelUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -52,9 +52,9 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
             name: name,
             phone: row[4] || '',
             gender: row[5] === '남' ? 'male' : row[5] === '여' ? 'female' : 'other',
-            note: row[6] || '',
+            note: row[6] || '',        
             record_note: row[7] || '', 
-            ai_remark: row[8] || '',
+            ai_remark: row[8] || '',   
             studentId: `${row[0]}${row[1]}${row[2]}`
           });
         }
@@ -76,6 +76,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
     e.target.value = null;
   };
 
+  // 엑셀 다운로드
   const downloadExcel = () => {
     const dataToExport = filteredStudents.map(s => ({
       '학년': s.grade,
@@ -95,7 +96,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
     XLSX.writeFile(wb, `${isHomeroomView ? '우리반' : '교과'}_학생명단.xlsx`);
   };
 
-  // 구글 드라이브에 시트 자동 생성
+  // 구글 시트 생성
   const createGoogleSheetInDrive = async () => {
     const token = localStorage.getItem('google_access_token');
     const folderId = localStorage.getItem('cached_folder_id'); 
@@ -146,7 +147,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
       });
 
       if (res.ok) {
-        alert(`✅ 구글 드라이브에 스프레드시트가 생성되었습니다!\n\n파일명: ${fileName}\n폴더: 교무수첩 데이터`);
+        alert(`✅ 구글 드라이브에 스프레드시트가 생성되었습니다!\n\n파일명: ${fileName}\n위치: '교무수첩 데이터' 폴더`);
       } else {
         throw new Error("업로드 실패");
       }
@@ -167,7 +168,6 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
             <User className="text-indigo-600 dark:text-indigo-400"/>
             {isHomeroomView ? "우리반 학생 명렬표" : "교과 학생 명렬표"}
           </h2>
-          {/* 🔥 [수정] safeStudents 사용 */}
           <p className="text-gray-500 dark:text-gray-400 text-sm">총 {safeStudents.length}명의 학생이 등록되어 있습니다.</p>
         </div>
         
@@ -192,6 +192,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
         </div>
       </div>
 
+      {/* 툴바 */}
       <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 items-center">
         <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
           <FileSpreadsheet size={16} className="text-green-600"/> 엑셀 업로드
@@ -202,25 +203,19 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
           <Download size={16} className="text-blue-600"/> 전체 다운로드
         </button>
 
-        <button 
-          onClick={createGoogleSheetInDrive} 
-          disabled={isCreatingSheet}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition shadow-sm disabled:bg-orange-300"
-        >
+        <button onClick={createGoogleSheetInDrive} disabled={isCreatingSheet} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition shadow-sm disabled:bg-orange-300">
           {isCreatingSheet ? <Loader className="animate-spin" size={16}/> : <FileText size={16}/>}
           Drive에 시트 생성 (Gemini용)
         </button>
 
         <div className="flex-1"></div>
 
-        <button 
-          onClick={() => setIsBatchAiModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 rounded-lg transition shadow-md"
-        >
+        <button onClick={() => setIsBatchAiModalOpen(true)} className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 rounded-lg transition shadow-md">
           <Sparkles size={16} /> AI 특기사항 일괄 작성
         </button>
       </div>
 
+      {/* 메인 테이블 */}
       <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
@@ -229,15 +224,19 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">번호</th>
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">이름</th>
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">학번/정보</th>
-                <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">생기부 기초자료</th>
-                <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">AI 결과</th>
+                
+                {/* 🔥 [수정] 열 분리: 생기부 기초자료 / 특이사항(메모) / AI 결과 */}
+                <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell w-1/5">생기부 기초자료</th>
+                <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell w-1/5">특이사항(메모)</th>
+                <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell w-1/5">AI 결과</th>
+                
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="p-10 text-center text-gray-400 dark:text-gray-500">
+                  <td colSpan="7" className="p-10 text-center text-gray-400 dark:text-gray-500">
                     등록된 학생이 없습니다.
                   </td>
                 </tr>
@@ -249,16 +248,33 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
                     <td className="p-4 text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell">
                       {student.grade}학년 {student.class}반
                     </td>
-                    <td className="p-4 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell max-w-xs truncate">
-                      {student.record_note ? (
-                        <span className="text-blue-600 dark:text-blue-400 font-medium">{student.record_note}</span>
+                    
+                    {/* 생기부 기초자료 */}
+                    <td className="p-4 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
+                      <div className="truncate max-w-[150px] text-blue-600 dark:text-blue-400 font-medium" title={student.record_note}>
+                        {student.record_note || "-"}
+                      </div>
+                    </td>
+
+                    {/* 특이사항(메모) */}
+                    <td className="p-4 text-sm text-gray-500 dark:text-gray-400 hidden lg:table-cell">
+                      <div className="truncate max-w-[150px]" title={student.note}>
+                        {student.note || "-"}
+                      </div>
+                    </td>
+
+                    {/* 🔥 [수정] AI 결과 (실제 내용 표시) */}
+                    <td className="p-4 text-sm hidden xl:table-cell">
+                      {student.ai_remark ? (
+                        <div className="truncate max-w-[150px] text-indigo-600 dark:text-indigo-400" title={student.ai_remark}>
+                          <Sparkles size={12} className="inline mr-1"/>
+                          {student.ai_remark}
+                        </div>
                       ) : (
-                        <span className="text-gray-400 text-xs">{student.note || "-"}</span>
+                        <span className="text-gray-300">-</span>
                       )}
                     </td>
-                    <td className="p-4 text-sm hidden lg:table-cell max-w-xs truncate text-indigo-600 dark:text-indigo-400">
-                      {student.ai_remark ? "✅ 작성됨" : "-"}
-                    </td>
+
                     <td className="p-4 text-right">
                       <button 
                         onClick={() => { setEditingStudent(student); setIsModalOpen(true); }}
@@ -295,11 +311,10 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
         initialData={editingStudent}
       />
 
-      {/* 🔥 [수정] safeStudents를 전달하여 모달에서도 에러 방지 */}
       <BatchAiRemarkModal 
         isOpen={isBatchAiModalOpen}
         onClose={() => setIsBatchAiModalOpen(false)}
-        students={filteredStudents} 
+        students={filteredStudents}
         apiKey={apiKey}
         onUpdateStudents={onUpdateStudent}
       />
@@ -307,18 +322,18 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
   );
 }
 
-// ... (StudentModal, BatchAiRemarkModal 컴포넌트는 기존과 동일하므로 생략하지 않고 아래에 붙여야 함)
-// 실제 파일 저장 시에는 아래 StudentModal과 BatchAiRemarkModal 코드를 그대로 유지해주세요.
-
+// --------------------------------------------------------------------------------
+// [하위 컴포넌트] 학생 추가/수정 모달 (AI 결과 수정 기능 추가됨)
+// --------------------------------------------------------------------------------
 function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   const [formData, setFormData] = useState({ 
     grade: '1', class: '1', number: '1', name: '', phone: '', gender: 'male', 
-    note: '', record_note: ''
+    note: '', record_note: '', ai_remark: '' // 🔥 ai_remark 추가
   });
 
   React.useEffect(() => {
     if (initialData) setFormData(initialData);
-    else setFormData({ grade: '1', class: '1', number: '1', name: '', phone: '', gender: 'male', note: '', record_note: '' });
+    else setFormData({ grade: '1', class: '1', number: '1', name: '', phone: '', gender: 'male', note: '', record_note: '', ai_remark: '' });
   }, [initialData, isOpen]);
 
   if (!isOpen) return null;
@@ -330,7 +345,9 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
           <h2 className="text-xl font-bold dark:text-white">{initialData ? '학생 정보 관리' : '새 학생 추가'}</h2>
           <button onClick={onClose}><X className="text-gray-500 hover:text-gray-700 dark:text-gray-400" /></button>
         </div>
+        
         <div className="p-6 space-y-4 overflow-y-auto">
+          {/* 기본 정보 */}
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-bold mb-1 dark:text-gray-300">학년</label>
@@ -350,18 +367,54 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
             <div><label className="block text-sm font-bold mb-1 dark:text-gray-300">전화번호</label><input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white font-mono text-sm"/></div>
             <div><label className="block text-sm font-bold mb-1 dark:text-gray-300">성별</label><select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="male">남자</option><option value="female">여자</option></select></div>
           </div>
+
           <hr className="border-gray-100 dark:border-gray-700 my-2" />
+
+          {/* 생기부용 기초자료 (AI 학습용) */}
           <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-800">
              <div className="flex items-center gap-2 mb-1">
                 <BookOpen size={16} className="text-blue-600 dark:text-blue-400"/>
                 <label className="block text-sm font-bold text-blue-800 dark:text-blue-300">생기부용 기초 자료 (AI 작성용)</label>
              </div>
-             <textarea value={formData.record_note || ''} onChange={e => setFormData({...formData, record_note: e.target.value})} rows="4" placeholder="예: 수업 시간에 발표를 잘하고..." className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+             <textarea 
+               value={formData.record_note || ''} 
+               onChange={e => setFormData({...formData, record_note: e.target.value})}
+               rows="3"
+               placeholder="예: 과학 실험에 흥미가 많고..."
+               className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+             ></textarea>
           </div>
-          <div>
-             <label className="block text-sm font-bold mb-1 text-gray-500 dark:text-gray-400">기타 특이사항 (단순 메모)</label>
-             <textarea value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} rows="2" placeholder="예: 우유 알레르기 있음" className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"></textarea>
+
+          {/* 🔥 [신규] AI 결과 수정 영역 */}
+          <div className="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800">
+             <div className="flex items-center gap-2 mb-1">
+                <Sparkles size={16} className="text-indigo-600 dark:text-indigo-400"/>
+                <label className="block text-sm font-bold text-indigo-800 dark:text-indigo-300">AI 생성 결과 (수정 가능)</label>
+             </div>
+             <textarea 
+               value={formData.ai_remark || ''} 
+               onChange={e => setFormData({...formData, ai_remark: e.target.value})}
+               rows="3"
+               placeholder="AI 작성 버튼을 누르면 내용이 생성됩니다."
+               className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+             ></textarea>
           </div>
+
+          {/* 기존 특이사항 (메모) */}
+          <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700">
+             <div className="flex items-center gap-2 mb-1">
+                <StickyNote size={16} className="text-gray-500 dark:text-gray-400"/>
+                <label className="block text-sm font-bold text-gray-600 dark:text-gray-400">기타 특이사항 (단순 메모)</label>
+             </div>
+             <textarea 
+               value={formData.note} 
+               onChange={e => setFormData({...formData, note: e.target.value})}
+               rows="2"
+               placeholder="예: 알레르기 있음"
+               className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
+             ></textarea>
+          </div>
+
           <div className="pt-2 flex gap-2">
             <button onClick={() => onSave(formData)} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"><Save size={18}/> 저장</button>
             {initialData && (<button onClick={onDelete} className="px-4 border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold dark:bg-red-900/20 dark:border-red-800 dark:text-red-400"><Trash2 size={18}/></button>)}
@@ -372,6 +425,7 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   );
 }
 
+// 일괄 작성 모달 (기존 유지)
 function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudents }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState('');
