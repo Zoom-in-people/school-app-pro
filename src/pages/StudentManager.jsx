@@ -1,11 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader } from 'lucide-react';
+import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function StudentManager({ students, onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, apiKey, isHomeroomView }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isBatchAiModalOpen, setIsBatchAiModalOpen] = useState(false); // 일괄 생성 모달 상태
   const [editingStudent, setEditingStudent] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -57,7 +57,7 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
         if (newStudents.length > 0) {
           if (onAddStudents) {
             onAddStudents(newStudents);
-            alert(`${newStudents.length}명의 학생이 처리되었습니다. (중복 제외)`);
+            alert(`${newStudents.length}명의 학생이 처리되었습니다.`);
           } else {
             newStudents.forEach(s => onAddStudent(s));
           }
@@ -121,6 +121,7 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
         </div>
       </div>
 
+      {/* 툴바 */}
       <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 items-center">
         <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
           <FileSpreadsheet size={16} className="text-green-600"/> 엑셀 업로드
@@ -130,8 +131,19 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
         <button onClick={downloadExcel} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
           <Download size={16} className="text-blue-600"/> 엑셀 다운로드 (전체)
         </button>
+
+        <div className="flex-1"></div> {/* 우측 정렬을 위한 여백 */}
+
+        {/* 🔥 [신규] AI 일괄 작성 버튼 */}
+        <button 
+          onClick={() => setIsBatchAiModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 rounded-lg transition shadow-md"
+        >
+          <Sparkles size={16} /> AI 특기사항 일괄 작성
+        </button>
       </div>
 
+      {/* 학생 리스트 테이블 */}
       <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
@@ -140,8 +152,8 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">번호</th>
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">이름</th>
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">학번/정보</th>
-                <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">전화번호</th>
-                <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">성별</th>
+                <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">특기사항(기초)</th>
+                <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">AI 결과</th>
                 <th className="p-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">관리</th>
               </tr>
             </thead>
@@ -149,7 +161,7 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
               {filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="p-10 text-center text-gray-400 dark:text-gray-500">
-                    등록된 학생이 없습니다. 학생을 추가해주세요.
+                    등록된 학생이 없습니다.
                   </td>
                 </tr>
               ) : (
@@ -160,23 +172,16 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
                     <td className="p-4 text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell">
                       {student.grade}학년 {student.class}반
                     </td>
-                    <td className="p-4 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell font-mono">{student.phone}</td>
-                    <td className="p-4 text-sm hidden lg:table-cell">
-                      {student.gender === 'male' && <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold dark:bg-blue-900/30 dark:text-blue-300">남</span>}
-                      {student.gender === 'female' && <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded text-xs font-bold dark:bg-pink-900/30 dark:text-pink-300">여</span>}
+                    <td className="p-4 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell max-w-xs truncate">
+                      {student.note || "-"}
                     </td>
-                    <td className="p-4 text-right flex justify-end gap-2">
-                      <button 
-                        onClick={() => { setEditingStudent(student); setIsAiModalOpen(true); }}
-                        className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition dark:hover:bg-indigo-900/20"
-                        title="AI 특기사항 작성"
-                      >
-                        <Sparkles size={18} />
-                      </button>
+                    <td className="p-4 text-sm hidden lg:table-cell max-w-xs truncate text-indigo-600 dark:text-indigo-400">
+                      {student.ai_remark ? "✅ 작성됨" : "-"}
+                    </td>
+                    <td className="p-4 text-right">
                       <button 
                         onClick={() => { setEditingStudent(student); setIsModalOpen(true); }}
                         className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition dark:hover:bg-indigo-900/20 dark:hover:text-indigo-400"
-                        title="수정"
                       >
                         <MoreHorizontal size={18} />
                       </button>
@@ -208,20 +213,19 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
         initialData={editingStudent}
       />
 
-      <AiRemarkModal 
-        isOpen={isAiModalOpen}
-        onClose={() => setIsAiModalOpen(false)}
-        student={editingStudent}
+      {/* 🔥 [신규] 일괄 작성 모달 컴포넌트 사용 */}
+      <BatchAiRemarkModal 
+        isOpen={isBatchAiModalOpen}
+        onClose={() => setIsBatchAiModalOpen(false)}
+        students={filteredStudents}
         apiKey={apiKey}
-        onSave={(remark) => {
-          onUpdateStudent(editingStudent.id, { ...editingStudent, ai_remark: remark });
-          setIsAiModalOpen(false);
-        }}
+        onUpdateStudents={onUpdateStudent} // 개별 업데이트 함수 사용
       />
     </div>
   );
 }
 
+// 학생 추가/수정 모달 (기존 유지)
 function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   const [formData, setFormData] = useState({ 
     grade: '1', class: '1', number: '1', name: '', phone: '', gender: 'male', note: '' 
@@ -340,121 +344,146 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   );
 }
 
-function AiRemarkModal({ isOpen, onClose, student, apiKey, onSave }) {
+// 🔥 [핵심] 일괄 작성 모달 (1회 호출로 전체 처리)
+function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudents }) {
   const [loading, setLoading] = useState(false);
-  const [remark, setRemark] = useState('');
+  const [progress, setProgress] = useState('');
 
-  React.useEffect(() => {
-    if (student) {
-      setRemark(student.ai_remark || '');
-    }
-  }, [student, isOpen]);
+  // 특기사항(note)이 있는 학생만 필터링
+  const targets = students.filter(s => s.note && s.note.trim() !== '');
 
-  const generateRemark = async () => {
+  const handleBatchGenerate = async () => {
     if (!apiKey) {
       alert("설정 메뉴에서 API 키를 먼저 등록해주세요.");
       return;
     }
-    if (!student.note) {
-      alert("특기사항(기초 자료)이 없습니다. 학생 정보에서 특기사항을 먼저 입력해주세요.");
+    if (targets.length === 0) {
+      alert("특기사항이 입력된 학생이 없습니다. 기초 자료를 먼저 입력해주세요.");
       return;
     }
 
     setLoading(true);
+    setProgress(`대상 학생 ${targets.length}명의 데이터를 처리 중입니다...`);
+
     try {
-      // 🔥 [핵심 수정] Gemini 2.5 Pro 사용 (2026년 기준 최신)
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
+      // 1. 프롬프트 구성: JSON 형태로 응답하도록 강력하게 지시
+      const promptData = targets.map(s => ({
+        id: s.id,
+        name: s.name,
+        note: s.note
+      }));
+
+      const systemPrompt = `
+        너는 초등학교 생활기록부 전문가야. 
+        아래 제공되는 학생들의 [이름, 특기사항] 데이터를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘.
+        
+        [작성 규칙]
+        1. 문체: 교육적이고 긍정적이며, '~~함', '~~임' 등으로 끝나는 개조식이 아니라 '~~합니다.' 식의 완성된 문장으로 작성할 것.
+        2. 분량: 학생당 3~4문장.
+        3. **중요: 반드시 아래와 같은 JSON 형식의 리스트(Array)로만 응답해줘. 다른 말은 절대 하지 마.**
+        
+        [응답 형식 예시]
+        [
+          { "id": "학생ID1", "remark": "이 학생은..." },
+          { "id": "학생ID2", "remark": "밝은 성격으로..." }
+        ]
+      `;
+
+      const userPrompt = JSON.stringify(promptData);
+
+      // 2. API 호출 (gemini-2.5-flash)
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `다음 학생의 특기사항(메모)을 바탕으로 생활기록부에 입력할 '행동특성 및 종합의견'을 교육적이고 긍정적인 문체로 3~4문장 정도로 작성해줘.\n\n[학생 정보]\n이름: ${student.name}\n특기사항(메모): ${student.note}\n\n[작성 결과]` }] }]
+          contents: [{ 
+            role: "user",
+            parts: [{ text: systemPrompt + "\n\n" + userPrompt }] 
+          }]
         })
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        console.error("AI API Error:", errData);
-        throw new Error(errData.error?.message || "API 호출 실패");
-      }
+      if (!response.ok) throw new Error("API 호출 실패");
 
       const data = await response.json();
-      if (data.candidates && data.candidates[0].content) {
-        setRemark(data.candidates[0].content.parts[0].text);
-      } else {
-        alert("AI 응답을 받아오지 못했습니다.");
+      let rawText = data.candidates[0].content.parts[0].text;
+
+      // 3. JSON 파싱 (마크다운 코드블록 제거)
+      rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+      const results = JSON.parse(rawText);
+
+      // 4. 결과 업데이트
+      setProgress("데이터 저장 중...");
+      
+      // 순차적으로 업데이트 (DB 부하 방지 및 안정성)
+      let updatedCount = 0;
+      for (const res of results) {
+        const student = students.find(s => s.id === res.id);
+        if (student) {
+          await onUpdateStudents(student.id, { ...student, ai_remark: res.remark });
+          updatedCount++;
+        }
       }
+
+      alert(`${updatedCount}명의 특기사항이 일괄 생성되었습니다!`);
+      onClose();
+
     } catch (error) {
-      console.error("AI Generation Error", error);
-      alert(`오류가 발생했습니다: ${error.message}`);
+      console.error("Batch Error:", error);
+      alert(`오류가 발생했습니다: ${error.message}\n(JSON 형식이 깨졌거나 네트워크 문제일 수 있습니다.)`);
     } finally {
       setLoading(false);
+      setProgress('');
     }
   };
 
-  if (!isOpen || !student) return null;
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        <div className="flex justify-between items-center p-6 border-b dark:border-gray-700 bg-indigo-50 dark:bg-gray-700/50">
-          <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">
-            <Sparkles className="text-indigo-600 dark:text-indigo-400"/> AI 특기사항 작성 (Gemini 2.5)
+        <div className="flex justify-between items-center p-6 border-b dark:border-gray-700 bg-gradient-to-r from-indigo-500 to-purple-600">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Sparkles className="text-yellow-300"/> AI 특기사항 일괄 작성
           </h2>
-          <button onClick={onClose}><X className="text-gray-500 hover:text-gray-700 dark:text-gray-400" /></button>
+          <button onClick={onClose}><X className="text-white/80 hover:text-white" /></button>
         </div>
         
-        <div className="p-6 space-y-4">
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl text-sm text-blue-800 dark:text-blue-300 mb-4">
-            <p className="font-bold mb-1">💡 작성 기준 안내</p>
-            AI 특기사항은 학생 정보에 입력된 <strong>'특기사항'</strong> 내용을 바탕으로 생성됩니다. 
-            기초 자료가 충분할수록 더 좋은 결과가 나옵니다.
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold mb-1 dark:text-gray-300">기초 자료 (특기사항)</label>
-            <div className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-700 dark:text-gray-300 h-24 overflow-y-auto">
-              {student.note || "(특기사항 없음)"}
+        <div className="p-6 space-y-6">
+          <div className="text-center">
+            <div className="text-4xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">
+              {targets.length}명
             </div>
+            <p className="text-gray-600 dark:text-gray-300">
+              특기사항이 입력된 학생 수
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              (총 {students.length}명 중 {students.length - targets.length}명은 특기사항 없음)
+            </p>
           </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-bold dark:text-gray-300">AI 생성 결과 (Gemini 2.5 Pro)</label>
-              {!loading && (
-                <button 
-                  onClick={generateRemark} 
-                  className="text-xs bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition"
-                >
-                  {remark ? "다시 생성" : "작성하기"}
-                </button>
-              )}
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl text-sm text-blue-800 dark:text-blue-300">
+            <p className="font-bold mb-1">🚀 효율적인 API 사용</p>
+            이 기능을 사용하면 <strong>단 1회의 API 호출</strong>로 위 {targets.length}명의 특기사항을 모두 생성합니다. 
+            (하루 20회 제한 걱정 없이 반 전체를 처리할 수 있습니다.)
+          </div>
+
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-4 space-y-3">
+              <Loader className="animate-spin text-indigo-600 w-8 h-8"/>
+              <p className="text-sm font-bold text-gray-600 dark:text-gray-300 animate-pulse">{progress}</p>
             </div>
-            
-            {loading ? (
-              <div className="w-full h-32 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-700 border rounded-xl">
-                <Loader className="animate-spin text-indigo-500 mb-2"/>
-                <span className="text-sm text-gray-500">Gemini가 내용을 작성 중입니다...</span>
-              </div>
-            ) : (
-              <textarea 
-                value={remark} 
-                onChange={(e) => setRemark(e.target.value)}
-                placeholder="작성하기 버튼을 누르면 AI가 내용을 생성합니다."
-                className="w-full h-32 p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none"
-              ></textarea>
-            )}
-          </div>
-
-          <div className="pt-2">
+          ) : (
             <button 
-              onClick={() => onSave(remark)} 
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
+              onClick={handleBatchGenerate} 
+              disabled={targets.length === 0}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition shadow-lg"
             >
-              <Save size={18}/> 결과 저장하기
+              <Sparkles size={20}/> 일괄 생성 시작하기
             </button>
-          </div>
+          )}
         </div>
       </div>
     </div>
