@@ -3,18 +3,30 @@ import { getOrCreateFolder, uploadFileToDrive } from '../utils/googleDrive';
 
 const DB_FILE_NAME = 'school_app_db.json';
 
-// 🔥 [핵심 1] 전역 변수로 저장 상태 관리 (여러 훅이 공유함)
-// isSaving: 지금 누군가 저장 중인가?
-// saveQueue: 저장하려고 기다리는 줄
+// 전역 변수 (중복 실행 방지)
 let isSaving = false;
 let saveQueue = Promise.resolve();
+let globalInitPromise = null;
 
 export function useGoogleDriveDB(collectionName, userId) {
   const [data, setData] = useState(null);
   const [dbFileId, setDbFileId] = useState(null);
   const isLoaded = useRef(false);
 
-  // 1. 초기 데이터 로드
+  // ID 유효성 체크 헬퍼
+  const checkIdExists = async (id, token) => {
+    try {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=id,trashed`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const info = await res.json();
+        return !info.trashed; // 휴지통에 없으면 유효
+      }
+      return false;
+    } catch { return false; }
+  };
+
   useEffect(() => {
     if (!userId) { setData([]); return; }
     if (isLoaded.current) return;
@@ -26,87 +38,104 @@ export function useGoogleDriveDB(collectionName, userId) {
         return;
       }
 
+      // 🔥 [핵심] 동시에 여러 기능이 초기화를 요청해도 딱 한 번만 실행 (싱글톤)
+      if (!globalInitPromise) {
+        globalInitPromise = (async () => {
+          let folderId = localStorage.getItem('cached_folder_id');
+          let fileId = localStorage.getItem('cached_file_id');
+          
+          // 1. 기억해둔 ID가 유효한지 확인 (직통 연결)
+          const isFolderValid = folderId ? await checkIdExists(folderId, token) : false;
+          const isFileValid = fileId ? await checkIdExists(fileId, token) : false;
+
+          // 2. 폴더가 없거나 유효하지 않으면 검색/생성
+          if (!isFolderValid) {
+            console.log("📂 폴더 검색/생성 중...");
+            folderId = await getOrCreateFolder('교무수첩 데이터');
+            localStorage.setItem('cached_folder_id', folderId); // 주소 기억
+          }
+
+          // 3. 파일이 없거나 유효하지 않으면 검색/생성
+          if (!isFileValid) {
+            console.log("📄 파일 검색 중...");
+            // 폴더 안에서 파일 검색
+            const q = `'${folderId}' in parents and name='${DB_FILE_NAME}' and trashed=false`;
+            const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            const result = await res.json();
+
+            if (result.files && result.files.length > 0) {
+              fileId = result.files[0].id;
+              console.log("📄 기존 파일 발견:", fileId);
+            } else {
+              console.log("✨ 새 DB 파일 생성");
+              const initialData = {};
+              const file = new File([JSON.stringify(initialData)], DB_FILE_NAME, { type: 'application/json' });
+              const uploaded = await uploadFileToDrive(file, folderId);
+              fileId = uploaded.id;
+            }
+            localStorage.setItem('cached_file_id', fileId); // 주소 기억
+          }
+
+          return fileId;
+        })();
+      }
+
       try {
-        const folderId = await getOrCreateFolder('교무수첩 데이터');
-        
-        const q = `'${folderId}' in parents and name='${DB_FILE_NAME}' and trashed=false`;
-        const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}`, {
+        const fileId = await globalInitPromise;
+        setDbFileId(fileId);
+
+        // 데이터 읽기
+        const contentRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         
-        if (!res.ok) throw new Error(`검색 실패: ${res.status}`);
-
-        const result = await res.json();
-        let fileId;
-
-        if (result.files && result.files.length > 0) {
-          // 파일이 있으면 읽어오기
-          fileId = result.files[0].id;
-          const contentRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const fullData = await contentRes.json();
-          setData(fullData[collectionName] || []);
+        if(contentRes.ok) {
+           const fullData = await contentRes.json();
+           setData(fullData[collectionName] || []);
         } else {
-          // 파일이 없으면 새로 생성 (빈 객체 {})
-          console.log("📂 새 DB 파일 생성");
-          const initialData = {};
-          const file = new File([JSON.stringify(initialData)], DB_FILE_NAME, { type: 'application/json' });
-          const uploaded = await uploadFileToDrive(file, folderId);
-          fileId = uploaded.id;
-          setData([]);
+           setData([]);
         }
         
-        setDbFileId(fileId);
         isLoaded.current = true;
+
       } catch (error) {
-        console.error("🚨 DB Load Error:", error);
+        console.error("🚨 DB Init Error:", error);
+        globalInitPromise = null; // 에러 나면 다음 시도 허용
       }
     };
 
     initDB();
   }, [userId, collectionName]);
 
-  // 2. 안전한 저장 함수 (줄 세우기 적용)
+  // 저장 로직 (줄 세우기 유지)
   const saveDataToDrive = async (newData) => {
-    // 화면은 즉시 반영
-    setData(newData);
+    setData(newData); // 화면 즉시 반영
 
     if (data === null || !dbFileId) return;
 
-    // 🔥 [핵심 2] 모든 저장을 줄 세워서(Queue) 순차적으로 처리
     saveQueue = saveQueue.then(async () => {
       const token = localStorage.getItem('google_access_token');
       if (!token) return;
 
       try {
-        console.log(`💾 저장 시작: ${collectionName}...`);
-        
-        // 1. 최신 파일 내용 가져오기 (가장 중요)
+        // 최신 데이터 가져오기
         const contentRes = await fetch(`https://www.googleapis.com/drive/v3/files/${dbFileId}?alt=media`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
-        if (!contentRes.ok) {
-           console.error("❌ 저장 중 파일 읽기 실패. 저장을 중단합니다.");
-           return; 
-        }
+        if (!contentRes.ok) return;
 
         const fullData = await contentRes.json();
         
-        // 2. 데이터가 유효한지 체크 (빈 깡통이면 덮어쓰지 않음)
-        if (!fullData || typeof fullData !== 'object') {
-           console.error("❌ 파일 내용이 손상되었습니다. 덮어쓰기 방지.");
-           return;
-        }
+        if (!fullData || typeof fullData !== 'object') return;
 
-        // 3. 내 데이터 병합
         fullData[collectionName] = newData;
 
-        // 4. 업로드
         const file = new Blob([JSON.stringify(fullData)], { type: 'application/json' });
         
-        const updateRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${dbFileId}?uploadType=media`, {
+        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${dbFileId}?uploadType=media`, {
           method: 'PATCH',
           headers: { 
             Authorization: `Bearer ${token}`,
@@ -114,15 +143,11 @@ export function useGoogleDriveDB(collectionName, userId) {
           },
           body: file
         });
-
-        if (updateRes.ok) {
-           console.log(`✅ 저장 완료: ${collectionName}`);
-        } else {
-           console.error(`❌ 저장 실패: ${updateRes.status}`);
-        }
+        
+        console.log(`✅ 저장 완료 (${collectionName})`);
 
       } catch (error) {
-        console.error("🚨 Save Queue Error:", error);
+        console.error("🚨 Save Error:", error);
       }
     });
   };
