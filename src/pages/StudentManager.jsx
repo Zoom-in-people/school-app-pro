@@ -2,15 +2,19 @@ import React, { useState, useRef } from 'react';
 import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, AlertTriangle, FileText, BookOpen } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-export default function StudentManager({ students, onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, apiKey, isHomeroomView }) {
+// 🔥 [수정] students 기본값을 []로 설정하여 에러 방지
+export default function StudentManager({ students = [], onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, apiKey, isHomeroomView }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBatchAiModalOpen, setIsBatchAiModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
-  const [isCreatingSheet, setIsCreatingSheet] = useState(false); // 시트 생성 로딩 상태
+  const [isCreatingSheet, setIsCreatingSheet] = useState(false);
   const fileInputRef = useRef(null);
 
-  const filteredStudents = students.filter(student => 
+  // 🔥 [수정] 안전 장치: students가 null이거나 배열이 아닐 경우 빈 배열로 처리
+  const safeStudents = Array.isArray(students) ? students : [];
+
+  const filteredStudents = safeStudents.filter(student => 
     student.name.includes(searchTerm) || 
     (student.studentId && student.studentId.includes(searchTerm)) ||
     (student.phone && student.phone.includes(searchTerm))
@@ -91,27 +95,25 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
     XLSX.writeFile(wb, `${isHomeroomView ? '우리반' : '교과'}_학생명단.xlsx`);
   };
 
-  // 🔥 [신규 기능] 구글 드라이브에 시트 자동 생성
+  // 구글 드라이브에 시트 자동 생성
   const createGoogleSheetInDrive = async () => {
     const token = localStorage.getItem('google_access_token');
-    const folderId = localStorage.getItem('cached_folder_id'); // 교무수첩 폴더
+    const folderId = localStorage.getItem('cached_folder_id'); 
 
     if (!token || !folderId) {
-      alert("구글 드라이브 연결 상태를 확인할 수 없습니다.");
+      alert("구글 드라이브 연결 상태를 확인할 수 없습니다. (새로고침 후 다시 시도해주세요)");
       return;
     }
 
     setIsCreatingSheet(true);
 
     try {
-      // 1. CSV 데이터 생성 (헤더 + 내용)
       let csvContent = "학년,반,번호,이름,생기부용 기초자료,Gemini_프롬프트(함수참조용),사용법\n";
       
       filteredStudents.forEach(s => {
         const sourceText = s.record_note && s.record_note.trim() !== '' ? s.record_note.replace(/"/g, '""') : '(기초자료 없음)';
         const prompt = `역할: 초등학교 교사. 다음 학생의 기초 자료를 바탕으로 생활기록부 행동특성 및 종합의견을 교육적인 문체로 3문장 작성해줘. [학생이름: ${s.name}, 기초자료: ${sourceText}]`;
         
-        // CSV 포맷팅 (쉼표, 따옴표 처리)
         const row = [
           s.grade,
           s.class,
@@ -124,17 +126,14 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
         csvContent += row.join(",") + "\n";
       });
 
-      // 2. 메타데이터 (파일명, 폴더, MIME 타입: 스프레드시트)
       const fileName = `[AI작성용] ${isHomeroomView ? '우리반' : '교과'}_명단 (${new Date().toLocaleDateString()})`;
       const metadata = {
         name: fileName,
         parents: [folderId],
-        mimeType: 'application/vnd.google-apps.spreadsheet' // 🔥 핵심: 업로드 시 시트로 변환
+        mimeType: 'application/vnd.google-apps.spreadsheet'
       };
 
-      // 3. Multipart 업로드 요청 구성
       const file = new Blob([csvContent], { type: 'text/csv' });
-      const accessToken = token;
       const form = new FormData();
       
       form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
@@ -142,7 +141,7 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
 
       const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: form
       });
 
@@ -168,7 +167,8 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
             <User className="text-indigo-600 dark:text-indigo-400"/>
             {isHomeroomView ? "우리반 학생 명렬표" : "교과 학생 명렬표"}
           </h2>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">총 {students.length}명의 학생이 등록되어 있습니다.</p>
+          {/* 🔥 [수정] safeStudents 사용 */}
+          <p className="text-gray-500 dark:text-gray-400 text-sm">총 {safeStudents.length}명의 학생이 등록되어 있습니다.</p>
         </div>
         
         <div className="flex gap-2">
@@ -202,7 +202,6 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
           <Download size={16} className="text-blue-600"/> 전체 다운로드
         </button>
 
-        {/* 🔥 [신규] Drive에 시트 자동 생성 버튼 */}
         <button 
           onClick={createGoogleSheetInDrive} 
           disabled={isCreatingSheet}
@@ -296,10 +295,11 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
         initialData={editingStudent}
       />
 
+      {/* 🔥 [수정] safeStudents를 전달하여 모달에서도 에러 방지 */}
       <BatchAiRemarkModal 
         isOpen={isBatchAiModalOpen}
         onClose={() => setIsBatchAiModalOpen(false)}
-        students={filteredStudents}
+        students={filteredStudents} 
         apiKey={apiKey}
         onUpdateStudents={onUpdateStudent}
       />
@@ -307,12 +307,13 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
   );
 }
 
-// ... (StudentModal 및 BatchAiRemarkModal 코드는 위와 동일하며, 위 코드 블록에 포함되어 있습니다)
-// StudentModal의 formData 초기값에 record_note: '' 가 포함되어 있는지 꼭 확인하세요.
+// ... (StudentModal, BatchAiRemarkModal 컴포넌트는 기존과 동일하므로 생략하지 않고 아래에 붙여야 함)
+// 실제 파일 저장 시에는 아래 StudentModal과 BatchAiRemarkModal 코드를 그대로 유지해주세요.
+
 function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   const [formData, setFormData] = useState({ 
     grade: '1', class: '1', number: '1', name: '', phone: '', gender: 'male', 
-    note: '', record_note: '' // 🔥 중요: record_note 초기화
+    note: '', record_note: ''
   });
 
   React.useEffect(() => {
@@ -329,9 +330,7 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
           <h2 className="text-xl font-bold dark:text-white">{initialData ? '학생 정보 관리' : '새 학생 추가'}</h2>
           <button onClick={onClose}><X className="text-gray-500 hover:text-gray-700 dark:text-gray-400" /></button>
         </div>
-        
         <div className="p-6 space-y-4 overflow-y-auto">
-          {/* 기본 정보 (학년, 반, 번호, 이름, 전화, 성별) - 생략 없이 유지 */}
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-bold mb-1 dark:text-gray-300">학년</label>
@@ -351,36 +350,18 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
             <div><label className="block text-sm font-bold mb-1 dark:text-gray-300">전화번호</label><input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white font-mono text-sm"/></div>
             <div><label className="block text-sm font-bold mb-1 dark:text-gray-300">성별</label><select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"><option value="male">남자</option><option value="female">여자</option></select></div>
           </div>
-
           <hr className="border-gray-100 dark:border-gray-700 my-2" />
-
-          {/* 🔥 [신규] 생기부용 기초자료 */}
           <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-800">
              <div className="flex items-center gap-2 mb-1">
                 <BookOpen size={16} className="text-blue-600 dark:text-blue-400"/>
                 <label className="block text-sm font-bold text-blue-800 dark:text-blue-300">생기부용 기초 자료 (AI 작성용)</label>
              </div>
-             <textarea 
-               value={formData.record_note || ''} 
-               onChange={e => setFormData({...formData, record_note: e.target.value})}
-               rows="4"
-               placeholder="예: 수업 시간에 발표를 잘하고 친구들을 잘 도와줌. 과학 실험에 흥미가 많음."
-               className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-             ></textarea>
+             <textarea value={formData.record_note || ''} onChange={e => setFormData({...formData, record_note: e.target.value})} rows="4" placeholder="예: 수업 시간에 발표를 잘하고..." className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
           </div>
-
-          {/* 기존 특이사항 */}
           <div>
              <label className="block text-sm font-bold mb-1 text-gray-500 dark:text-gray-400">기타 특이사항 (단순 메모)</label>
-             <textarea 
-               value={formData.note} 
-               onChange={e => setFormData({...formData, note: e.target.value})}
-               rows="2"
-               placeholder="예: 우유 알레르기 있음, 방과후 수업 참여 안 함"
-               className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
-             ></textarea>
+             <textarea value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} rows="2" placeholder="예: 우유 알레르기 있음" className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"></textarea>
           </div>
-
           <div className="pt-2 flex gap-2">
             <button onClick={() => onSave(formData)} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"><Save size={18}/> 저장</button>
             {initialData && (<button onClick={onDelete} className="px-4 border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold dark:bg-red-900/20 dark:border-red-800 dark:text-red-400"><Trash2 size={18}/></button>)}
@@ -391,85 +372,35 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   );
 }
 
-// BatchAiRemarkModal (record_note 사용하도록 수정됨)
 function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudents }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState('');
-
-  // 🔥 'record_note'가 있는 학생만 타겟
   const targets = students.filter(s => s.record_note && s.record_note.trim() !== '');
 
   const handleBatchGenerate = async () => {
-    if (!apiKey) {
-      alert("설정 메뉴에서 API 키를 먼저 등록해주세요.");
-      return;
-    }
-    if (targets.length === 0) {
-      alert("생기부용 기초 자료가 입력된 학생이 없습니다.");
-      return;
-    }
-
+    if (!apiKey) { alert("설정 메뉴에서 API 키를 먼저 등록해주세요."); return; }
+    if (targets.length === 0) { alert("생기부용 기초 자료가 입력된 학생이 없습니다."); return; }
     setLoading(true);
     setProgress(`대상 학생 ${targets.length}명의 데이터를 처리 중입니다...`);
-
     try {
-      const promptData = targets.map(s => ({
-        id: s.id,
-        name: s.name,
-        note: s.record_note // 🔥 AI에게 보낼 때 record_note 사용
-      }));
-
-      const systemPrompt = `
-        너는 초등학교 생활기록부 전문가야. 
-        아래 제공되는 학생들의 [이름, 기초자료]를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘.
-        [작성 규칙]
-        1. 교육적이고 긍정적인 문체, 완성된 문장(~합니다).
-        2. 학생당 3~4문장.
-        3. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘.**
-      `;
-
+      const promptData = targets.map(s => ({ id: s.id, name: s.name, note: s.record_note }));
+      const systemPrompt = `너는 초등학교 생활기록부 전문가야. 아래 학생들의 [이름, 기초자료]를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘. [작성 규칙] 1. 교육적이고 긍정적인 문체(~합니다). 2. 학생당 3~4문장. 3. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘.**`;
       const userPrompt = JSON.stringify(promptData);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ 
-            role: "user",
-            parts: [{ text: systemPrompt + "\n\n" + userPrompt }] 
-          }]
-        })
-      });
-
+      const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }] }) });
       if (!response.ok) throw new Error("API 호출 실패");
-
       const data = await response.json();
       let rawText = data.candidates[0].content.parts[0].text;
       rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
       const results = JSON.parse(rawText);
-
       setProgress("데이터 저장 중...");
-      
       let updatedCount = 0;
       for (const res of results) {
         const student = students.find(s => s.id === res.id);
-        if (student) {
-          await onUpdateStudents(student.id, { ...student, ai_remark: res.remark });
-          updatedCount++;
-        }
+        if (student) { await onUpdateStudents(student.id, { ...student, ai_remark: res.remark }); updatedCount++; }
       }
-
-      alert(`${updatedCount}명의 특기사항이 일괄 생성되었습니다!`);
-      onClose();
-
-    } catch (error) {
-      console.error("Batch Error:", error);
-      alert(`오류가 발생했습니다: ${error.message}`);
-    } finally {
-      setLoading(false);
-      setProgress('');
-    }
+      alert(`${updatedCount}명의 특기사항이 일괄 생성되었습니다!`); onClose();
+    } catch (error) { console.error("Batch Error:", error); alert(`오류가 발생했습니다: ${error.message}`); } finally { setLoading(false); setProgress(''); }
   };
 
   if (!isOpen) return null;
@@ -484,20 +415,10 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
         <div className="p-6 space-y-6">
           <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-100 dark:border-red-800 flex items-start gap-3">
             <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20}/>
-            <div>
-              <h3 className="font-bold text-red-700 dark:text-red-400 text-sm mb-1">사용량 제한 안내</h3>
-              <p className="text-xs text-red-600 dark:text-red-300 leading-relaxed">무료 API는 하루 20회 제한이 있습니다. 대량 작업 시 'Drive에 시트 생성' 기능을 권장합니다.</p>
-            </div>
+            <div><h3 className="font-bold text-red-700 dark:text-red-400 text-sm mb-1">사용량 제한 안내</h3><p className="text-xs text-red-600 dark:text-red-300 leading-relaxed">무료 API는 하루 20회 제한이 있습니다. 대량 작업 시 'Drive에 시트 생성' 기능을 권장합니다.</p></div>
           </div>
-          <div className="text-center">
-            <div className="text-4xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">{targets.length}명</div>
-            <p className="text-gray-600 dark:text-gray-300">'생기부용 기초자료'가 입력된 학생 수</p>
-          </div>
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-4 space-y-3"><Loader className="animate-spin text-indigo-600 w-8 h-8"/><p className="text-sm font-bold text-gray-600 dark:text-gray-300 animate-pulse">{progress}</p></div>
-          ) : (
-            <button onClick={handleBatchGenerate} disabled={targets.length === 0} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition shadow-lg"><Sparkles size={20}/> 일괄 생성 시작하기</button>
-          )}
+          <div className="text-center"><div className="text-4xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">{targets.length}명</div><p className="text-gray-600 dark:text-gray-300">'생기부용 기초자료'가 입력된 학생 수</p></div>
+          {loading ? (<div className="flex flex-col items-center justify-center py-4 space-y-3"><Loader className="animate-spin text-indigo-600 w-8 h-8"/><p className="text-sm font-bold text-gray-600 dark:text-gray-300 animate-pulse">{progress}</p></div>) : (<button onClick={handleBatchGenerate} disabled={targets.length === 0} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition shadow-lg"><Sparkles size={20}/> 일괄 생성 시작하기</button>)}
         </div>
       </div>
     </div>
