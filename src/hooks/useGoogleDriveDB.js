@@ -3,7 +3,7 @@ import { getOrCreateFolder, uploadFileToDrive } from '../utils/googleDrive';
 
 const DB_FILE_NAME = 'school_app_db.json';
 
-// 전역 변수 (중복 실행 방지)
+// 전역 변수 (중복 실행 및 저장 충돌 방지)
 let isSaving = false;
 let saveQueue = Promise.resolve();
 let globalInitPromise = null;
@@ -21,7 +21,7 @@ export function useGoogleDriveDB(collectionName, userId) {
       });
       if (res.ok) {
         const info = await res.json();
-        return !info.trashed; // 휴지통에 없으면 유효
+        return !info.trashed;
       }
       return false;
     } catch { return false; }
@@ -38,27 +38,21 @@ export function useGoogleDriveDB(collectionName, userId) {
         return;
       }
 
-      // 🔥 [핵심] 동시에 여러 기능이 초기화를 요청해도 딱 한 번만 실행 (싱글톤)
+      // 초기화 로직 (싱글톤 패턴)
       if (!globalInitPromise) {
         globalInitPromise = (async () => {
           let folderId = localStorage.getItem('cached_folder_id');
           let fileId = localStorage.getItem('cached_file_id');
           
-          // 1. 기억해둔 ID가 유효한지 확인 (직통 연결)
           const isFolderValid = folderId ? await checkIdExists(folderId, token) : false;
           const isFileValid = fileId ? await checkIdExists(fileId, token) : false;
 
-          // 2. 폴더가 없거나 유효하지 않으면 검색/생성
           if (!isFolderValid) {
-            console.log("📂 폴더 검색/생성 중...");
             folderId = await getOrCreateFolder('교무수첩 데이터');
-            localStorage.setItem('cached_folder_id', folderId); // 주소 기억
+            localStorage.setItem('cached_folder_id', folderId);
           }
 
-          // 3. 파일이 없거나 유효하지 않으면 검색/생성
           if (!isFileValid) {
-            console.log("📄 파일 검색 중...");
-            // 폴더 안에서 파일 검색
             const q = `'${folderId}' in parents and name='${DB_FILE_NAME}' and trashed=false`;
             const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}`, {
               headers: { Authorization: `Bearer ${token}` }
@@ -67,15 +61,13 @@ export function useGoogleDriveDB(collectionName, userId) {
 
             if (result.files && result.files.length > 0) {
               fileId = result.files[0].id;
-              console.log("📄 기존 파일 발견:", fileId);
             } else {
-              console.log("✨ 새 DB 파일 생성");
               const initialData = {};
               const file = new File([JSON.stringify(initialData)], DB_FILE_NAME, { type: 'application/json' });
               const uploaded = await uploadFileToDrive(file, folderId);
               fileId = uploaded.id;
             }
-            localStorage.setItem('cached_file_id', fileId); // 주소 기억
+            localStorage.setItem('cached_file_id', fileId);
           }
 
           return fileId;
@@ -86,7 +78,6 @@ export function useGoogleDriveDB(collectionName, userId) {
         const fileId = await globalInitPromise;
         setDbFileId(fileId);
 
-        // 데이터 읽기
         const contentRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -102,14 +93,14 @@ export function useGoogleDriveDB(collectionName, userId) {
 
       } catch (error) {
         console.error("🚨 DB Init Error:", error);
-        globalInitPromise = null; // 에러 나면 다음 시도 허용
+        globalInitPromise = null;
       }
     };
 
     initDB();
   }, [userId, collectionName]);
 
-  // 저장 로직 (줄 세우기 유지)
+  // 안전한 저장 함수 (Queue 적용)
   const saveDataToDrive = async (newData) => {
     setData(newData); // 화면 즉시 반영
 
@@ -120,7 +111,6 @@ export function useGoogleDriveDB(collectionName, userId) {
       if (!token) return;
 
       try {
-        // 최신 데이터 가져오기
         const contentRes = await fetch(`https://www.googleapis.com/drive/v3/files/${dbFileId}?alt=media`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -128,7 +118,6 @@ export function useGoogleDriveDB(collectionName, userId) {
         if (!contentRes.ok) return;
 
         const fullData = await contentRes.json();
-        
         if (!fullData || typeof fullData !== 'object') return;
 
         fullData[collectionName] = newData;
@@ -143,9 +132,6 @@ export function useGoogleDriveDB(collectionName, userId) {
           },
           body: file
         });
-        
-        console.log(`✅ 저장 완료 (${collectionName})`);
-
       } catch (error) {
         console.error("🚨 Save Error:", error);
       }
@@ -160,6 +146,17 @@ export function useGoogleDriveDB(collectionName, userId) {
     return newItem.id;
   };
 
+  // 🔥 [핵심 추가] 여러 명 동시 저장 함수 (엑셀 버그 해결)
+  const addMany = async (items) => {
+    if (data === null) return;
+    const newItems = items.map((item, index) => ({
+      id: `${Date.now()}_${index}`,
+      ...item
+    }));
+    const newData = [...data, ...newItems];
+    saveDataToDrive(newData);
+  };
+
   const remove = async (id) => {
     if (data === null) return;
     const newData = data.filter(i => i.id !== id);
@@ -172,5 +169,5 @@ export function useGoogleDriveDB(collectionName, userId) {
     saveDataToDrive(newData);
   };
 
-  return { data: data || [], add, remove, update };
+  return { data: data || [], add, addMany, remove, update };
 }

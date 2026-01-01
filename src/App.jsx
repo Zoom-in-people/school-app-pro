@@ -25,13 +25,11 @@ export default function App() {
   const [activeView, setActiveView] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
-  // 모달 상태 관리
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddHandbookOpen, setIsAddHandbookOpen] = useState(false);
   const [isHandbookSettingsOpen, setIsHandbookSettingsOpen] = useState(false);
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
-  // 로컬 설정 저장
   const [apiKey, setApiKey] = useLocalStorage('gemini_api_key', "");
   const [theme, setTheme] = useLocalStorage('theme', 'light');
   const [fontSize, setFontSize] = useLocalStorage('fontSize', 'normal');
@@ -40,26 +38,22 @@ export default function App() {
 
   const [currentHandbook, setCurrentHandbook] = useState(null);
 
-  // 로그인 시 API 키가 없으면 설정창 자동 팝업
   useEffect(() => {
     if (user && !apiKey) {
       setIsSetupWizardOpen(true);
     }
   }, [user, apiKey]);
 
-  // 위젯 초기화 체크
   useEffect(() => {
     const needsReset = widgets.length === 0 || !widgets[0].hasOwnProperty('x');
     if (needsReset) setWidgets(INITIAL_WIDGETS);
   }, []);
 
-  // 테마 적용
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [theme]);
 
-  // 글자 크기 적용 (5단계)
   useEffect(() => {
     const root = document.documentElement;
     if (fontSize === 'xsmall') root.style.fontSize = '75%';
@@ -71,8 +65,6 @@ export default function App() {
 
   const userId = user ? user.uid : null;
 
-  // 📂 교무수첩 목록 (구글 드라이브 DB)
-  // remove 기능 추가 (이름을 removeHandbook으로 변경해서 사용)
   const { data: handbooks, add: addHandbook, update: updateHandbook, remove: removeHandbook } 
     = useGoogleDriveDB('handbooks', userId);
 
@@ -93,9 +85,22 @@ export default function App() {
   const currentHandbookId = currentHandbook ? currentHandbook.id : null;
   const collectionPrefix = currentHandbookId ? `_${currentHandbookId}` : '';
 
-  // 📂 각 데이터 컬렉션 (수첩별 분리)
-  const { data: students, add: addStudent, remove: removeStudent, update: updateStudent } 
-    = useGoogleDriveDB(`students${collectionPrefix}`, userId);
+  // 🔥 [핵심 수정] 데이터 분리 (homeroom vs subject)
+  const { 
+    data: homeroomStudents, 
+    add: addHomeroomStudent, 
+    addMany: addManyHomeroomStudents, // 엑셀용
+    remove: removeHomeroomStudent, 
+    update: updateHomeroomStudent 
+  } = useGoogleDriveDB(`students_homeroom${collectionPrefix}`, userId);
+
+  const { 
+    data: subjectStudents, 
+    add: addSubjectStudent, 
+    addMany: addManySubjectStudents, // 엑셀용
+    remove: removeSubjectStudent, 
+    update: updateSubjectStudent 
+  } = useGoogleDriveDB(`students_subject${collectionPrefix}`, userId);
     
   const { data: consultations, add: addConsultation, remove: removeConsultation, update: updateConsultation } 
     = useGoogleDriveDB(`consultations${collectionPrefix}`, userId);
@@ -112,7 +117,6 @@ export default function App() {
   const { data: lessonGroups, add: addLessonGroup, remove: removeLessonGroup, update: updateLessonGroup } 
     = useGoogleDriveDB(`lesson_groups${collectionPrefix}`, userId);
 
-  // 핸들러 함수들
   const handleCreateHandbook = async (data) => {
     try {
       const newId = await addHandbook(data);
@@ -131,11 +135,8 @@ export default function App() {
     setCurrentHandbook(prev => ({ ...prev, ...data }));
   };
 
-  // 🔥 교무수첩 삭제 핸들러
   const handleDeleteHandbook = async (id) => {
     await removeHandbook(id); 
-    
-    // 삭제된 수첩이 현재 보고 있는 수첩이라면
     if (currentHandbook && currentHandbook.id === id) {
       const remaining = handbooks.filter(h => h.id !== id);
       if (remaining.length > 0) {
@@ -173,10 +174,8 @@ export default function App() {
     if(window.confirm("배치를 초기화하시겠습니까?")) setWidgets(INITIAL_WIDGETS);
   };
 
-  // 로딩 화면
   if (loading) return <div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin text-4xl">⏳</div></div>;
 
-  // 로그인 화면
   if (!user) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900 transition-colors">
@@ -192,7 +191,6 @@ export default function App() {
     );
   }
 
-  // 메인 화면
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
       <div className={`${isSidebarOpen ? 'block' : 'hidden'} md:block h-full relative border-r border-gray-200 dark:border-gray-700`}>
@@ -208,21 +206,51 @@ export default function App() {
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (
               <>
+                {/* 대시보드는 우리반(homeroom) 데이터를 기본으로 보여줌 */}
                 {activeView === 'dashboard' && (
                   <Dashboard 
-                    widgets={widgets} students={students} todos={todos} setActiveView={setActiveView} isHomeroom={currentHandbook.isHomeroom} schoolInfo={currentHandbook.schoolInfo || {}} 
-                    attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => updateStudent(id, data)} lessonGroups={lessonGroups} onUpdateLessonGroup={updateLessonGroup} 
+                    widgets={widgets} 
+                    students={homeroomStudents}
+                    todos={todos} setActiveView={setActiveView} isHomeroom={currentHandbook.isHomeroom} schoolInfo={currentHandbook.schoolInfo || {}} 
+                    attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => updateHomeroomStudent(id, data)} lessonGroups={lessonGroups} onUpdateLessonGroup={updateLessonGroup} 
                     currentHandbook={currentHandbook} onUpdateHandbook={handleUpdateHandbook}
                     onLayoutChange={onLayoutChange} resetLayout={resetLayout}
                     addWidget={(newWidget) => setWidgets(prev => [...prev, { ...newWidget, id: Date.now().toString(), x: 0, y: Infinity }])}
                     deleteWidget={(id) => setWidgets(prev => prev.filter(w => w.id !== id))}
                   />
                 )}
-                {activeView === 'monthly' && <MonthlyEvents handbook={currentHandbook} isHomeroom={currentHandbook.isHomeroom} students={students} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} events={events} onUpdateEvent={handleUpdateEvent} />}
-                {activeView === 'students_homeroom' && <StudentManager students={students} onAddStudent={addStudent} onUpdateStudent={updateStudent} apiKey={apiKey} isHomeroomView={true} />}
-                {activeView === 'students_subject' && <StudentManager students={students} onAddStudent={addStudent} onUpdateStudent={updateStudent} apiKey={apiKey} isHomeroomView={false} />}
+                {activeView === 'monthly' && <MonthlyEvents handbook={currentHandbook} isHomeroom={currentHandbook.isHomeroom} students={homeroomStudents} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} events={events} onUpdateEvent={handleUpdateEvent} />}
+                
+                {/* 🔥 [핵심 수정] 학급관리(homeroom) vs 수업관리(subject) 데이터 분리 */}
+                {activeView === 'students_homeroom' && (
+                  <StudentManager 
+                    students={homeroomStudents} 
+                    onAddStudent={addHomeroomStudent} 
+                    onAddStudents={addManyHomeroomStudents} // 일괄 추가
+                    onUpdateStudent={updateHomeroomStudent} 
+                    onDeleteStudent={removeHomeroomStudent} 
+                    apiKey={apiKey} 
+                    isHomeroomView={true} 
+                  />
+                )}
+                
+                {activeView === 'students_subject' && (
+                  <StudentManager 
+                    students={subjectStudents} 
+                    onAddStudent={addSubjectStudent} 
+                    onAddStudents={addManySubjectStudents} // 일괄 추가
+                    onUpdateStudent={updateSubjectStudent} 
+                    onDeleteStudent={removeSubjectStudent} 
+                    apiKey={apiKey} 
+                    isHomeroomView={false} 
+                  />
+                )}
+                
                 {activeView === 'lessons' && <LessonManager lessonGroups={lessonGroups} onAddGroup={addLessonGroup} onUpdateGroup={updateLessonGroup} onDeleteGroup={removeLessonGroup} />}
-                {activeView === 'consultation' && <ConsultationLog students={students} consultations={consultations} onAddConsultation={addConsultation} onDeleteConsultation={removeConsultation} />}
+                
+                {/* 상담일지는 우리반 데이터 사용 */}
+                {activeView === 'consultation' && <ConsultationLog students={homeroomStudents} consultations={consultations} onAddConsultation={addConsultation} onDeleteConsultation={removeConsultation} />}
+                
                 {activeView === 'tasks' && <TaskList todos={todos} onAddTodo={addTodo} onUpdateTodo={updateTodo} onDeleteTodo={removeTodo} />}
                 {activeView === 'schedule' && <AcademicSchedule apiKey={apiKey} />}
                 {activeView === 'edu_plan' && <EducationPlan apiKey={apiKey} />}
@@ -253,7 +281,6 @@ export default function App() {
       
       <AddHandbookModal isOpen={isAddHandbookOpen} onClose={() => setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
       
-      {/* 삭제 함수 전달 */}
       <HandbookSettingsModal 
         isOpen={isHandbookSettingsOpen} 
         onClose={() => setIsHandbookSettingsOpen(false)} 
