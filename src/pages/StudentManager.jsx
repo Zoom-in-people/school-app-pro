@@ -222,7 +222,6 @@ export default function StudentManager({ students, onAddStudent, onAddStudents, 
   );
 }
 
-// 학생 추가/수정 모달
 function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   const [formData, setFormData] = useState({ 
     grade: '1', class: '1', number: '1', name: '', phone: '', gender: 'male', note: '' 
@@ -341,7 +340,6 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   );
 }
 
-// AI 특기사항 생성 모달
 function AiRemarkModal({ isOpen, onClose, student, apiKey, onSave }) {
   const [loading, setLoading] = useState(false);
   const [remark, setRemark] = useState('');
@@ -364,8 +362,8 @@ function AiRemarkModal({ isOpen, onClose, student, apiKey, onSave }) {
 
     setLoading(true);
     try {
-      // 🔥 [핵심 수정] 모델 이름 'gemini-1.5-flash-latest' 사용
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+      // 🔥 [핵심 수정] Gemini 2.5 Pro 사용 (2026년 기준 최신)
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
       
       const response = await fetch(url, {
         method: 'POST',
@@ -377,7 +375,6 @@ function AiRemarkModal({ isOpen, onClose, student, apiKey, onSave }) {
 
       if (!response.ok) {
         const errData = await response.json();
-        // 🔥 [추가] 상세 에러 메시지 출력
         console.error("AI API Error:", errData);
         throw new Error(errData.error?.message || "API 호출 실패");
       }
@@ -403,7 +400,7 @@ function AiRemarkModal({ isOpen, onClose, student, apiKey, onSave }) {
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="flex justify-between items-center p-6 border-b dark:border-gray-700 bg-indigo-50 dark:bg-gray-700/50">
           <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">
-            <Sparkles className="text-indigo-600 dark:text-indigo-400"/> AI 특기사항 작성
+            <Sparkles className="text-indigo-600 dark:text-indigo-400"/> AI 특기사항 작성 (Gemini 2.5)
           </h2>
           <button onClick={onClose}><X className="text-gray-500 hover:text-gray-700 dark:text-gray-400" /></button>
         </div>
@@ -424,7 +421,7 @@ function AiRemarkModal({ isOpen, onClose, student, apiKey, onSave }) {
 
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-bold dark:text-gray-300">AI 생성 결과</label>
+              <label className="block text-sm font-bold dark:text-gray-300">AI 생성 결과 (Gemini 2.5 Pro)</label>
               {!loading && (
                 <button 
                   onClick={generateRemark} 
