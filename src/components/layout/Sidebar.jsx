@@ -10,7 +10,7 @@ export default function Sidebar({
 }) {
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [saveStatus, setSaveStatus] = useState('idle'); // idle, loading, saving, saved
+  const [saveStatus, setSaveStatus] = useState('idle'); // idle, loading, loaded, saving, saved
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -25,11 +25,12 @@ export default function Sidebar({
     };
   }, [dropdownRef]);
 
-  // 상태 리스너
+  // 상태 리스너 (저장 완료 & 로딩 완료 처리)
   useEffect(() => {
     const handleSaveStatus = (e) => {
       setSaveStatus(e.detail);
-      if (e.detail === 'saved') {
+      // 'saved' 또는 'loaded' 상태는 2초 뒤에 자연스럽게 사라지게 함
+      if (e.detail === 'saved' || e.detail === 'loaded') {
         setTimeout(() => setSaveStatus('idle'), 2000);
       }
     };
@@ -151,7 +152,7 @@ export default function Sidebar({
           )}
         </div>
 
-        {/* 🔥 [수정] 상태 표시바 (로딩중, 저장중, 저장완료) */}
+        {/* 상태 표시바 */}
         <div className="h-6 mt-1 flex flex-col justify-center">
           {saveStatus === 'loading' && (
             <div className="w-full animate-in fade-in duration-300">
@@ -161,6 +162,12 @@ export default function Sidebar({
               <div className="h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div className="h-full bg-gray-400 dark:bg-gray-500 animate-pulse w-full origin-left scale-x-50"></div>
               </div>
+            </div>
+          )}
+          {/* 🔥 [추가] 로딩 완료 메시지 */}
+          {saveStatus === 'loaded' && (
+            <div className="px-1 text-[10px] text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-300">
+              <span>✓ 데이터 로딩 완료!</span>
             </div>
           )}
           {saveStatus === 'saving' && (

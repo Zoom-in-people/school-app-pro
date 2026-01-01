@@ -93,7 +93,8 @@ export function useGoogleDriveDB(collectionName, userId) {
         }
         
         isLoaded.current = true;
-        setTimeout(() => dispatchSaveEvent('idle'), 500);
+        // 🔥 [수정] 'idle' 대신 'loaded' 상태 발송 (사이드바에서 완료 메시지 표시용)
+        dispatchSaveEvent('loaded');
 
       } catch (error) {
         console.error("🚨 DB Init Error:", error);
@@ -178,19 +179,17 @@ export function useGoogleDriveDB(collectionName, userId) {
     saveDataToDrive(newData);
   };
 
-  // 🔥 [핵심 추가] 여러 항목을 한 번에 업데이트하는 함수
   const updateMany = async (updates) => {
     if (data === null) return;
-    // updates: [{id: '...', fields: {...}}, ...]
     const newData = data.map(item => {
       const updateItem = updates.find(u => String(u.id) === String(item.id));
       if (updateItem) {
-        return { ...item, ...updateItem.fields }; // 기존 데이터 + 변경된 필드 병합
+        return { ...item, ...updateItem.fields };
       }
       return item;
     });
     saveDataToDrive(newData);
   };
 
-  return { data: data || [], add, addMany, remove, update, updateMany }; // updateMany 내보내기
+  return { data: data || [], add, addMany, remove, update, updateMany };
 }
