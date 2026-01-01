@@ -10,8 +10,10 @@ export default function Sidebar({
 }) {
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('idle'); // idle, saving, saved
   const dropdownRef = useRef(null);
 
+  // 화면 클릭 시 드롭다운 닫기
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -24,11 +26,23 @@ export default function Sidebar({
     };
   }, [dropdownRef]);
 
+  // 🔥 [추가] 저장 상태 이벤트 리스너
+  useEffect(() => {
+    const handleSaveStatus = (e) => {
+      setSaveStatus(e.detail);
+      // 'saved' 상태는 2초 뒤에 사라지게 함
+      if (e.detail === 'saved') {
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      }
+    };
+    window.addEventListener('db-save-status', handleSaveStatus);
+    return () => window.removeEventListener('db-save-status', handleSaveStatus);
+  }, []);
+
   const sortedHandbooks = [...handbooks].sort((a, b) => {
     return b.title.localeCompare(a.title);
   });
 
-  // 🔥 [수정] 메뉴 구조: 맨 아래에 설정 추가
   const menuGroups = [
     {
       title: "메인",
@@ -48,7 +62,7 @@ export default function Sidebar({
       title: "수업 관리",
       items: [
         { id: 'students_subject', label: '학생 명렬표 (교과)', icon: Users },
-        { id: 'lessons', label: '수업 시간표', icon: BookOpen },
+        { id: 'lessons', label: '진도 관리', icon: BookOpen }, // 🔥 [수정] 이름 변경
       ]
     },
     {
@@ -60,7 +74,6 @@ export default function Sidebar({
         { id: 'materials', label: '자료함 (드라이브)', icon: FolderOpen },
       ]
     },
-    // 🔥 [추가] 교무수첩 설정 메뉴
     {
       title: "설정",
       items: [
@@ -69,12 +82,11 @@ export default function Sidebar({
     }
   ];
 
-  // 메뉴 클릭 처리
   const handleMenuClick = (itemId) => {
     if (itemId === 'handbook_settings') {
-      onOpenHandbookSettings(); // 설정 모달 열기
+      onOpenHandbookSettings(); 
     } else {
-      setActiveView(itemId); // 화면 전환
+      setActiveView(itemId); 
     }
   };
 
@@ -98,14 +110,14 @@ export default function Sidebar({
         </button>
       </div>
 
-      {/* 교무수첩 선택 영역 (버튼 삭제됨) */}
+      {/* 교무수첩 선택 영역 */}
       <div className="p-3">
         <div className="relative" ref={dropdownRef}>
           <button 
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className={`w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border rounded-lg px-3 py-2 text-left transition shadow-sm ${isDropdownOpen ? 'border-indigo-500 ring-1 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200 dark:border-gray-600 hover:border-indigo-500'}`}
+            className={`w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border rounded-lg px-2 py-1.5 text-left transition shadow-sm ${isDropdownOpen ? 'border-indigo-500 ring-1 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200 dark:border-gray-600 hover:border-indigo-500'}`}
           >
-            <span className="font-bold text-sm text-gray-700 dark:text-gray-200 truncate">
+            <span className="font-bold text-xs text-gray-700 dark:text-gray-200 truncate">
               {currentHandbook ? currentHandbook.title : '교무수첩 선택'}
             </span>
             <ChevronDown size={14} className={`text-gray-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
@@ -122,7 +134,7 @@ export default function Sidebar({
                         onSelectHandbook(handbook);
                         setIsDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition ${currentHandbook?.id === handbook.id ? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/20' : 'text-gray-700 dark:text-gray-300'}`}
+                      className={`w-full text-left px-2 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition ${currentHandbook?.id === handbook.id ? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/20' : 'text-gray-700 dark:text-gray-300'}`}
                     >
                       {handbook.title}
                     </button>
@@ -133,7 +145,7 @@ export default function Sidebar({
                       onOpenAddHandbook();
                       setIsDropdownOpen(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-bold flex items-center gap-2"
+                    className="w-full text-left px-2 py-2 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-bold flex items-center gap-2"
                   >
                     <Plus size={12}/> 새 교무수첩 만들기
                   </button>
@@ -142,14 +154,32 @@ export default function Sidebar({
             </div>
           )}
         </div>
-        {/* 기존 설정 버튼 제거됨 */}
+
+        {/* 🔥 [추가] 저장 상태 표시 (드롭다운 바로 아래) */}
+        <div className="h-6 mt-1 flex flex-col justify-center">
+          {saveStatus === 'saving' && (
+            <div className="w-full animate-in fade-in duration-300">
+              <div className="flex justify-between items-center text-[10px] text-indigo-500 font-bold mb-0.5 px-1">
+                <span>저장중...</span>
+              </div>
+              <div className="h-0.5 bg-indigo-100 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-500 animate-pulse w-full origin-left scale-x-50"></div>
+              </div>
+            </div>
+          )}
+          {saveStatus === 'saved' && (
+            <div className="px-1 text-[10px] text-green-600 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-300">
+              <span>✓ 저장 완료</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 메뉴 리스트 */}
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6">
         {menuGroups.map((group, index) => (
           <div key={index}>
-            <h3 className="px-3 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+            <h3 className="px-3 text-[10px] font-extrabold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">
               {group.title}
             </h3>
             <div className="space-y-0.5">
@@ -162,9 +192,9 @@ export default function Sidebar({
                   <button
                     key={item.id}
                     onClick={() => handleMenuClick(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 font-medium text-sm ${
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 font-medium text-sm ${
                       highlight 
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none' 
+                        ? 'bg-indigo-600 text-white shadow-sm' 
                         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'
                     }`}
                   >

@@ -99,11 +99,19 @@ export function useGoogleDriveDB(collectionName, userId) {
     initDB();
   }, [userId, collectionName]);
 
+  // 🔥 [추가] 저장 상태를 알리는 이벤트 발송 함수
+  const dispatchSaveEvent = (status) => {
+    window.dispatchEvent(new CustomEvent('db-save-status', { detail: status }));
+  };
+
   // 안전한 저장 함수 (Queue 적용)
   const saveDataToDrive = async (newData) => {
     setData(newData); // 화면 즉시 반영
 
     if (data === null || !dbFileId) return;
+
+    // 🔥 [추가] 저장 시작 알림
+    dispatchSaveEvent('saving');
 
     saveQueue = saveQueue.then(async () => {
       const token = localStorage.getItem('google_access_token');
@@ -131,8 +139,13 @@ export function useGoogleDriveDB(collectionName, userId) {
           },
           body: file
         });
+        
+        // 🔥 [추가] 저장 완료 알림
+        dispatchSaveEvent('saved');
+
       } catch (error) {
         console.error("🚨 Save Error:", error);
+        dispatchSaveEvent('error');
       }
     });
   };
@@ -145,11 +158,9 @@ export function useGoogleDriveDB(collectionName, userId) {
     return newItem.id;
   };
 
-  // 🔥 [핵심] 일괄 추가 (중복 방지 및 ID 안전 생성)
   const addMany = async (items) => {
     if (data === null) return;
 
-    // 중복 체크: 학년, 반, 번호, 이름이 모두 같으면 이미 있는 것으로 간주하여 제외
     const filteredItems = items.filter(newItem => {
       const isDuplicate = data.some(existing => 
         existing.grade == newItem.grade &&
@@ -160,11 +171,8 @@ export function useGoogleDriveDB(collectionName, userId) {
       return !isDuplicate;
     });
 
-    if (filteredItems.length === 0) {
-      return 0; // 추가된 학생 없음
-    }
+    if (filteredItems.length === 0) return 0;
 
-    // ID 생성 시 난수와 인덱스를 조합하여 절대 충돌하지 않게 함
     const newItemsWithIds = filteredItems.map((item, index) => ({
       id: `${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
       ...item
@@ -172,7 +180,7 @@ export function useGoogleDriveDB(collectionName, userId) {
 
     const newData = [...data, ...newItemsWithIds];
     saveDataToDrive(newData);
-    return filteredItems.length; // 추가된 학생 수 반환
+    return filteredItems.length;
   };
 
   const remove = async (id) => {
