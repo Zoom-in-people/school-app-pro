@@ -24,13 +24,15 @@ export default function App() {
   
   const [activeView, setActiveView] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  // 모달 상태 관리
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddHandbookOpen, setIsAddHandbookOpen] = useState(false);
   const [isHandbookSettingsOpen, setIsHandbookSettingsOpen] = useState(false);
+  const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false); // API 키 입력창
 
   // 로컬 설정 저장
   const [apiKey, setApiKey] = useLocalStorage('gemini_api_key', "");
-  const [isSetupDone, setIsSetupDone] = useLocalStorage('is_setup_done', false);
   const [theme, setTheme] = useLocalStorage('theme', 'light');
   const [fontSize, setFontSize] = useLocalStorage('fontSize', 'normal');
   const [widgets, setWidgets] = useLocalStorage('widgets', INITIAL_WIDGETS);
@@ -38,28 +40,38 @@ export default function App() {
 
   const [currentHandbook, setCurrentHandbook] = useState(null);
 
+  // 🔥 [핵심 기능] 로그인 시 API 키가 없으면 설정창 자동 팝업
+  useEffect(() => {
+    if (user && !apiKey) {
+      setIsSetupWizardOpen(true);
+    }
+  }, [user, apiKey]);
+
+  // 위젯 초기화 체크
   useEffect(() => {
     const needsReset = widgets.length === 0 || !widgets[0].hasOwnProperty('x');
     if (needsReset) setWidgets(INITIAL_WIDGETS);
   }, []);
 
+  // 테마 적용
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [theme]);
 
+  // 🔥 [복구] 글자 크기 5단계 적용
   useEffect(() => {
     const root = document.documentElement;
     if (fontSize === 'xsmall') root.style.fontSize = '75%';
     else if (fontSize === 'small') root.style.fontSize = '87.5%';
     else if (fontSize === 'large') root.style.fontSize = '112.5%';
     else if (fontSize === 'xlarge') root.style.fontSize = '125%';
-    else root.style.fontSize = '100%';
+    else root.style.fontSize = '100%'; // normal
   }, [fontSize]);
 
   const userId = user ? user.uid : null;
 
-  // 교무수첩 목록 (구글 드라이브 DB)
+  // 📂 교무수첩 목록 (구글 드라이브 DB)
   const { data: handbooks, add: addHandbook, update: updateHandbook } = useGoogleDriveDB('handbooks', userId);
 
   useEffect(() => {
@@ -79,7 +91,7 @@ export default function App() {
   const currentHandbookId = currentHandbook ? currentHandbook.id : null;
   const collectionPrefix = currentHandbookId ? `_${currentHandbookId}` : '';
 
-  // 각 데이터 컬렉션 (수첩별 분리)
+  // 📂 각 데이터 컬렉션 (수첩별 분리)
   const { data: students, add: addStudent, remove: removeStudent, update: updateStudent } 
     = useGoogleDriveDB(`students${collectionPrefix}`, userId);
     
@@ -98,6 +110,7 @@ export default function App() {
   const { data: lessonGroups, add: addLessonGroup, remove: removeLessonGroup, update: updateLessonGroup } 
     = useGoogleDriveDB(`lesson_groups${collectionPrefix}`, userId);
 
+  // 핸들러 함수들
   const handleCreateHandbook = async (data) => {
     try {
       const newId = await addHandbook(data);
@@ -140,12 +153,10 @@ export default function App() {
     if(window.confirm("배치를 초기화하시겠습니까?")) setWidgets(INITIAL_WIDGETS);
   };
 
-  const handleSetupComplete = () => {
-    setIsSetupDone(true);
-  };
-
+  // 로딩 화면
   if (loading) return <div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin text-4xl">⏳</div></div>;
 
+  // 로그인 화면
   if (!user) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900 transition-colors">
@@ -161,6 +172,7 @@ export default function App() {
     );
   }
 
+  // 메인 화면
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
       <div className={`${isSidebarOpen ? 'block' : 'hidden'} md:block h-full relative border-r border-gray-200 dark:border-gray-700`}>
@@ -201,8 +213,26 @@ export default function App() {
         </div>
       </main>
 
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={{ apiKey, theme, fontSize }} setSettings={{ setApiKey, setTheme, setFontSize }} />
-      <SetupWizardModal isOpen={!isSetupDone} onClose={handleSetupComplete} apiKey={apiKey} setApiKey={setApiKey} />
+      {/* 설정 모달 (버튼 누르면 마법사 열림) */}
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        settings={{ apiKey, theme, fontSize }} 
+        setSettings={{ setApiKey, setTheme, setFontSize }} 
+        onOpenSetupWizard={() => {
+          setIsSettingsOpen(false); // 설정 닫고
+          setIsSetupWizardOpen(true); // 마법사 열기
+        }}
+      />
+      
+      {/* API 키 입력 마법사 (자동 팝업 or 버튼 호출) */}
+      <SetupWizardModal 
+        isOpen={isSetupWizardOpen} 
+        onClose={() => setIsSetupWizardOpen(false)} 
+        apiKey={apiKey} 
+        setApiKey={setApiKey} 
+      />
+      
       <AddHandbookModal isOpen={isAddHandbookOpen} onClose={() => setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
       <HandbookSettingsModal isOpen={isHandbookSettingsOpen} onClose={() => setIsHandbookSettingsOpen(false)} handbook={currentHandbook} onUpdate={handleUpdateHandbook} />
     </div>

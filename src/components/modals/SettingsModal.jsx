@@ -1,101 +1,87 @@
 import React from 'react';
-import { Settings, X, Moon, Sun, Monitor, Type, Key } from 'lucide-react';
+import { X, Moon, Sun, Monitor, Key } from 'lucide-react';
 
-export default function SettingsModal({ isOpen, onClose, settings, setSettings }) {
+export default function SettingsModal({ isOpen, onClose, settings, setSettings, onOpenSetupWizard }) {
   if (!isOpen) return null;
 
   const { apiKey, theme, fontSize } = settings;
-  const { setApiKey, setTheme, setFontSize } = setSettings;
+  const { setTheme, setFontSize } = setSettings;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col transform transition-all">
-        
-        {/* 헤더 */}
-        <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
-          <h3 className="font-bold text-lg flex items-center gap-2 text-gray-900 dark:text-white">
-            <Settings size={20} className="text-indigo-600" /> 환경 설정
-          </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-white transition">
-            <X size={20}/>
-          </button>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="flex justify-between items-center p-6 border-b dark:border-gray-700">
+          <h2 className="text-xl font-bold dark:text-white">환경 설정</h2>
+          <button onClick={onClose}><X className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" /></button>
         </div>
 
-        {/* 내용 스크롤 영역 */}
-        <div className="p-6 space-y-8 overflow-y-auto custom-scrollbar">
-          
-          {/* 1. Gemini API Key 설정 */}
-          <section>
-            <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
-              <Key size={16} /> AI 연동 설정
-            </h4>
-            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl border border-gray-100 dark:border-gray-600">
-              <label className="block text-sm font-bold mb-2 text-gray-700 dark:text-gray-200">Gemini API Key</label>
-              <input 
-                type="password" 
-                value={apiKey} 
-                onChange={e => setApiKey(e.target.value)} 
-                className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="sk-..."
-              />
-            </div>
-          </section>
+        <div className="p-6 space-y-6">
+          {/* 1. API 키 설정 (버튼형) */}
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Gemini API 키</label>
+            <button 
+              onClick={onOpenSetupWizard}
+              className={`w-full p-4 border rounded-xl flex items-center justify-between group transition ${apiKey ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800' : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600'}`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${apiKey ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-800 dark:text-indigo-200' : 'bg-gray-200 text-gray-500 dark:bg-gray-600 dark:text-gray-400'}`}>
+                  <Key size={20}/>
+                </div>
+                <div className="text-left">
+                  <p className={`font-bold text-sm ${apiKey ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {apiKey ? "API 키가 등록됨" : "API 키 등록하기"}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {apiKey ? "클릭하여 수정하거나 확인할 수 있습니다." : "AI 기능을 사용하려면 키를 등록하세요."}
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-bold bg-white dark:bg-gray-800 border px-2 py-1 rounded text-gray-500 group-hover:text-indigo-600 transition">
+                설정 &gt;
+              </span>
+            </button>
+          </div>
 
-          {/* 2. 화면 테마 (다크 모드) */}
-          <section>
-            <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
-              <Monitor size={16} /> 화면 테마
-            </h4>
-            <div className="flex gap-3">
-              <button 
-                onClick={() => setTheme('light')} 
-                className={`flex-1 p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${theme === 'light' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-200' : 'border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-50'}`}
-              > 
-                <Sun size={24}/> 
-                <span className="font-medium">라이트 모드</span>
-              </button>
-              <button 
-                onClick={() => setTheme('dark')} 
-                className={`flex-1 p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${theme === 'dark' ? 'border-indigo-500 bg-gray-700 text-indigo-300 ring-2 ring-indigo-900' : 'border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-50'}`}
-              > 
-                <Moon size={24}/> 
-                <span className="font-medium">다크 모드</span>
-              </button>
-            </div>
-          </section>
+          <hr className="dark:border-gray-700"/>
 
-          {/* 3. 글자 크기 (업데이트됨) */}
-          <section>
-            <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
-              <Type size={16} /> 글자 크기
-            </h4>
-            <div className="flex flex-wrap gap-2 bg-gray-100 dark:bg-gray-700 p-1.5 rounded-xl">
-              {[
-                { val: 'xsmall', label: '아주 작게' },
-                { val: 'small', label: '작게' },
-                { val: 'normal', label: '기본' }, 
-                { val: 'large', label: '크게' }, 
-                { val: 'xlarge', label: '아주 크게' }
-              ].map((opt) => (
+          {/* 2. 테마 설정 */}
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">화면 테마</label>
+            <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+              {['light', 'dark', 'system'].map(t => (
                 <button
-                  key={opt.val}
-                  onClick={() => setFontSize(opt.val)}
-                  className={`flex-1 py-2 px-1 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${fontSize === opt.val ? 'bg-white dark:bg-gray-600 text-indigo-600 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                  key={t}
+                  onClick={() => setTheme(t)}
+                  className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition ${theme === t ? 'bg-white dark:bg-gray-600 shadow-sm text-indigo-600 dark:text-indigo-300' : 'text-gray-500 dark:text-gray-400'}`}
                 >
-                  {opt.label}
+                  {t === 'light' && <><Sun size={14}/> 라이트모드</>}
+                  {t === 'dark' && <><Moon size={14}/> 다크모드</>}
+                  {t === 'system' && <><Monitor size={14}/> 시스템</>}
                 </button>
               ))}
             </div>
-          </section>
+          </div>
 
+          {/* 3. 글자 크기 (5단계 복구) */}
+          <div className="space-y-2">
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">글자 크기</label>
+            <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+              {['xsmall', 'small', 'normal', 'large', 'xlarge'].map(s => (
+                <button
+                  key={s}
+                  onClick={() => setFontSize(s)}
+                  className={`flex-1 py-2 rounded-md text-xs font-bold transition ${fontSize === s ? 'bg-white dark:bg-gray-600 shadow-sm text-indigo-600 dark:text-indigo-300' : 'text-gray-500 dark:text-gray-400'}`}
+                >
+                  {s === 'xsmall' && '아주작게'}
+                  {s === 'small' && '작게'}
+                  {s === 'normal' && '보통'}
+                  {s === 'large' && '크게'}
+                  {s === 'xlarge' && '아주크게'}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end">
-          <button onClick={onClose} className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition shadow-md">
-            닫기
-          </button>
-        </div>
-
       </div>
     </div>
   );
