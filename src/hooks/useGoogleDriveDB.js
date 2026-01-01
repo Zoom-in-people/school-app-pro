@@ -3,7 +3,7 @@ import { getOrCreateFolder, uploadFileToDrive } from '../utils/googleDrive';
 
 const DB_FILE_NAME = 'school_app_db.json';
 
-// 전역 변수 (중복 실행 및 저장 충돌 방지)
+// 전역 변수
 let saveQueue = Promise.resolve();
 let globalInitPromise = null;
 
@@ -12,7 +12,11 @@ export function useGoogleDriveDB(collectionName, userId) {
   const [dbFileId, setDbFileId] = useState(null);
   const isLoaded = useRef(false);
 
-  // ID 유효성 체크 헬퍼
+  // 이벤트 발송 헬퍼
+  const dispatchSaveEvent = (status) => {
+    window.dispatchEvent(new CustomEvent('db-save-status', { detail: status }));
+  };
+
   const checkIdExists = async (id, token) => {
     try {
       const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=id,trashed`, {
@@ -37,7 +41,9 @@ export function useGoogleDriveDB(collectionName, userId) {
         return;
       }
 
-      // 초기화 로직 (싱글톤 패턴)
+      // 🔥 [추가] 로딩 시작 알림
+      if (!isLoaded.current) dispatchSaveEvent('loading');
+
       if (!globalInitPromise) {
         globalInitPromise = (async () => {
           let folderId = localStorage.getItem('cached_folder_id');
@@ -89,28 +95,23 @@ export function useGoogleDriveDB(collectionName, userId) {
         }
         
         isLoaded.current = true;
+        // 🔥 [추가] 로딩 완료 (아주 짧게 보여주고 사라지게)
+        setTimeout(() => dispatchSaveEvent('idle'), 500);
 
       } catch (error) {
         console.error("🚨 DB Init Error:", error);
-        globalInitPromise = null;
+        dispatchSaveEvent('error');
       }
     };
 
     initDB();
   }, [userId, collectionName]);
 
-  // 🔥 [추가] 저장 상태를 알리는 이벤트 발송 함수
-  const dispatchSaveEvent = (status) => {
-    window.dispatchEvent(new CustomEvent('db-save-status', { detail: status }));
-  };
-
-  // 안전한 저장 함수 (Queue 적용)
   const saveDataToDrive = async (newData) => {
-    setData(newData); // 화면 즉시 반영
+    setData(newData);
 
     if (data === null || !dbFileId) return;
 
-    // 🔥 [추가] 저장 시작 알림
     dispatchSaveEvent('saving');
 
     saveQueue = saveQueue.then(async () => {
@@ -140,7 +141,6 @@ export function useGoogleDriveDB(collectionName, userId) {
           body: file
         });
         
-        // 🔥 [추가] 저장 완료 알림
         dispatchSaveEvent('saved');
 
       } catch (error) {

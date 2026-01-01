@@ -10,10 +10,9 @@ export default function Sidebar({
 }) {
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [saveStatus, setSaveStatus] = useState('idle'); // idle, saving, saved
+  const [saveStatus, setSaveStatus] = useState('idle'); // idle, loading, saving, saved
   const dropdownRef = useRef(null);
 
-  // 화면 클릭 시 드롭다운 닫기
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -26,11 +25,10 @@ export default function Sidebar({
     };
   }, [dropdownRef]);
 
-  // 🔥 [추가] 저장 상태 이벤트 리스너
+  // 상태 리스너
   useEffect(() => {
     const handleSaveStatus = (e) => {
       setSaveStatus(e.detail);
-      // 'saved' 상태는 2초 뒤에 사라지게 함
       if (e.detail === 'saved') {
         setTimeout(() => setSaveStatus('idle'), 2000);
       }
@@ -62,7 +60,7 @@ export default function Sidebar({
       title: "수업 관리",
       items: [
         { id: 'students_subject', label: '학생 명렬표 (교과)', icon: Users },
-        { id: 'lessons', label: '진도 관리', icon: BookOpen }, // 🔥 [수정] 이름 변경
+        { id: 'lessons', label: '진도 관리', icon: BookOpen },
       ]
     },
     {
@@ -92,7 +90,6 @@ export default function Sidebar({
 
   return (
     <aside className="w-64 bg-white dark:bg-gray-800 h-full flex flex-col border-r border-gray-200 dark:border-gray-700 transition-colors duration-300">
-      {/* 프로필 영역 */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
         {user?.photoURL ? (
           <img src={user.photoURL} alt="Profile" className="w-9 h-9 rounded-full border border-gray-300 dark:border-gray-600" />
@@ -110,7 +107,6 @@ export default function Sidebar({
         </button>
       </div>
 
-      {/* 교무수첩 선택 영역 */}
       <div className="p-3">
         <div className="relative" ref={dropdownRef}>
           <button 
@@ -155,27 +151,36 @@ export default function Sidebar({
           )}
         </div>
 
-        {/* 🔥 [추가] 저장 상태 표시 (드롭다운 바로 아래) */}
+        {/* 🔥 [수정] 상태 표시바 (로딩중, 저장중, 저장완료) */}
         <div className="h-6 mt-1 flex flex-col justify-center">
+          {saveStatus === 'loading' && (
+            <div className="w-full animate-in fade-in duration-300">
+              <div className="flex justify-between items-center text-[10px] text-gray-500 font-bold mb-0.5 px-1">
+                <span>데이터 로딩중...</span>
+              </div>
+              <div className="h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-full bg-gray-400 dark:bg-gray-500 animate-pulse w-full origin-left scale-x-50"></div>
+              </div>
+            </div>
+          )}
           {saveStatus === 'saving' && (
             <div className="w-full animate-in fade-in duration-300">
               <div className="flex justify-between items-center text-[10px] text-indigo-500 font-bold mb-0.5 px-1">
                 <span>저장중...</span>
               </div>
-              <div className="h-0.5 bg-indigo-100 rounded-full overflow-hidden">
+              <div className="h-0.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full overflow-hidden">
                 <div className="h-full bg-indigo-500 animate-pulse w-full origin-left scale-x-50"></div>
               </div>
             </div>
           )}
           {saveStatus === 'saved' && (
-            <div className="px-1 text-[10px] text-green-600 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-300">
+            <div className="px-1 text-[10px] text-green-600 dark:text-green-400 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-300">
               <span>✓ 저장 완료</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* 메뉴 리스트 */}
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6">
         {menuGroups.map((group, index) => (
           <div key={index}>
@@ -208,7 +213,6 @@ export default function Sidebar({
         ))}
       </nav>
 
-      {/* 하단 로그아웃 */}
       <div className="p-3 border-t border-gray-200 dark:border-gray-700">
         <button 
           onClick={logout}
