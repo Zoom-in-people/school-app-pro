@@ -1,5 +1,5 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { FileText, Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, Square, Layout, MessageSquare } from 'lucide-react';
+import React, { useState, useRef, useMemo } from 'react';
+import { FileText, Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, Square, Layout, MessageSquare, Wrench } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
 
@@ -16,12 +16,12 @@ const ResponsiveGridLayout = WidthProvider ? WidthProvider(Responsive) : Respons
 export default function Dashboard({ widgets, students, todos, setActiveView, schoolInfo, isHomeroom, attendanceLog, onUpdateAttendance, onUpdateStudent, lessonGroups, onUpdateLessonGroup, currentHandbook, onUpdateHandbook, moveWidget, resetLayout, addWidget, deleteWidget, onLayoutChange }) {
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [targetStudent, setTargetStudent] = useState(null);
+  
   const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, note: "" });
   const [isEditMode, setIsEditMode] = useState(false);
   
   const fileInputRef = useRef(null);
 
-  // 날짜 관련
   const getTodayDateString = () => { 
     const d = new Date(); 
     const y = d.getFullYear(); 
@@ -31,7 +31,6 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   };
   const todayStr = getTodayDateString();
 
-  // 출결 팝업
   const openAttPopup = (studentId) => {
     const existing = attendanceLog?.find(l => l.studentId === studentId && l.date === todayStr);
     setAttPopup({ isOpen: true, studentId, note: existing ? (existing.note || "") : "" });
@@ -72,50 +71,59 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     onUpdateLessonGroup(groupId, { status: newStatus });
   };
 
+  // 🔥 [핵심 기능] 위젯 배치 강제 복구 (Emergency Fix)
+  const handleForceRepair = () => {
+    if(!window.confirm("현재 꼬여있는 위젯 배치를 강제로 초기화하여 복구하시겠습니까?")) return;
+
+    // 선생님이 지정하신 순서대로 좌표 강제 할당
+    // 1열: 급식(0-2), 업무(3-5), 수업(6-8), 출결(9-11) (각 너비 3)
+    // 2열: 진도(0-11) (너비 12)
+    
+    const repairedLayout = widgets.map(w => {
+      let newItem = { i: w.id, w: 2, h: 2, x: 0, y: 0 }; // 기본값
+
+      switch(w.type) {
+        case 'lunch':    newItem = { i: w.id, x: 0, y: 0, w: 3, h: 2 }; break; // 1~3칸
+        case 'deadline': newItem = { i: w.id, x: 3, y: 0, w: 3, h: 2 }; break; // 4~6칸
+        case 'lesson':   newItem = { i: w.id, x: 6, y: 0, w: 3, h: 2 }; break; // 7~9칸
+        case 'student':  newItem = { i: w.id, x: 9, y: 0, w: 3, h: 2 }; break; // 10~12칸
+        case 'progress': newItem = { i: w.id, x: 0, y: 2, w: 12, h: 2 }; break; // 2열 전체
+        default:         newItem = { i: w.id, x: 0, y: Infinity, w: 2, h: 2 }; break; // 나머지는 아래로
+      }
+      return newItem;
+    });
+
+    // 상위 컴포넌트(App.jsx)에 수정된 레이아웃 전달하여 저장
+    onLayoutChange(repairedLayout);
+    alert("배치가 복구되었습니다.");
+    window.location.reload(); // 확실한 적용을 위해 새로고침
+  };
+
   const handleAddSpacer = (cols) => {
     addWidget({ type: 'spacer', colSpan: cols, w: cols, h: 1, x: 0, y: Infinity });
   };
 
-  // 🔥 [핵심 수정] 위젯 레이아웃 생성 로직 (자동 복구 및 정렬)
-  const generateLayouts = useMemo(() => {
-    // 정의된 순서: 급식 -> 업무 -> 수업 -> 출결 -> 진도
-    // 이 순서대로 좌표를 강제로 할당합니다.
-    const getPCLayoutItem = (w) => {
-      // 1. 기존 좌표가 유효한지 확인 (겹침 여부 등은 RGL이 compactType으로 해결)
-      // 만약 좌표가 모두 0이거나 없으면 강제 할당
-      const isValid = w.x !== undefined && w.y !== undefined && !(w.x === 0 && w.y === 0 && w.type !== 'lunch');
-      
-      if (isValid) {
-        return { i: w.id, x: w.x, y: w.y, w: w.w || 2, h: w.h || 2 };
-      }
+  // 렌더링용 레이아웃 생성
+  const currentLayouts = useMemo(() => {
+    // PC 레이아웃: 저장된 좌표 사용
+    const desktopLayout = widgets.map(w => ({
+      i: w.id,
+      x: w.x || 0,
+      y: w.y || 0,
+      w: w.w || 2,
+      h: w.h || 2
+    }));
 
-      // 2. 좌표가 없거나 오염된 경우: 타입별 강제 위치 지정
-      switch (w.type) {
-        case 'lunch':    return { i: w.id, x: 0, y: 0, w: 3, h: 2 };
-        case 'deadline': return { i: w.id, x: 3, y: 0, w: 3, h: 2 };
-        case 'lesson':   return { i: w.id, x: 6, y: 0, w: 3, h: 2 };
-        case 'student':  return { i: w.id, x: 9, y: 0, w: 3, h: 2 };
-        case 'progress': return { i: w.id, x: 0, y: 2, w: 12, h: 2 };
-        default:         return { i: w.id, x: 0, y: Infinity, w: 2, h: 2 }; // 기타 위젯은 맨 아래로
-      }
-    };
-
-    // 모바일은 무조건 한 줄 서기
+    // 모바일 레이아웃: 강제 1열 (순서대로)
     let yCounter = 0;
-    const getMobileLayoutItem = (w) => {
+    const mobileLayout = widgets.map(w => {
       const h = w.h || 2;
-      const item = { i: w.id, x: 0, y: yCounter, w: 1, h: h };
+      const item = { i: w.id, x: 0, y: yCounter, w: 1, h };
       yCounter += h;
       return item;
-    };
+    });
 
-    return {
-      lg: widgets.map(getPCLayoutItem),
-      md: widgets.map(getPCLayoutItem), // 태블릿도 PC 배치 따름
-      sm: widgets.map(getPCLayoutItem),
-      xs: widgets.map(getMobileLayoutItem), // 모바일
-      xxs: widgets.map(getMobileLayoutItem) // 초소형 모바일
-    };
+    return { lg: desktopLayout, md: desktopLayout, sm: desktopLayout, xs: mobileLayout, xxs: mobileLayout };
   }, [widgets]);
 
   const renderWidgetContent = (widget) => {
@@ -192,6 +200,11 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
       <style>{rglStyles}</style>
 
       <div className="flex justify-end mb-4 gap-2">
+        {/* 🔥 [신규] 배치 강제 복구 버튼 */}
+        <button onClick={handleForceRepair} className="text-xs flex items-center gap-1 px-3 py-2 rounded-lg font-bold shadow-sm bg-red-100 text-red-600 hover:bg-red-200">
+          <Wrench size={14}/> 배치 강제 복구
+        </button>
+
         {isEditMode && (
           <div className="flex items-center gap-2 bg-indigo-50 dark:bg-gray-700 px-3 py-1 rounded-lg border border-indigo-100 dark:border-gray-600 animate-in fade-in slide-in-from-right-4">
             <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 mr-1">위젯 추가:</span>
@@ -202,25 +215,22 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
         <button onClick={() => setIsEditMode(!isEditMode)} className={`text-xs flex items-center gap-1 px-3 py-2 rounded-lg font-bold shadow-sm transition ${isEditMode ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:text-indigo-600'}`}>
           {isEditMode ? <CheckCircle size={14}/> : <Edit3 size={14}/>} {isEditMode ? '편집 완료' : '화면 편집'}
         </button>
-        <button onClick={resetLayout} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-sm font-bold"><RotateCcw size={12}/> 초기화</button>
       </div>
 
       <ResponsiveGridLayout
         className="layout"
-        layouts={generateLayouts} // 🔥 수정된 레이아웃 로직 (좌표 강제 할당)
+        layouts={currentLayouts}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        cols={{ lg: 12, md: 12, sm: 6, xs: 1, xxs: 1 }} 
+        cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} 
         rowHeight={100} 
-        
-        // 🔥 [핵심] 겹침 방지 (vertical compact) 및 자유 배치 허용
         compactType="vertical"
-        preventCollision={false}
+        preventCollision={false} 
         isDraggable={isEditMode}
         isResizable={isEditMode}
         draggableHandle=".drag-handle"
         
+        // 모바일에서는 레이아웃 변경을 저장하지 않음 (PC 레이아웃 보호)
         onLayoutChange={(layout) => {
-          // 모바일에서는 저장을 막아 PC 레이아웃 보호
           if (window.innerWidth >= 768) {
             onLayoutChange(layout);
           }
