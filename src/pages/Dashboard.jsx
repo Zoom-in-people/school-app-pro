@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, MessageSquare } from 'lucide-react';
+import { Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, MessageSquare, Layout } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
 
@@ -20,13 +20,54 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   const [isEditMode, setIsEditMode] = useState(false);
   const fileInputRef = useRef(null);
 
-  // 날짜 및 데이터 처리 로직
+  // 날짜 관련
   const getTodayDateString = () => { 
     const d = new Date(); 
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; 
   };
   const todayStr = getTodayDateString();
 
+  // -------------------------------------------------------------------------
+  // 🔥 [핵심] 배치 강제 설정 (저장된 좌표 무시하고 여기서 정의한 대로만 그립니다)
+  // -------------------------------------------------------------------------
+  const fixedLayouts = useMemo(() => {
+    // 1. PC용 강제 배치 (12칸 그리드)
+    const desktopLayout = widgets.map(w => {
+      let pos = { x: 0, y: Infinity, w: 3, h: 4 }; // 기본값
+
+      // 선생님이 지정하신 순서대로 좌표 하드코딩
+      switch (w.type) {
+        case 'lunch':    pos = { x: 0, y: 0, w: 3, h: 4 }; break; // 1열 1번
+        case 'deadline': pos = { x: 3, y: 0, w: 3, h: 4 }; break; // 1열 2번
+        case 'lesson':   pos = { x: 6, y: 0, w: 3, h: 4 }; break; // 1열 3번
+        case 'student':  pos = { x: 9, y: 0, w: 3, h: 4 }; break; // 1열 4번
+        case 'progress': pos = { x: 0, y: 4, w: 12, h: 5 }; break; // 2열 전체
+        default:         pos = { x: 0, y: 10, w: 3, h: 4 }; break; // 기타
+      }
+      return { i: w.id, ...pos, minW: 2, minH: 2 };
+    });
+
+    // 2. 모바일용 강제 배치 (1칸 그리드 - 세로 일렬)
+    let yStack = 0;
+    const mobileLayout = widgets.map(w => {
+      const height = w.type === 'progress' ? 5 : 4;
+      const item = { i: w.id, x: 0, y: yStack, w: 1, h: height };
+      yStack += height;
+      return item;
+    });
+
+    return {
+      lg: desktopLayout,
+      md: desktopLayout,
+      sm: desktopLayout, // 태블릿도 PC 배치 유지
+      xs: mobileLayout,  // 모바일
+      xxs: mobileLayout  // 초소형 모바일
+    };
+  }, [widgets]);
+
+  // -------------------------------------------------------------------------
+  // 기능 로직 (출결, 메모, 업로드 등)
+  // -------------------------------------------------------------------------
   const openAttPopup = (studentId) => {
     const existing = attendanceLog?.find(l => l.studentId === studentId && l.date === todayStr);
     setAttPopup({ isOpen: true, studentId, note: existing ? (existing.note || "") : "" });
@@ -36,18 +77,19 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     if (!attPopup.studentId) return;
     const existing = attendanceLog?.find(l => l.studentId === attPopup.studentId && l.date === todayStr);
     const { note } = attPopup;
-    const data = type === 'reset' ? null : { studentId: attPopup.studentId, date: todayStr, type, note };
-    
-    if (type === 'reset' && existing) onUpdateAttendance(existing.id, null);
-    else if (existing) onUpdateAttendance(existing.id, { ...existing, type, note });
-    else if (!existing && type !== 'reset') onUpdateAttendance(null, data);
-    
+    if (type === 'reset') {
+      if (existing) onUpdateAttendance(existing.id, null); 
+    } else {
+      const data = { studentId: attPopup.studentId, date: todayStr, type, note };
+      if (existing) onUpdateAttendance(existing.id, { ...existing, type, note });
+      else onUpdateAttendance(null, data);
+    }
     setAttPopup({ isOpen: false, studentId: null, note: "" });
   };
 
   const handleMemoClick = (student) => { setTargetStudent(student); setMemoModalOpen(true); };
   const handleMemoSave = (studentId, updatedFields) => { onUpdateStudent(studentId, updatedFields); setTargetStudent(prev => ({...prev, ...updatedFields})); };
-  
+
   const handleTimetableUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -65,42 +107,20 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     onUpdateLessonGroup(groupId, { status: newStatus });
   };
 
-  // 🔥 [핵심 수정 1] 강제 레이아웃 생성기 (저장된 꼬인 데이터 무시)
-  const generateForcedLayouts = () => {
-    // 선생님이 지정하신 순서대로 좌표를 하드코딩합니다.
-    // 12칸 그리드 기준
-    const layoutMap = {
-      'lunch':    { x: 0, y: 0, w: 3, h: 4 }, // 1. 급식 (맨 왼쪽)
-      'deadline': { x: 3, y: 0, w: 3, h: 4 }, // 2. 업무 (그 다음)
-      'lesson':   { x: 6, y: 0, w: 3, h: 4 }, // 3. 수업 (그 다음)
-      'student':  { x: 9, y: 0, w: 3, h: 4 }, // 4. 출결 (맨 오른쪽)
-      'progress': { x: 0, y: 4, w: 12, h: 4 }, // 5. 진도 (아래쪽 전체)
-    };
-
-    const lgLayout = widgets.map(w => {
-      const forced = layoutMap[w.type] || { x: 0, y: Infinity, w: 3, h: 4 };
-      return { i: w.id, ...forced };
-    });
-
-    // 모바일용 (1열)
-    const xsLayout = widgets.map((w, idx) => ({
-      i: w.id, x: 0, y: idx * 4, w: 1, h: 4
-    }));
-
-    return { lg: lgLayout, md: lgLayout, sm: lgLayout, xs: xsLayout, xxs: xsLayout };
-  };
-
-  // useMemo를 사용해 렌더링 시마다 강제 레이아웃을 주입
-  const forcedLayouts = useMemo(() => generateForcedLayouts(), [widgets]);
-
+  // -------------------------------------------------------------------------
+  // 위젯 렌더링
+  // -------------------------------------------------------------------------
   const renderWidgetContent = (widget) => {
+    if (widget.type === 'spacer') {
+      return <div className={`w-full h-full rounded-xl flex items-center justify-center transition-all ${isEditMode ? 'border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400' : 'opacity-0'}`}>{isEditMode && <span className="text-xs font-bold">빈 공간</span>}</div>;
+    }
     switch (widget.type) {
       case 'lunch': return <LunchWidget schoolInfo={schoolInfo || {}} />;
       case 'deadline': return (<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 h-full overflow-hidden flex flex-col"><div className="flex justify-between items-center mb-4"><h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2"><AlertTriangle size={18} className="text-red-500"/> 업무 체크</h4><button onClick={() => setActiveView('tasks')} className="text-xs text-gray-400 hover:text-indigo-500">전체보기</button></div><div className="space-y-3 overflow-y-auto flex-1">{todos.slice(0, 5).map(todo => (<div key={todo.id} className={`flex items-start gap-3 p-2 rounded-lg transition ${todo.done ? 'opacity-50' : ''}`}><input type="checkbox" checked={todo.done} readOnly className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"/><div className="flex-1"><p className={`text-sm font-medium ${todo.done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{todo.title}</p><span className="text-xs text-red-500 font-medium">{todo.done ? '완료' : 'D-Day'}</span></div></div>))}</div></div>);
       case 'lesson': return (<div className="bg-indigo-600 rounded-xl shadow-lg p-5 text-white h-full flex flex-col overflow-hidden relative group"><h4 className="font-bold mb-2 flex items-center justify-between z-10">오늘의 수업</h4><div className="flex-1 flex items-center justify-center bg-indigo-500/50 rounded-lg overflow-hidden relative">{currentHandbook?.timetableImage ? (<img src={currentHandbook.timetableImage} alt="TimeTable" className="w-full h-full object-cover"/>) : (<div className="text-center text-indigo-200 text-sm p-4"><p>등록된 시간표가 없습니다.</p><p className="text-xs mt-1">이미지를 클릭하여 업로드</p></div>)}<div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer" onClick={() => fileInputRef.current.click()}><Upload className="text-white"/></div><input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleTimetableUpload}/></div></div>);
       case 'student': return (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 h-full flex flex-col">
-          <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2 dark:text-white"><Users className="text-green-500" /> 오늘 출결</h3><button onClick={() => setActiveView('students_homeroom')} className="text-xs text-indigo-600 hover:underline">관리 &gt;</button></div>
+          <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2 dark:text-white"><Users className="text-green-500" /> 오늘 출결 ({todayStr})</h3><button onClick={() => setActiveView('students_homeroom')} className="text-xs text-indigo-600 hover:underline">관리 &gt;</button></div>
           <div className="p-2 flex-1 overflow-y-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-50 dark:bg-gray-700 text-xs text-gray-500 dark:text-gray-400 sticky top-0"><tr><th className="px-3 py-2">이름</th><th className="px-3 py-2 text-center">상태</th><th className="px-3 py-2 text-right">메모</th></tr></thead>
@@ -110,9 +130,9 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
                   let statusText = "-"; let statusClass = "bg-gray-100 text-gray-500 hover:bg-gray-200"; let hasNote = false;
                   if (log) {
                     hasNote = !!log.note;
-                    if (log.type.includes('결')) { statusText = "병결"; statusClass = "bg-red-100 text-red-700"; }
-                    else if (log.type.includes('지')) { statusText = "지각"; statusClass = "bg-yellow-100 text-yellow-700"; }
-                    else if (log.type.includes('조')) { statusText = "조퇴"; statusClass = "bg-blue-100 text-blue-700"; }
+                    if (log.type.includes('결')) { statusText = "병결"; statusClass = "bg-red-100 text-red-700 border border-red-200"; }
+                    else if (log.type.includes('지')) { statusText = "지각"; statusClass = "bg-yellow-100 text-yellow-700 border border-yellow-200"; }
+                    else if (log.type.includes('조')) { statusText = "조퇴"; statusClass = "bg-blue-100 text-blue-700 border border-blue-200"; }
                     else { statusText = log.type; statusClass = "bg-purple-100 text-purple-700"; }
                   }
                   return (
@@ -150,53 +170,65 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     }
   };
 
+  const rglStyles = `
+    .react-grid-layout { position: relative; transition: height 200ms ease; }
+    .react-grid-item { transition: all 200ms ease; transition-property: left, top; }
+    .react-grid-item.cssTransforms { transition-property: transform; }
+    .react-grid-item.resizing { z-index: 100; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
+    .react-grid-item.react-grid-placeholder { background: rgba(79, 70, 229, 0.1) !important; opacity: 0.5; border-radius: 12px; border: 2px dashed #6366f1; }
+    .react-resizable-handle { position: absolute; width: 20px; height: 20px; bottom: 0; right: 0; cursor: se-resize; }
+  `;
+
   return (
     <div className="relative pb-20 w-full">
-      <style>{`.react-grid-layout { position: relative; transition: height 200ms ease; } .react-grid-item { transition: all 200ms ease; transition-property: left, top; } .react-grid-item.resizing { z-index: 100; box-shadow: 0 0 10px rgba(0,0,0,0.2); } .react-resizable-handle { position: absolute; width: 20px; height: 20px; bottom: 0; right: 0; cursor: se-resize; }`}</style>
+      <style>{rglStyles}</style>
 
       <div className="flex justify-end mb-4 gap-2">
+        {/* 🔥 강제 복구 버튼 */}
+        <button onClick={resetLayout} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-sm font-bold"><RotateCcw size={12}/> 배치 초기화</button>
         <button onClick={() => setIsEditMode(!isEditMode)} className={`text-xs flex items-center gap-1 px-3 py-2 rounded-lg font-bold shadow-sm transition ${isEditMode ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:text-indigo-600'}`}>
           {isEditMode ? <CheckCircle size={14}/> : <Edit3 size={14}/>} {isEditMode ? '편집 완료' : '화면 편집'}
         </button>
-        {/* 🔥 [핵심 기능] 긴급 복구 버튼 (데이터 오염 해결용) */}
-        <button onClick={resetLayout} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-sm font-bold"><RotateCcw size={12}/> 배치 초기화</button>
       </div>
 
-      {/* 🔥 [핵심 수정 2] width: 100% 강제하여 화면 너비 인식 오류 해결 */}
-      <div style={{ width: '100%' }}>
-        <ResponsiveGridLayout
-          className="layout"
-          layouts={forcedLayouts} // 🔥 강제로 좌표를 할당한 레이아웃 사용
-          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-          cols={{ lg: 12, md: 12, sm: 6, xs: 1, xxs: 1 }} 
-          rowHeight={100}
-          compactType="vertical" // 위로 정렬 (겹침 방지)
-          isDraggable={isEditMode}
-          isResizable={isEditMode}
-          draggableHandle=".drag-handle"
-          onLayoutChange={(layout) => {
-             // PC 모드일 때만 변경사항 저장 (데이터 보호)
-             if (window.innerWidth > 768) {
-               onLayoutChange(layout);
-             }
-          }}
-          margin={[16, 16]}
-        >
-          {widgets.map((widget) => {
-            if (!isHomeroom && widget.type === 'student') return <div key={widget.id} className="hidden"></div>;
-            return (
-              <div key={widget.id} className="bg-transparent">
-                <div className="h-full relative group">
-                  {isEditMode && (
+      <ResponsiveGridLayout
+        className="layout"
+        // 🔥 [핵심] 저장된 좌표 무시하고 여기서 계산한 강제 좌표 사용
+        layouts={fixedLayouts}
+        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+        // 🔥 PC 12열, 모바일 1열
+        cols={{ lg: 12, md: 12, sm: 12, xs: 1, xxs: 1 }} 
+        rowHeight={100} 
+        
+        compactType="vertical"
+        preventCollision={false}
+        
+        isDraggable={isEditMode}
+        isResizable={isEditMode}
+        draggableHandle=".drag-handle"
+        
+        // 🔥 레이아웃 변경 시 저장을 막지는 않지만, 어차피 위에서 fixedLayouts를 쓰므로 렌더링엔 영향 없음
+        onLayoutChange={(layout) => onLayoutChange(layout)}
+        margin={[16, 16]}
+      >
+        {widgets.map((widget) => {
+          if (!isHomeroom && widget.type === 'student') return <div key={widget.id} className="hidden"></div>;
+          
+          return (
+            <div key={widget.id} className="bg-transparent">
+              <div className="h-full relative group">
+                {isEditMode && (
+                  <>
                     <div className="drag-handle absolute top-2 right-2 z-50 p-1 bg-gray-100 dark:bg-gray-700 rounded cursor-move text-gray-400 hover:text-indigo-600 shadow-sm border border-gray-200 dark:border-gray-600"><Grip size={16}/></div>
-                  )}
-                  {renderWidgetContent(widget)}
-                </div>
+                    {widget.type === 'spacer' && <button onClick={() => deleteWidget(widget.id)} className="absolute -top-2 -left-2 bg-red-500 text-white rounded-full p-1 shadow-md z-50 hover:bg-red-600"><X size={14}/></button>}
+                  </>
+                )}
+                {renderWidgetContent(widget)}
               </div>
-            );
-          })}
-        </ResponsiveGridLayout>
-      </div>
+            </div>
+          );
+        })}
+      </ResponsiveGridLayout>
 
       {memoModalOpen && targetStudent && <MemoLogModal isOpen={memoModalOpen} onClose={() => setMemoModalOpen(false)} student={targetStudent} onSave={handleMemoSave} />}
       {attPopup.isOpen && (
