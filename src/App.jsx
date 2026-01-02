@@ -47,6 +47,7 @@ export default function App() {
   }, [user, apiKey]);
 
   useEffect(() => {
+    // 위젯 데이터 무결성 검사 (좌표가 없으면 초기화)
     const needsReset = widgets.length === 0 || !widgets[0].hasOwnProperty('x');
     if (needsReset) setWidgets(INITIAL_WIDGETS);
   }, []);
@@ -185,6 +186,7 @@ export default function App() {
   const handleUpdateEvent = (id, data) => { if (id && !data) removeEvent(id); else if (id && data) updateEvent(id, data); else addEvent(data); };
 
   const onLayoutChange = (newLayout) => {
+    // 레이아웃 변경 시 x, y 좌표 업데이트
     const updatedWidgets = widgets.map(widget => {
       const layoutItem = newLayout.find(l => l.i === widget.id);
       if (layoutItem) {
@@ -192,11 +194,21 @@ export default function App() {
       }
       return widget;
     });
+    // 여기서 setState를 하면 로컬스토리지 훅에 의해 자동 저장됨
     setWidgets(updatedWidgets);
   };
 
   const resetLayout = () => {
-    if(window.confirm("배치를 초기화하시겠습니까?")) setWidgets(INITIAL_WIDGETS);
+    if(window.confirm("대시보드 배치를 초기 상태로 되돌리시겠습니까?\n(화면이 겹쳐 보이거나 오류가 있을 때 권장합니다)")) {
+      // 1. 로컬 스토리지 강제 초기화 (오염된 데이터 제거)
+      localStorage.removeItem('widgets'); // 아예 지워버림
+      // 2. 상태 초기화
+      setWidgets(INITIAL_WIDGETS);
+      // 3. 확실한 적용을 위해 페이지 새로고침
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
+    }
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin text-4xl">⏳</div></div>;
@@ -267,7 +279,8 @@ export default function App() {
                     todos={todos} setActiveView={setActiveView} isHomeroom={currentHandbook.isHomeroom} schoolInfo={currentHandbook.schoolInfo || {}} 
                     attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => updateHomeroomStudent(id, data)} lessonGroups={lessonGroups} onUpdateLessonGroup={updateLessonGroup} 
                     currentHandbook={currentHandbook} onUpdateHandbook={handleUpdateHandbook}
-                    onLayoutChange={onLayoutChange} resetLayout={resetLayout}
+                    onLayoutChange={onLayoutChange} 
+                    resetLayout={resetLayout} // 🔥 [수정] 강화된 초기화 함수 전달
                     addWidget={(newWidget) => setWidgets(prev => [...prev, { ...newWidget, id: Date.now().toString(), x: 0, y: Infinity }])}
                     deleteWidget={(id) => setWidgets(prev => prev.filter(w => w.id !== id))}
                     myTimetable={myTimetable}

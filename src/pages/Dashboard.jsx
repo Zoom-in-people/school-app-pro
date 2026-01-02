@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { FileText, Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, Square, Layout, MessageSquare } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
@@ -16,13 +16,12 @@ const ResponsiveGridLayout = WidthProvider ? WidthProvider(Responsive) : Respons
 export default function Dashboard({ widgets, students, todos, setActiveView, schoolInfo, isHomeroom, attendanceLog, onUpdateAttendance, onUpdateStudent, lessonGroups, onUpdateLessonGroup, currentHandbook, onUpdateHandbook, moveWidget, resetLayout, addWidget, deleteWidget, onLayoutChange }) {
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [targetStudent, setTargetStudent] = useState(null);
-  
-  // 출결 팝업 상태
   const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, note: "" });
   const [isEditMode, setIsEditMode] = useState(false);
   
   const fileInputRef = useRef(null);
 
+  // 날짜 관련
   const getTodayDateString = () => { 
     const d = new Date(); 
     const y = d.getFullYear(); 
@@ -32,21 +31,16 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   };
   const todayStr = getTodayDateString();
 
+  // 출결 팝업
   const openAttPopup = (studentId) => {
     const existing = attendanceLog?.find(l => l.studentId === studentId && l.date === todayStr);
-    setAttPopup({ 
-      isOpen: true, 
-      studentId, 
-      note: existing ? (existing.note || "") : "" 
-    });
+    setAttPopup({ isOpen: true, studentId, note: existing ? (existing.note || "") : "" });
   };
 
   const saveAttendance = (type) => {
     if (!attPopup.studentId) return;
-    
     const existing = attendanceLog?.find(l => l.studentId === attPopup.studentId && l.date === todayStr);
     const { note } = attPopup;
-
     if (type === 'reset') {
       if (existing) onUpdateAttendance(existing.id, null); 
     } else {
@@ -79,18 +73,61 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   };
 
   const handleAddSpacer = (cols) => {
-    addWidget({ type: 'spacer', colSpan: cols, w: cols, h: 1 });
+    // 새 위젯은 항상 맨 아래(y: Infinity)에 추가
+    addWidget({ type: 'spacer', colSpan: cols, w: cols, h: 1, x: 0, y: Infinity });
+  };
+
+  // 🔥 [핵심 수정] 레이아웃 생성 로직 분리 (PC vs Mobile)
+  const layouts = useMemo(() => {
+    // 1. PC용 레이아웃: 저장된 좌표(x, y) 그대로 사용
+    const desktopLayout = widgets.map(w => ({
+      i: w.id,
+      x: w.x !== undefined ? w.x : 0,
+      y: w.y !== undefined ? w.y : 0,
+      w: w.w || 2,
+      h: w.h || 2,
+      minW: 1, minH: 1
+    }));
+
+    // 2. 모바일용 레이아웃: 강제로 1열 정렬 (좌표 무시하고 순서대로 쌓음)
+    let yCounter = 0;
+    const mobileLayout = widgets.map(w => {
+      const layoutItem = {
+        i: w.id,
+        x: 0, // 무조건 왼쪽
+        y: yCounter, // 차곡차곡 아래로
+        w: 1, // 가로 꽉 채움
+        h: w.h || 2
+      };
+      yCounter += (w.h || 2);
+      return layoutItem;
+    });
+
+    return {
+      lg: desktopLayout,
+      md: desktopLayout,
+      sm: desktopLayout,
+      xs: mobileLayout, // 모바일
+      xxs: mobileLayout // 초소형 모바일
+    };
+  }, [widgets]);
+
+  // 🔥 [핵심 수정] 레이아웃 변경 핸들러 (PC에서만 저장)
+  const handleLayoutChange = (currentLayout, allLayouts) => {
+    // 현재 화면 너비가 모바일(xs, xxs)이라면 저장을 막음 (PC 레이아웃 오염 방지)
+    // RGL은 width를 직접 주지 않으므로, cols 값으로 추론하거나 window width 확인
+    const width = window.innerWidth;
+    const isMobile = width < 768; // sm 이하
+
+    if (!isMobile) {
+      onLayoutChange(currentLayout);
+    }
   };
 
   const renderWidgetContent = (widget) => {
     if (widget.type === 'spacer') {
-      return (
-        <div className={`w-full h-full rounded-xl flex items-center justify-center transition-all ${isEditMode ? 'border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400' : 'opacity-0'}`}>
-          {isEditMode && <span className="text-xs font-bold">빈 공간 ({widget.colSpan === 12 ? '줄바꿈' : widget.colSpan + '칸'})</span>}
-        </div>
-      );
+      return <div className={`w-full h-full rounded-xl flex items-center justify-center transition-all ${isEditMode ? 'border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400' : 'opacity-0'}`}>{isEditMode && <span className="text-xs font-bold">빈 공간</span>}</div>;
     }
-
     switch (widget.type) {
       case 'lunch': return <LunchWidget schoolInfo={schoolInfo || {}} />;
       case 'deadline': return (<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 h-full overflow-hidden"><div className="flex justify-between items-center mb-4"><h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2"><AlertTriangle size={18} className="text-red-500"/> 업무 체크</h4><button onClick={() => setActiveView('tasks')} className="text-xs text-gray-400 hover:text-indigo-500">전체보기</button></div><div className="space-y-3">{todos.slice(0, 5).map(todo => (<div key={todo.id} className={`flex items-start gap-3 p-2 rounded-lg transition ${todo.done ? 'opacity-50' : ''}`}><input type="checkbox" checked={todo.done} readOnly className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"/><div className="flex-1"><p className={`text-sm font-medium ${todo.done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{todo.title}</p><span className="text-xs text-red-500 font-medium">{todo.done ? '완료' : 'D-Day'}</span></div></div>))}</div></div>);
@@ -107,27 +144,16 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
                   let statusText = "-"; let statusClass = "bg-gray-100 text-gray-500 hover:bg-gray-200"; let hasNote = false;
                   if (log) {
                     hasNote = !!log.note;
-                    const t = log.type;
-                    if (t.includes('병결')) { statusText = "병결"; statusClass = "bg-red-100 text-red-700 border border-red-200"; }
-                    else if (t.includes('미결')) { statusText = "미결"; statusClass = "bg-red-200 text-red-800 border border-red-400 font-bold"; }
-                    else if (t.includes('인결')) { statusText = "인결"; statusClass = "bg-green-100 text-green-700 border border-green-200"; }
-                    else if (t.includes('병지')) { statusText = "병지"; statusClass = "bg-yellow-100 text-yellow-700 border border-yellow-200"; }
-                    else if (t.includes('미지')) { statusText = "미지"; statusClass = "bg-yellow-200 text-yellow-800 border border-yellow-400 font-bold"; }
-                    else if (t.includes('인지')) { statusText = "인지"; statusClass = "bg-green-50 text-green-600 border border-green-200"; }
-                    else if (t.includes('병조')) { statusText = "병조"; statusClass = "bg-blue-100 text-blue-700 border border-blue-200"; }
-                    else if (t.includes('미조')) { statusText = "미조"; statusClass = "bg-blue-200 text-blue-800 border border-blue-400 font-bold"; }
-                    else if (t.includes('인조')) { statusText = "인조"; statusClass = "bg-green-50 text-green-600 border border-green-200"; }
-                    else if (t === '기타') { statusText = "기타"; statusClass = "bg-purple-100 text-purple-700"; }
+                    if (log.type.includes('결')) { statusText = "병결"; statusClass = "bg-red-100 text-red-700"; }
+                    else if (log.type.includes('지')) { statusText = "지각"; statusClass = "bg-yellow-100 text-yellow-700"; }
+                    else if (log.type.includes('조')) { statusText = "조퇴"; statusClass = "bg-blue-100 text-blue-700"; }
+                    else { statusText = log.type; statusClass = "bg-purple-100 text-purple-700"; }
                   }
                   return (
                     <tr key={student.id} className="border-b border-gray-50 dark:border-gray-700/50">
-                      <td className="px-3 py-3 font-bold whitespace-nowrap dark:text-gray-200"><span className="mr-2 text-xs text-gray-400">{student.number}</span>{student.name}</td>
-                      <td className="px-3 py-3 text-center">
-                        <button onClick={() => openAttPopup(student.id)} className={`px-2 py-1 rounded text-xs font-bold w-14 ${statusClass} transition relative`} title={hasNote ? log.note : ""}>
-                          {statusText}{hasNote && <div className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full border border-white"></div>}
-                        </button>
-                      </td>
-                      <td className="px-3 py-3 text-right"><button onClick={() => handleMemoClick(student)} className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${student.memos && student.memos.length > 0 ? 'text-indigo-500' : 'text-gray-400'}`}><ClipboardList size={16}/></button></td>
+                      <td className="px-3 py-3 font-bold dark:text-gray-200">{student.number}. {student.name}</td>
+                      <td className="px-3 py-3 text-center"><button onClick={() => openAttPopup(student.id)} className={`px-2 py-1 rounded text-xs font-bold w-14 ${statusClass} relative`}>{statusText}{hasNote && <div className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full"></div>}</button></td>
+                      <td className="px-3 py-3 text-right"><button onClick={() => handleMemoClick(student)} className="p-1 text-gray-400 hover:text-indigo-500"><ClipboardList size={16}/></button></td>
                     </tr>
                   );
                 })}
@@ -140,24 +166,17 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 h-full flex flex-col">
           <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2 dark:text-white"><BookOpen className="text-purple-500" /> 수업 진도</h3><button onClick={() => setActiveView('lessons')} className="text-xs text-indigo-600 hover:underline">관리 &gt;</button></div>
           <div className="p-4 flex-1 overflow-y-auto space-y-4">
-            {lessonGroups && lessonGroups.length > 0 ? lessonGroups.map(group => (
+            {lessonGroups?.map(group => (
               <div key={group.id} className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
                 <h4 className="font-bold text-sm mb-2 text-indigo-700 dark:text-indigo-300">{group.name}</h4>
-                <div className="space-y-0">
-                  {group.classes.map(cls => (
-                    <div key={cls.id} className="flex items-start gap-2 py-2 border-b border-dotted border-gray-300 dark:border-gray-600 last:border-0">
-                      <span className="dark:text-gray-300 w-24 shrink-0 font-bold text-xs mt-1.5 whitespace-nowrap">{cls.name}</span>
-                      <div className="flex-1 flex flex-wrap gap-1 justify-start">
-                        {group.progressItems.slice(0, 20).map((item, idx) => {
-                          const isDone = group.status[`${cls.id}_${item}`];
-                          return <button key={idx} onClick={() => handleToggleProgress(group.id, cls.id, item)} className={`px-2 py-1 rounded text-xs border transition ${isDone ? 'bg-green-500 text-white border-green-500' : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-300 dark:border-gray-600'}`}>{item}</button>;
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {group.classes.map(cls => (
+                  <div key={cls.id} className="flex items-start gap-2 py-2 border-b border-dotted border-gray-300 dark:border-gray-600 last:border-0">
+                    <span className="dark:text-gray-300 w-24 shrink-0 font-bold text-xs mt-1.5">{cls.name}</span>
+                    <div className="flex-1 flex flex-wrap gap-1">{group.progressItems.slice(0, 20).map((item, idx) => <button key={idx} onClick={() => handleToggleProgress(group.id, cls.id, item)} className={`px-2 py-1 rounded text-xs border ${group.status[`${cls.id}_${item}`] ? 'bg-green-500 text-white' : 'bg-white text-gray-500'}`}>{item}</button>)}</div>
+                  </div>
+                ))}
               </div>
-            )) : <div className="text-center text-gray-400 py-10">등록된 수업 그룹이 없습니다.</div>}
+            ))}
           </div>
         </div>
       );
@@ -165,45 +184,9 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     }
   };
 
-  // 🔥 [핵심 수정] 반응형 레이아웃 데이터 생성 (PC vs 모바일 분리)
-  const currentLayouts = useMemo(() => {
-    // 1. PC용 레이아웃 (lg, md, sm): 저장된 x, y 좌표 사용
-    const desktopLayout = widgets.map(w => ({
-      i: w.id,
-      x: w.x || 0,
-      y: w.y || 0,
-      w: w.w || 2,
-      h: w.h || 2
-    }));
-
-    // 2. 모바일용 레이아웃 (xs, xxs): 1열로 강제 정렬 (y좌표 순차 할당)
-    // 겹침을 방지하기 위해 y 값을 인덱스 * 높이로 할당
-    let yCounter = 0;
-    const mobileLayout = widgets.map(w => {
-      const layoutItem = {
-        i: w.id,
-        x: 0, // 무조건 왼쪽
-        y: yCounter, // 차곡차곡 아래로
-        w: 1, // 가로 꽉 채움 (cols가 1이므로)
-        h: w.h || 2
-      };
-      yCounter += (w.h || 2);
-      return layoutItem;
-    });
-
-    return {
-      lg: desktopLayout,
-      md: desktopLayout,
-      sm: desktopLayout,
-      xs: mobileLayout, // 모바일 전용 레이아웃
-      xxs: mobileLayout
-    };
-  }, [widgets]);
-
   const rglStyles = `
     .react-grid-layout { position: relative; transition: height 200ms ease; }
     .react-grid-item { transition: all 200ms ease; transition-property: left, top; }
-    .react-grid-item.cssTransforms { transition-property: transform; }
     .react-grid-item.resizing { z-index: 100; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
     .react-grid-item.react-grid-placeholder { background: rgba(79, 70, 229, 0.1) !important; opacity: 0.5; border-radius: 12px; border: 2px dashed #6366f1; }
     .react-resizable-handle { position: absolute; width: 20px; height: 20px; bottom: 0; right: 0; cursor: se-resize; }
@@ -229,38 +212,28 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
 
       <ResponsiveGridLayout
         className="layout"
-        // 🔥 [수정] 위에서 계산한 반응형 레이아웃 객체 전달
-        layouts={currentLayouts}
+        layouts={layouts} // 🔥 PC/모바일 분리된 레이아웃 전달
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        // 🔥 [수정] 모바일(xs, xxs)에서는 1열, PC는 기존 그리드 유지
-        cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} 
-        rowHeight={100} 
-        // 🔥 [수정] compactType을 'vertical'로 하여 자동 정렬 (겹침 방지)
-        compactType="vertical"
-        // 🔥 [수정] PC 편집 시에는 자유롭게 이동 가능하도록 false
-        preventCollision={false}
-        
-        isDraggable={isEditMode} 
-        isResizable={isEditMode} 
-        draggableHandle=".drag-handle" 
-        
-        onLayoutChange={(layout, allLayouts) => onLayoutChange(layout)}
+        cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} // 🔥 모바일 1열 강제
+        rowHeight={100}
+        compactType="vertical" // 🔥 겹침 방지 (위로 자동 정렬)
+        preventCollision={false} // 자연스러운 이동
+        isDraggable={isEditMode}
+        isResizable={isEditMode}
+        draggableHandle=".drag-handle"
+        onLayoutChange={handleLayoutChange} // 🔥 수정된 핸들러 사용
+        measureBeforeMount={false}
         margin={[16, 16]}
       >
         {widgets.map((widget) => {
           if (!isHomeroom && widget.type === 'student') return <div key={widget.id} className="hidden"></div>;
-          
           return (
             <div key={widget.id} className="bg-transparent">
               <div className="h-full relative group">
                 {isEditMode && (
                   <>
-                    <div className="drag-handle absolute top-2 right-2 z-50 p-1 bg-gray-100 dark:bg-gray-700 rounded cursor-move text-gray-400 hover:text-indigo-600 shadow-sm border border-gray-200 dark:border-gray-600">
-                      <Grip size={16}/>
-                    </div>
-                    {widget.type === 'spacer' && (
-                        <button onClick={() => deleteWidget(widget.id)} className="absolute -top-2 -left-2 bg-red-500 text-white rounded-full p-1 shadow-md z-50 hover:bg-red-600 transition scale-75 hover:scale-100"><X size={14}/></button>
-                    )}
+                    <div className="drag-handle absolute top-2 right-2 z-50 p-1 bg-gray-100 dark:bg-gray-700 rounded cursor-move text-gray-400 hover:text-indigo-600 shadow-sm border border-gray-200 dark:border-gray-600"><Grip size={16}/></div>
+                    {widget.type === 'spacer' && <button onClick={() => deleteWidget(widget.id)} className="absolute -top-2 -left-2 bg-red-500 text-white rounded-full p-1 shadow-md z-50 hover:bg-red-600"><X size={14}/></button>}
                   </>
                 )}
                 {renderWidgetContent(widget)}
@@ -271,24 +244,12 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
       </ResponsiveGridLayout>
 
       {memoModalOpen && targetStudent && <MemoLogModal isOpen={memoModalOpen} onClose={() => setMemoModalOpen(false)} student={targetStudent} onSave={handleMemoSave} />}
-      
       {attPopup.isOpen && (
         <div className="fixed inset-0 bg-black/20 z-[100] flex items-center justify-center" onClick={() => setAttPopup({isOpen: false, studentId: null, note: ""})}>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-xl w-72" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3"><h4 className="font-bold dark:text-white">출결 / 메모 입력</h4><button onClick={() => setAttPopup({isOpen: false, studentId: null, note: ""})}><X size={16}/></button></div>
-            <div className="mb-3">
-              <div className="flex items-center gap-1 mb-1 text-xs font-bold text-gray-500 dark:text-gray-400"><MessageSquare size={12}/> 사유 (선택)</div>
-              <input type="text" value={attPopup.note} onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} placeholder="예: 독감, 체험학습" className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600" />
-            </div>
-            <div className="space-y-3">
-              <button onClick={() => saveAttendance('reset')} className="w-full p-2 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold">출석 (초기화)</button>
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <div className="text-center font-bold text-red-500 col-span-3 pb-1 border-b">결석</div><button onClick={() => saveAttendance('병결')} className="p-2 bg-red-50 hover:bg-red-100 text-red-700 rounded">병결</button><button onClick={() => saveAttendance('미결')} className="p-2 bg-red-100 hover:bg-red-200 text-red-800 font-bold rounded">미인정</button><button onClick={() => saveAttendance('인결')} className="p-2 bg-green-50 hover:bg-green-100 text-green-700 rounded">인정</button>
-                <div className="text-center font-bold text-yellow-500 col-span-3 pb-1 border-b mt-2">지각</div><button onClick={() => saveAttendance('병지')} className="p-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded">병지</button><button onClick={() => saveAttendance('미지')} className="p-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-bold rounded">미인정</button><button onClick={() => saveAttendance('인지')} className="p-2 bg-green-50 hover:bg-green-100 text-green-700 rounded">인정</button>
-                <div className="text-center font-bold text-blue-500 col-span-3 pb-1 border-b mt-2">조퇴</div><button onClick={() => saveAttendance('병조')} className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded">병조</button><button onClick={() => saveAttendance('미조')} className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded">미인정</button><button onClick={() => saveAttendance('인조')} className="p-2 bg-green-50 hover:bg-green-100 text-green-700 rounded">인정</button>
-                <div className="text-center font-bold text-purple-500 col-span-3 pb-1 border-b mt-2">기타</div><button onClick={() => saveAttendance('기타')} className="p-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded col-span-3">기타 사유</button>
-              </div>
-            </div>
+            <div className="mb-3"><div className="flex items-center gap-1 mb-1 text-xs font-bold text-gray-500 dark:text-gray-400"><MessageSquare size={12}/> 사유 (선택)</div><input type="text" value={attPopup.note} onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} placeholder="예: 독감, 체험학습" className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600" /></div>
+            <div className="space-y-3"><button onClick={() => saveAttendance('reset')} className="w-full p-2 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold">출석 (초기화)</button><div className="grid grid-cols-3 gap-2 text-xs"><div className="text-center font-bold text-red-500 col-span-3 pb-1 border-b">결석</div><button onClick={() => saveAttendance('병결')} className="p-2 bg-red-50 hover:bg-red-100 text-red-700 rounded">병결</button><button onClick={() => saveAttendance('미결')} className="p-2 bg-red-100 hover:bg-red-200 text-red-800 font-bold rounded">미인정</button><button onClick={() => saveAttendance('인결')} className="p-2 bg-green-50 hover:bg-green-100 text-green-700 rounded">인정</button><div className="text-center font-bold text-yellow-500 col-span-3 pb-1 border-b mt-2">지각</div><button onClick={() => saveAttendance('병지')} className="p-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded">병지</button><button onClick={() => saveAttendance('미지')} className="p-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-bold rounded">미인정</button><button onClick={() => saveAttendance('인지')} className="p-2 bg-green-50 hover:bg-green-100 text-green-700 rounded">인정</button><div className="text-center font-bold text-blue-500 col-span-3 pb-1 border-b mt-2">조퇴</div><button onClick={() => saveAttendance('병조')} className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded">병조</button><button onClick={() => saveAttendance('미조')} className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded">미인정</button><button onClick={() => saveAttendance('인조')} className="p-2 bg-green-50 hover:bg-green-100 text-green-700 rounded">인정</button><div className="text-center font-bold text-purple-500 col-span-3 pb-1 border-b mt-2">기타</div><button onClick={() => saveAttendance('기타')} className="p-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded col-span-3">기타 사유</button></div></div>
           </div>
         </div>
       )}
