@@ -53,8 +53,8 @@ export default function EducationPlan({ apiKey }) {
         - 내용은 너무 짧지 않게, 충분한 정보를 담아주세요.
       `;
 
-      // 🔥 [수정] 모델명 변경 (gemini-1.5-flash-latest -> gemini-1.5-flash)
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      // 🔥 [수정] 요청하신 gemini-2.5-flash 모델 적용
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -71,13 +71,16 @@ export default function EducationPlan({ apiKey }) {
       if (!response.ok) {
         const errorData = await response.json();
         console.error("API Error Details:", errorData);
-        throw new Error(`API 호출 실패 (${response.status}): ${errorData.error?.message || "알 수 없는 오류"}`);
+        let msg = errorData.error?.message || "알 수 없는 오류";
+        // 2.5 버전 호출 시 혹시라도 발생할 수 있는 404 등에 대한 메시지 처리
+        if (response.status === 404) msg = "모델을 찾을 수 없습니다. (API 키 권한을 확인해주세요)";
+        throw new Error(`API 호출 실패 (${response.status}): ${msg}`);
       }
 
       const data = await response.json();
       
       if (!data.candidates || data.candidates.length === 0) {
-        throw new Error("AI가 응답을 생성하지 못했습니다. (보안 정책 등으로 차단됨)");
+        throw new Error("AI가 응답을 생성하지 못했습니다. (내용 정책 등으로 차단됨)");
       }
 
       const text = data.candidates[0].content.parts[0].text;
@@ -85,7 +88,7 @@ export default function EducationPlan({ apiKey }) {
 
     } catch (err) {
       console.error(err);
-      setError(`분석 실패: ${err.message}`);
+      setError(`${err.message}`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -139,7 +142,7 @@ export default function EducationPlan({ apiKey }) {
                 <AlertCircle size={48}/>
                 <p className="font-bold text-lg">오류가 발생했습니다</p>
                 <p className="text-sm text-center max-w-md bg-red-50 p-3 rounded-lg border border-red-200">{error}</p>
-                <p className="text-xs text-gray-400 mt-2">💡 팁: 설정 메뉴에서 API 키가 올바른지 확인해주세요.</p>
+                <p className="text-xs text-gray-400 mt-2">💡 Tip: API 키가 올바른지 다시 확인해보세요.</p>
               </div>
             ) : (
               <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4">

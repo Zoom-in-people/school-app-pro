@@ -20,12 +20,13 @@ import MaterialManager from './pages/MaterialManager';
 import MonthlyEvents from './pages/MonthlyEvents';
 import MeetingLogs from './pages/MeetingLogs';
 import MyTimetable from './pages/MyTimetable';
+import ExternalApps from './pages/ExternalApps'; // 🔥 [추가]
 
 export default function App() {
   const { user, loading, login, logout } = useAuth();
   
   const [activeView, setActiveView] = useState('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 모바일 초기값 false 추천
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddHandbookOpen, setIsAddHandbookOpen] = useState(false);
   const [isHandbookSettingsOpen, setIsHandbookSettingsOpen] = useState(false);
@@ -130,7 +131,6 @@ export default function App() {
   const { data: classPhotos, add: addClassPhoto, update: updateClassPhoto, remove: removeClassPhoto } 
     = useGoogleDriveDB(`class_photos${collectionPrefix}`, userId);
 
-  // 🔥 [추가] 학사일정 데이터 DB 연결
   const { data: academicSchedule, add: addSchedule, update: updateSchedule, remove: removeSchedule } 
     = useGoogleDriveDB(`academic_schedule${collectionPrefix}`, userId);
 
@@ -171,6 +171,7 @@ export default function App() {
     setCurrentHandbook(handbook);
     setLastHandbookId(handbook.id);
     setActiveView('dashboard');
+    setIsSidebarOpen(false); // 모바일에서 선택 후 사이드바 닫기
   };
 
   const handleUpdateAttendance = (id, data) => { if (id && !data) removeAttendance(id); else if (id && data) updateAttendance(id, data); else addAttendance(data); };
@@ -210,25 +211,45 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-      <div className={`${isSidebarOpen ? 'block' : 'hidden'} md:block h-full relative border-r border-gray-200 dark:border-gray-700`}>
+      
+      {/* 🔥 [수정] 모바일 사이드바 오버레이 */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* 🔥 [수정] 반응형 사이드바 (모바일: fixed / 데스크탑: relative) */}
+      <div className={`
+        fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-2xl md:shadow-none
+        transform transition-transform duration-300 ease-in-out
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:relative md:translate-x-0 md:w-64 md:block
+      `}>
         <Sidebar 
           activeView={activeView} 
-          setActiveView={setActiveView} 
-          onOpenSettings={() => setIsSettingsOpen(true)} 
+          setActiveView={(view) => { setActiveView(view); setIsSidebarOpen(false); }} 
+          onOpenSettings={() => { setIsSettingsOpen(true); setIsSidebarOpen(false); }} 
           user={user} 
           logout={logout} 
           handbooks={handbooks} 
           currentHandbook={currentHandbook} 
           onSelectHandbook={handleSelectHandbook} 
-          onOpenAddHandbook={() => setIsAddHandbookOpen(true)} 
-          onOpenHandbookSettings={() => setIsHandbookSettingsOpen(true)}
+          onOpenAddHandbook={() => { setIsAddHandbookOpen(true); setIsSidebarOpen(false); }} 
+          onOpenHandbookSettings={() => { setIsHandbookSettingsOpen(true); setIsSidebarOpen(false); }}
         />
       </div>
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
-        <header className="md:hidden bg-white dark:bg-gray-800 p-4 flex items-center justify-between border-b dark:border-gray-700"><span className="font-bold">{currentHandbook ? currentHandbook.title : "교무수첩 Pro"}</span><button onClick={() => setIsSidebarOpen(!isSidebarOpen)}><Menu /></button></header>
+        <header className="md:hidden bg-white dark:bg-gray-800 p-4 flex items-center justify-between border-b dark:border-gray-700 sticky top-0 z-30">
+          <span className="font-bold text-lg">{currentHandbook ? currentHandbook.title : "교무수첩 Pro"}</span>
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+            <Menu size={24}/>
+          </button>
+        </header>
 
-        <div className="flex-1 p-6 lg:p-8 overflow-y-auto">
+        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
           <div className="max-w-7xl mx-auto h-full">
             {!currentHandbook ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
@@ -287,7 +308,6 @@ export default function App() {
                 {activeView === 'consultation' && <ConsultationLog students={homeroomStudents} consultations={consultations} onAddConsultation={addConsultation} onDeleteConsultation={removeConsultation} />}
                 {activeView === 'tasks' && <TaskList todos={todos} onAddTodo={addTodo} onUpdateTodo={updateTodo} onDeleteTodo={removeTodo} />}
                 
-                {/* 🔥 [추가] 학사일정 DB 데이터 전달 */}
                 {activeView === 'schedule' && (
                   <AcademicSchedule 
                     apiKey={apiKey} 
@@ -302,6 +322,9 @@ export default function App() {
                 {activeView === 'materials' && <MaterialManager handbook={currentHandbook} />}
                 {activeView === 'meeting_logs' && <MeetingLogs logs={meetingLogs} onAddLog={addMeetingLog} onUpdateLog={updateMeetingLog} onDeleteLog={removeMeetingLog} />}
                 {activeView === 'my_timetable' && <MyTimetable timetableData={myTimetable} onUpdateTimetable={updateMyTimetable} />}
+                
+                {/* 🔥 [추가] 외부 앱 페이지 라우팅 */}
+                {activeView === 'apps' && <ExternalApps />}
               </>
             )}
           </div>

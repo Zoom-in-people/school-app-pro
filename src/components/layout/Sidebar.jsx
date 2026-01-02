@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, BookOpen, CheckSquare, 
-  MessageSquare, FileText, Settings, LogOut, ChevronDown, Plus, FolderOpen, ClipboardList, Clock 
+  MessageSquare, FileText, Settings, LogOut, ChevronDown, Plus, FolderOpen, ClipboardList, Clock, Grid 
 } from 'lucide-react';
 
 export default function Sidebar({ 
@@ -62,17 +62,19 @@ export default function Sidebar({
       items: [
         { id: 'students_subject', label: '학생 명렬표 (교과)', icon: Users },
         { id: 'lessons', label: '진도 관리', icon: BookOpen },
-        { id: 'my_timetable', label: '나의 시간표', icon: Clock }, // [신규]
+        { id: 'my_timetable', label: '나의 시간표', icon: Clock }, 
       ]
     },
     {
       title: "행정/업무",
       items: [
         { id: 'tasks', label: '업무 체크리스트', icon: CheckSquare },
-        { id: 'meeting_logs', label: '회의록', icon: ClipboardList }, // [신규]
+        { id: 'meeting_logs', label: '회의록', icon: ClipboardList }, 
         { id: 'schedule', label: '학사일정', icon: Calendar },
         { id: 'edu_plan', label: '교육계획서 분석', icon: FileText },
         { id: 'materials', label: '자료함 (드라이브)', icon: FolderOpen },
+        // 🔥 [추가] 다른 교사용 앱 버튼
+        { id: 'apps', label: '다른 교사용 앱', icon: Grid },
       ]
     },
     {
