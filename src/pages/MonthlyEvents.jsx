@@ -135,13 +135,8 @@ function getHolidays(year) {
   return holidays;
 }
 
-// 헬퍼: 음력->양력 변환기 (위 알고리즘과 연결)
 function lunarToSolar(year, m, d) {
-  // 1. 대략적인 양력 날짜 추정 (음력은 양력보다 보통 20~50일 늦음)
-  // 정밀 계산을 위해 해당 연도의 1월 1일부터 순회하며 음력 매칭
-  // (최적화를 위해 근사치에서 시작)
   let date = new Date(year, 0, 1);
-  // 최대 2년치 스캔 (안전하게)
   for(let i=0; i<730; i++) {
     const l = getLunarDate(date);
     if (!l.isLeap && l.month === m && l.day === d) return date;
@@ -151,7 +146,7 @@ function lunarToSolar(year, m, d) {
 }
 
 // =========================================================================================
-// [2] 메인 컴포넌트 (선생님 기존 로직 완벽 복구)
+// [2] 메인 컴포넌트
 // =========================================================================================
 export default function MonthlyEvents({ handbook, isHomeroom, students, attendanceLog, onUpdateAttendance, events, onUpdateEvent }) {
   const getMonthsInRange = (startDate, endDate) => {
@@ -190,7 +185,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
   const currentYear = currentMonthDate.getFullYear();
   const currentMonth = currentMonthDate.getMonth() + 1;
 
-  // 🔥 [핵심] 공휴일 자동 계산
   const holidayMap = useMemo(() => getHolidays(currentYear), [currentYear]);
   const getHolidayInfo = (day) => holidayMap[`${currentYear}-${currentMonth}-${day}`];
 
@@ -199,7 +193,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const emptyDays = Array.from({ length: firstDayOfMonth }, (_, i) => i);
 
-  // 일정 필터
   const currentEvents = events ? events.filter(e => {
     const eStart = new Date(e.startDate);
     const eEnd = new Date(e.endDate);
@@ -218,7 +211,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
     });
   };
 
-  // --- 출결 로직 (기존 완벽 복구) ---
   const getLog = (studentId, day) => {
     if (!attendanceLog) return null;
     const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -230,7 +222,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
     const dateStr = `${currentYear}-${String(currentMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const logs = attendanceLog.filter(l => l.date === dateStr);
     if (logs.length === 0) return null;
-    
     const counts = { '결석': 0, '지각': 0, '조퇴': 0, '인정': 0, '기타': 0 };
     logs.forEach(l => { 
       if (!l.type) return;
@@ -240,7 +231,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
       else if (l.type.includes('조')) counts['조퇴']++;
       else if (l.type.includes('인')) counts['인정']++;
     });
-    
     const summary = [];
     if(counts['결석']) summary.push(`결${counts['결석']}`);
     if(counts['지각']) summary.push(`지${counts['지각']}`);
@@ -262,7 +252,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
     return stats;
   };
 
-  // 모달 핸들러
   const openAddEvent = (day = 1) => {
     setTargetEvent(null);
     const dateStr = `${currentYear}-${String(currentMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
@@ -313,7 +302,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
             const isSunday = (firstDayOfMonth + day - 1) % 7 === 0;
             const isSaturday = (firstDayOfMonth + day - 1) % 7 === 6;
             
-            // 🔥 공휴일 체크
             const holidayInfo = getHolidayInfo(day);
             const isRedDay = isSunday || !!holidayInfo;
 
@@ -350,27 +338,27 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                   {daysArray.map(d => {
                     const isSunday = (firstDayOfMonth + d - 1) % 7 === 0;
                     const isHoliday = !!getHolidayInfo(d);
-                    // 🔥 공휴일이면 헤더 배경색 변경
                     return <th key={d} rowSpan="2" className={`p-1 border border-gray-200 dark:border-gray-600 min-w-[24px] ${isSunday || isHoliday ? 'text-red-500 bg-red-50 dark:bg-red-900/20' : ''}`}>{d}</th>
                   })}
-                  <th colSpan="4" className="p-1 border border-gray-200 dark:border-gray-600 bg-red-50 text-red-600 font-bold border-l-2 border-red-200">결석</th>
-                  <th colSpan="4" className="p-1 border border-gray-200 dark:border-gray-600 bg-yellow-50 text-yellow-600 font-bold border-l-2 border-yellow-200">지각</th>
-                  <th colSpan="4" className="p-1 border border-gray-200 dark:border-gray-600 bg-blue-50 text-blue-600 font-bold border-l-2 border-blue-200">조퇴</th>
-                  <th rowSpan="2" className="p-1 border border-gray-200 dark:border-gray-600 bg-purple-50 text-purple-700 font-bold border-l-2 border-purple-200">기타</th>
+                  <th colSpan="4" className="p-1 border dark:border-gray-600 bg-red-50 text-red-600 font-bold border-l-2 border-red-200">결석</th>
+                  <th colSpan="4" className="p-1 border dark:border-gray-600 bg-yellow-50 text-yellow-600 font-bold border-l-2 border-yellow-200">지각</th>
+                  <th colSpan="4" className="p-1 border dark:border-gray-600 bg-blue-50 text-blue-600 font-bold border-l-2 border-blue-200">조퇴</th>
+                  <th rowSpan="2" className="p-1 border dark:border-gray-600 bg-purple-50 text-purple-700 font-bold border-l-2 border-purple-200">기타</th>
                 </tr>
                 <tr>
-                  <th className="p-1 border border-gray-200 dark:border-gray-600 bg-red-100 text-red-800 font-bold border-l-2 border-red-200">계</th>
-                  <th className="p-1 border border-gray-200 dark:border-gray-600 bg-red-50 text-red-600">병</th>
-                  <th className="p-1 border border-gray-200 dark:border-gray-600 bg-red-50 text-red-600">미</th>
-                  <th className="p-1 border border-gray-200 dark:border-gray-600 bg-red-50 text-red-600">인</th>
-                  <th className="p-1 border border-gray-200 dark:border-gray-600 bg-yellow-100 text-yellow-800 font-bold border-l-2 border-yellow-200">계</th>
-                  <th className="p-1 border border-gray-200 dark:border-gray-600 bg-yellow-50 text-yellow-600">병</th>
-                  <th className="p-1 border border-gray-200 dark:border-gray-600 bg-yellow-50 text-yellow-600">미</th>
-                  <th className="p-1 border border-gray-200 dark:border-gray-600 bg-yellow-50 text-yellow-600">인</th>
-                  <th className="p-1 border border-gray-200 dark:border-gray-600 bg-blue-100 text-blue-800 font-bold border-l-2 border-blue-200">계</th>
-                  <th className="p-1 border border-gray-200 dark:border-gray-600 bg-blue-50 text-blue-600">병</th>
-                  <th className="p-1 border border-gray-200 dark:border-gray-600 bg-blue-50 text-blue-600">미</th>
-                  <th className="p-1 border border-gray-200 dark:border-gray-600 bg-blue-50 text-blue-600">인</th>
+                  {/* 🔥 [수정] 테두리 충돌(border-gray-200) 제거 후 특정 색상 테두리만 남김 */}
+                  <th className="p-1 border dark:border-gray-600 bg-red-100 text-red-800 font-bold border-l-2 border-red-200">계</th>
+                  <th className="p-1 border dark:border-gray-600 bg-red-50 text-red-600 border-red-200">병</th>
+                  <th className="p-1 border dark:border-gray-600 bg-red-50 text-red-600 border-red-200">미</th>
+                  <th className="p-1 border dark:border-gray-600 bg-red-50 text-red-600 border-red-200">인</th>
+                  <th className="p-1 border dark:border-gray-600 bg-yellow-100 text-yellow-800 font-bold border-l-2 border-yellow-200">계</th>
+                  <th className="p-1 border dark:border-gray-600 bg-yellow-50 text-yellow-600 border-yellow-200">병</th>
+                  <th className="p-1 border dark:border-gray-600 bg-yellow-50 text-yellow-600 border-yellow-200">미</th>
+                  <th className="p-1 border dark:border-gray-600 bg-yellow-50 text-yellow-600 border-yellow-200">인</th>
+                  <th className="p-1 border dark:border-gray-600 bg-blue-100 text-blue-800 font-bold border-l-2 border-blue-200">계</th>
+                  <th className="p-1 border dark:border-gray-600 bg-blue-50 text-blue-600 border-blue-200">병</th>
+                  <th className="p-1 border dark:border-gray-600 bg-blue-50 text-blue-600 border-blue-200">미</th>
+                  <th className="p-1 border dark:border-gray-600 bg-blue-50 text-blue-600 border-blue-200">인</th>
                 </tr>
               </thead>
               <tbody>
@@ -389,10 +377,9 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                         let colorClass = "hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer";
                         let hasNote = false;
 
-                        // 공휴일 셀 배경색 처리
                         const isSunday = (firstDayOfMonth + day - 1) % 7 === 0;
-                        const isHoliday = getHolidayName(day);
-                        if (isSunday || isHoliday) colorClass = "bg-red-50/50 dark:bg-red-900/10 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30";
+                        const holidayInfo = getHolidayInfo(day);
+                        if (isSunday || holidayInfo) colorClass = "bg-red-50/50 dark:bg-red-900/10 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30";
 
                         if (log && log.type) { 
                           content = log.type.slice(0, 1);
@@ -408,29 +395,30 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                             key={day} 
                             className={`border border-gray-100 dark:border-gray-700 ${colorClass} relative`} 
                             onClick={() => openAttPopup(student.id, day)}
-                            title={hasNote ? log.note : (isHoliday ? isHoliday : "")}
+                            title={hasNote ? log.note : (holidayInfo ? holidayInfo.name : "")}
                           >
                             {content}
                             {hasNote && <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>}
                           </td>
                         );
                       })}
-                      <td className="border border-gray-200 dark:border-gray-600 font-bold text-red-800 bg-red-100 border-l-2 border-red-200">{totalAbsence || ''}</td>
-                      <td className="border border-gray-200 dark:border-gray-600 text-red-600">{stats['병결']||''}</td>
-                      <td className="border border-gray-200 dark:border-gray-600 text-red-600">{stats['미결']||''}</td>
-                      <td className="border border-gray-200 dark:border-gray-600 text-red-600">{stats['인결']||''}</td>
+                      {/* 🔥 [수정] 통계 셀도 테두리 충돌 해결 (border-gray-200 제거) */}
+                      <td className="border dark:border-gray-600 font-bold text-red-800 bg-red-100 border-l-2 border-red-200">{totalAbsence || ''}</td>
+                      <td className="border dark:border-gray-600 text-red-600 border-red-200">{stats['병결']||''}</td>
+                      <td className="border dark:border-gray-600 text-red-600 border-red-200">{stats['미결']||''}</td>
+                      <td className="border dark:border-gray-600 text-red-600 border-red-200">{stats['인결']||''}</td>
                       
-                      <td className="border border-gray-200 dark:border-gray-600 font-bold text-yellow-800 bg-yellow-100 border-l-2 border-yellow-200">{totalLateness || ''}</td>
-                      <td className="border border-gray-200 dark:border-gray-600 text-yellow-600">{stats['병지']||''}</td>
-                      <td className="border border-gray-200 dark:border-gray-600 text-yellow-600">{stats['미지']||''}</td>
-                      <td className="border border-gray-200 dark:border-gray-600 text-yellow-600">{stats['인지']||''}</td>
+                      <td className="border dark:border-gray-600 font-bold text-yellow-800 bg-yellow-100 border-l-2 border-yellow-200">{totalLateness || ''}</td>
+                      <td className="border dark:border-gray-600 text-yellow-600 border-yellow-200">{stats['병지']||''}</td>
+                      <td className="border dark:border-gray-600 text-yellow-600 border-yellow-200">{stats['미지']||''}</td>
+                      <td className="border dark:border-gray-600 text-yellow-600 border-yellow-200">{stats['인지']||''}</td>
 
-                      <td className="border border-gray-200 dark:border-gray-600 font-bold text-blue-800 bg-blue-100 border-l-2 border-blue-200">{totalEarly || ''}</td>
-                      <td className="border border-gray-200 dark:border-gray-600 text-blue-600">{stats['병조']||''}</td>
-                      <td className="border border-gray-200 dark:border-gray-600 text-blue-600">{stats['미조']||''}</td>
-                      <td className="border border-gray-200 dark:border-gray-600 text-blue-600">{stats['인조']||''}</td>
+                      <td className="border dark:border-gray-600 font-bold text-blue-800 bg-blue-100 border-l-2 border-blue-200">{totalEarly || ''}</td>
+                      <td className="border dark:border-gray-600 text-blue-600 border-blue-200">{stats['병조']||''}</td>
+                      <td className="border dark:border-gray-600 text-blue-600 border-blue-200">{stats['미조']||''}</td>
+                      <td className="border dark:border-gray-600 text-blue-600 border-blue-200">{stats['인조']||''}</td>
 
-                      <td className="border border-gray-200 dark:border-gray-600 font-bold text-purple-700 bg-purple-50 border-l-2 border-purple-200">{stats['기타']||''}</td>
+                      <td className="border dark:border-gray-600 font-bold text-purple-700 bg-purple-50 border-l-2 border-purple-200">{stats['기타']||''}</td>
                     </tr>
                   );
                 }) : <tr><td colSpan={daysInMonth + 14} className="p-4 text-gray-400">학생 명부가 없습니다.</td></tr>}
