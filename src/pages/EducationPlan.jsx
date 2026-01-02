@@ -24,7 +24,7 @@ export default function EducationPlan({ apiKey }) {
     if (!uploadedFile) return;
 
     if (!apiKey) {
-      alert("API 키가 설정되지 않았습니다. 설정 메뉴에서 키를 먼저 등록해주세요.");
+      alert("API 키가 설정되지 않았습니다. [설정] 메뉴에서 API 키를 먼저 등록해주세요.");
       return;
     }
 
@@ -34,7 +34,7 @@ export default function EducationPlan({ apiKey }) {
     setError(null);
 
     try {
-      // 1. 파일 데이터 준비
+      // 1. 파일 데이터 준비 (Base64 변환)
       const filePart = await fileToGenerativePart(uploadedFile);
 
       // 2. 강력한 페르소나 프롬프트 적용
@@ -56,8 +56,9 @@ export default function EducationPlan({ apiKey }) {
         - 내용은 너무 짧지 않게, 충분한 정보를 담아주세요.
       `;
 
-      // 3. Gemini API 호출 (1.5 Flash 모델 사용)
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      // 3. Gemini API 호출
+      // 모델명을 'gemini-1.5-flash-latest'로 변경하여 안정성 확보
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -72,17 +73,23 @@ export default function EducationPlan({ apiKey }) {
       });
 
       if (!response.ok) {
-        throw new Error(`API 호출 실패: ${response.status}`);
+        const errorData = await response.json();
+        console.error("API Error Details:", errorData);
+        throw new Error(`API 호출 실패 (${response.status}): ${errorData.error?.message || "알 수 없는 오류"}`);
       }
 
       const data = await response.json();
-      const text = data.candidates[0].content.parts[0].text;
       
+      if (!data.candidates || data.candidates.length === 0) {
+        throw new Error("AI가 응답을 생성하지 못했습니다. (보안 정책 등으로 차단됨)");
+      }
+
+      const text = data.candidates[0].content.parts[0].text;
       setResult(text);
 
     } catch (err) {
       console.error(err);
-      setError("분석 중 오류가 발생했습니다. 파일이 너무 크거나 API 키를 확인해주세요.");
+      setError(`분석 실패: ${err.message}`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -136,7 +143,9 @@ export default function EducationPlan({ apiKey }) {
             ) : error ? (
               <div className="h-full flex flex-col items-center justify-center text-red-500 gap-2">
                 <AlertCircle size={48}/>
-                <p className="font-bold">{error}</p>
+                <p className="font-bold text-lg">오류가 발생했습니다</p>
+                <p className="text-sm text-center max-w-md bg-red-50 p-3 rounded-lg border border-red-200">{error}</p>
+                <p className="text-xs text-gray-400 mt-2">💡 팁: API 키가 올바른지 설정에서 확인해보세요.</p>
               </div>
             ) : (
               <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4">

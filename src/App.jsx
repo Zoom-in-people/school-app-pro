@@ -127,9 +127,12 @@ export default function App() {
   const { data: myTimetable, update: updateMyTimetable } 
     = useGoogleDriveDB(`my_timetable${collectionPrefix}`, userId);
 
-  // 🔥 [수정] remove(삭제) 함수도 가져옴
   const { data: classPhotos, add: addClassPhoto, update: updateClassPhoto, remove: removeClassPhoto } 
     = useGoogleDriveDB(`class_photos${collectionPrefix}`, userId);
+
+  // 🔥 [추가] 학사일정 데이터 DB 연결
+  const { data: academicSchedule, add: addSchedule, update: updateSchedule, remove: removeSchedule } 
+    = useGoogleDriveDB(`academic_schedule${collectionPrefix}`, userId);
 
   const handleCreateHandbook = async (data) => {
     try {
@@ -276,14 +279,25 @@ export default function App() {
                     classPhotos={classPhotos} 
                     onAddClassPhoto={addClassPhoto}
                     onUpdateClassPhoto={updateClassPhoto}
-                    onDeleteClassPhoto={removeClassPhoto} // 🔥 [수정] 삭제 함수 전달
+                    onDeleteClassPhoto={removeClassPhoto}
                   />
                 )}
                 
                 {activeView === 'lessons' && <LessonManager lessonGroups={lessonGroups} onAddGroup={addLessonGroup} onUpdateGroup={updateLessonGroup} onDeleteGroup={removeLessonGroup} />}
                 {activeView === 'consultation' && <ConsultationLog students={homeroomStudents} consultations={consultations} onAddConsultation={addConsultation} onDeleteConsultation={removeConsultation} />}
                 {activeView === 'tasks' && <TaskList todos={todos} onAddTodo={addTodo} onUpdateTodo={updateTodo} onDeleteTodo={removeTodo} />}
-                {activeView === 'schedule' && <AcademicSchedule apiKey={apiKey} />}
+                
+                {/* 🔥 [수정] 학사일정 Props 전달 (CRUD 함수) */}
+                {activeView === 'schedule' && (
+                  <AcademicSchedule 
+                    apiKey={apiKey} 
+                    scheduleData={academicSchedule} 
+                    onUpdateSchedule={updateSchedule}
+                    onAddSchedule={addSchedule}
+                    onDeleteSchedule={removeSchedule}
+                  />
+                )}
+                
                 {activeView === 'edu_plan' && <EducationPlan apiKey={apiKey} />}
                 {activeView === 'materials' && <MaterialManager handbook={currentHandbook} />}
                 {activeView === 'meeting_logs' && <MeetingLogs logs={meetingLogs} onAddLog={addMeetingLog} onUpdateLog={updateMeetingLog} onDeleteLog={removeMeetingLog} />}
