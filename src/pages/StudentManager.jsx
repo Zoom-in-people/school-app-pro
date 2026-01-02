@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Search, Plus, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, FileText, BookOpen, StickyNote, Image as ImageIcon, Upload, CheckCircle } from 'lucide-react';
+import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, AlertTriangle, FileText, BookOpen, StickyNote, Image as ImageIcon, Upload, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { uploadFileToDrive } from '../utils/googleDrive';
 
@@ -7,7 +7,7 @@ export default function StudentManager({
   students = [], onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, onUpdateStudentsMany, 
   onSetAllStudents, 
   apiKey, isHomeroomView,
-  classPhotos = [], onAddClassPhoto, onUpdateClassPhoto, onDeleteClassPhoto // 🔥 [필수] 삭제 함수 포함
+  classPhotos = [], onAddClassPhoto, onUpdateClassPhoto, onDeleteClassPhoto 
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -15,7 +15,7 @@ export default function StudentManager({
   const [editingStudent, setEditingStudent] = useState(null);
   const [isCreatingSheet, setIsCreatingSheet] = useState(false);
   
-  // 🔥 [수정] 통합된 반 필터 (예: "1-1")
+  // 통합된 반 필터 (예: "1-1")
   const [activeClassFilter, setActiveClassFilter] = useState(null);
 
   const fileInputRef = useRef(null);
@@ -27,6 +27,7 @@ export default function StudentManager({
   const uniqueClassKeys = useMemo(() => {
     const keys = new Set();
     safeStudents.forEach(s => {
+      // 데이터가 숫자여도 문자열로 변환하여 키 생성
       if (s.grade && s.class) keys.add(`${s.grade}-${s.class}`);
     });
     // 정렬 (학년 -> 반 순서)
@@ -38,7 +39,7 @@ export default function StudentManager({
     });
   }, [safeStudents]);
 
-  // 필터링 로직
+  // 🔥 [핵심 수정] 필터링 로직 (타입 불일치 해결)
   const filteredStudents = useMemo(() => {
     return safeStudents.filter(student => {
       const matchesSearch = 
@@ -48,10 +49,11 @@ export default function StudentManager({
       
       if (!matchesSearch) return false;
 
-      // 🔥 교과일 경우 선택된 반만 표시
+      // 교과일 경우 선택된 반만 표시
       if (!isHomeroomView && activeClassFilter) {
         const [g, c] = activeClassFilter.split('-');
-        if (student.grade !== g || student.class !== c) return false;
+        // ⚠️ 여기가 문제였습니다. String()으로 감싸서 문자/숫자 차이를 없앱니다.
+        if (String(student.grade) !== String(g) || String(student.class) !== String(c)) return false;
       }
       return true;
     }).sort((a, b) => {
@@ -63,7 +65,7 @@ export default function StudentManager({
     });
   }, [safeStudents, searchTerm, activeClassFilter, isHomeroomView]);
 
-  // 🔥 현재 선택된 반의 사진명렬표 데이터
+  // 현재 선택된 반의 사진명렬표 데이터
   const currentClassPhoto = activeClassFilter && classPhotos ? classPhotos.find(p => p.id === activeClassFilter) : null;
 
   // 사진 명렬표 업로드
@@ -71,7 +73,6 @@ export default function StudentManager({
     const file = e.target.files[0];
     if (!file || !activeClassFilter) return;
 
-    // PDF 확인
     if (file.type !== 'application/pdf') {
       alert("PDF 파일만 업로드 가능합니다.");
       return;
@@ -105,7 +106,7 @@ export default function StudentManager({
   const handleRosterDelete = () => {
     if (!currentClassPhoto || !onDeleteClassPhoto) return;
     if (window.confirm("사진 명렬표 파일을 삭제하시겠습니까?")) {
-      onDeleteClassPhoto(currentClassPhoto.id); // id는 '1-1' 형태
+      onDeleteClassPhoto(currentClassPhoto.id); 
     }
   };
 
@@ -148,9 +149,9 @@ export default function StudentManager({
           };
 
           const existingIndex = finalStudents.findIndex(s => 
-            s.grade === studentData.grade && 
-            s.class === studentData.class && 
-            s.number === studentData.number
+            String(s.grade) === studentData.grade && 
+            String(s.class) === studentData.class && 
+            String(s.number) === studentData.number
           );
 
           if (existingIndex !== -1) {
@@ -317,7 +318,7 @@ export default function StudentManager({
         </div>
       </div>
 
-      {/* 툴바 (사진 업로드 버튼 삭제됨) */}
+      {/* 툴바 */}
       <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 items-center">
         <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
           <FileSpreadsheet size={16} className="text-green-600"/> 엑셀 업로드
@@ -340,7 +341,7 @@ export default function StudentManager({
         </button>
       </div>
 
-      {/* 🔥 [변경] 통합된 학년-반 필터 버튼 */}
+      {/* 🔥 통합된 학년-반 필터 버튼 */}
       {!isHomeroomView && uniqueClassKeys.length > 0 && (
         <div className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-top-2">
           {uniqueClassKeys.map(key => {
@@ -359,7 +360,7 @@ export default function StudentManager({
         </div>
       )}
 
-      {/* 🔥 [신규] 반별 사진 명렬표 패널 (필터 선택 시에만 표시) */}
+      {/* 🔥 반별 사진 명렬표 패널 */}
       {activeClassFilter && (
         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 p-4 rounded-2xl border border-indigo-100 dark:border-gray-600 shadow-sm animate-in slide-in-from-top-4">
           <div className="flex justify-between items-center mb-3">
@@ -505,9 +506,6 @@ export default function StudentManager({
   );
 }
 
-// --------------------------------------------------------------------------------
-// [하위 컴포넌트] 학생 추가/수정 모달
-// --------------------------------------------------------------------------------
 function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   const [formData, setFormData] = useState({ 
     grade: '1', class: '1', number: '1', name: '', phone: '', parent_phone: '', gender: 'male', 
@@ -588,9 +586,6 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   );
 }
 
-// --------------------------------------------------------------------------------
-// [하위 컴포넌트] 일괄 작성 모달
-// --------------------------------------------------------------------------------
 function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudentsMany }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState('');
@@ -603,13 +598,7 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
     setProgress(`대상 학생 ${targets.length}명의 데이터를 처리 중입니다...`);
     try {
       const promptData = targets.map(s => ({ id: s.id, name: s.name, note: s.record_note }));
-      const systemPrompt = `너는 초등학교와 고등학교에서 모두 20년 경력을 가진 베테랑 교사야. 
-      아래 학생들의 [이름, 기초자료]를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘. 
-      [작성 규칙] 
-      1. 문체: 반드시 '~함.', '~임.', '~보임.', '~기대됨.' 등으로 끝나는 명사형 종결 어미(개조식)를 사용할 것. (절대 '~합니다'체 금지)
-      2. 분량: 학생당 3~4문장. 
-      3. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘. 다른 말은 절대 하지 마.** [응답형식] [{"id": "...", "remark": "..."}]`;
-      
+      const systemPrompt = `너는 초등학교와 고등학교에서 모두 20년 경력을 가진 베테랑 교사야. 아래 학생들의 [이름, 기초자료]를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘. [작성 규칙] 1. 문체: 반드시 '~함.', '~임.', '~보임.', '~기대됨.' 등으로 끝나는 명사형 종결 어미(개조식)를 사용할 것. (절대 '~합니다'체 금지) 2. 분량: 학생당 3~4문장. 3. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘. 다른 말은 절대 하지 마.** [응답형식] [{"id": "...", "remark": "..."}]`;
       const userPrompt = JSON.stringify(promptData);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }] }) });
@@ -624,12 +613,8 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
         const student = students.find(s => String(s.id) === String(res.id));
         if (student) { updates.push({ id: student.id, fields: { ai_remark: res.remark } }); }
       }
-      if (updates.length > 0) {
-        await onUpdateStudentsMany(updates);
-        alert(`${updates.length}명의 특기사항이 일괄 생성 및 저장되었습니다!`);
-      } else {
-        alert("생성된 데이터와 학생 ID 매칭에 실패했습니다.");
-      }
+      if (updates.length > 0) { await onUpdateStudentsMany(updates); alert(`${updates.length}명의 특기사항이 일괄 생성 및 저장되었습니다!`); } 
+      else { alert("생성된 데이터와 학생 ID 매칭에 실패했습니다."); }
       onClose();
     } catch (error) { console.error("Batch Error:", error); alert(`오류가 발생했습니다: ${error.message}`); } finally { setLoading(false); setProgress(''); }
   };
