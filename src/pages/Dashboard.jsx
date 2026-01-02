@@ -17,7 +17,6 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [targetStudent, setTargetStudent] = useState(null);
   
-  // 출결 팝업 상태
   const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, note: "" });
   const [isEditMode, setIsEditMode] = useState(false);
   
@@ -72,15 +71,7 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     onUpdateLessonGroup(groupId, { status: newStatus });
   };
 
-  const handleAddSpacer = (cols) => {
-    // 새 위젯 추가 시 맨 아래(y: Infinity)로 보냄
-    addWidget({ type: 'spacer', colSpan: cols, w: cols, h: 1, x: 0, y: Infinity });
-  };
-
   const renderWidgetContent = (widget) => {
-    if (widget.type === 'spacer') {
-      return <div className={`w-full h-full rounded-xl flex items-center justify-center transition-all ${isEditMode ? 'border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400' : 'opacity-0'}`}>{isEditMode && <span className="text-xs font-bold">빈 공간</span>}</div>;
-    }
     switch (widget.type) {
       case 'lunch': return <LunchWidget schoolInfo={schoolInfo || {}} />;
       case 'deadline': return (<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 h-full overflow-hidden"><div className="flex justify-between items-center mb-4"><h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2"><AlertTriangle size={18} className="text-red-500"/> 업무 체크</h4><button onClick={() => setActiveView('tasks')} className="text-xs text-gray-400 hover:text-indigo-500">전체보기</button></div><div className="space-y-3">{todos.slice(0, 5).map(todo => (<div key={todo.id} className={`flex items-start gap-3 p-2 rounded-lg transition ${todo.done ? 'opacity-50' : ''}`}><input type="checkbox" checked={todo.done} readOnly className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"/><div className="flex-1"><p className={`text-sm font-medium ${todo.done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{todo.title}</p><span className="text-xs text-red-500 font-medium">{todo.done ? '완료' : 'D-Day'}</span></div></div>))}</div></div>);
@@ -97,10 +88,17 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
                   let statusText = "-"; let statusClass = "bg-gray-100 text-gray-500 hover:bg-gray-200"; let hasNote = false;
                   if (log) {
                     hasNote = !!log.note;
-                    if (log.type.includes('결')) { statusText = "병결"; statusClass = "bg-red-100 text-red-700"; }
-                    else if (log.type.includes('지')) { statusText = "지각"; statusClass = "bg-yellow-100 text-yellow-700"; }
-                    else if (log.type.includes('조')) { statusText = "조퇴"; statusClass = "bg-blue-100 text-blue-700"; }
-                    else { statusText = log.type; statusClass = "bg-purple-100 text-purple-700"; }
+                    const t = log.type;
+                    if (t.includes('병결')) { statusText = "병결"; statusClass = "bg-red-100 text-red-700"; }
+                    else if (t.includes('미결')) { statusText = "미결"; statusClass = "bg-red-200 text-red-800"; }
+                    else if (t.includes('인결')) { statusText = "인결"; statusClass = "bg-green-100 text-green-700"; }
+                    else if (t.includes('병지')) { statusText = "병지"; statusClass = "bg-yellow-100 text-yellow-700"; }
+                    else if (t.includes('미지')) { statusText = "미지"; statusClass = "bg-yellow-200 text-yellow-800"; }
+                    else if (t.includes('인지')) { statusText = "인지"; statusClass = "bg-green-50 text-green-600"; }
+                    else if (t.includes('병조')) { statusText = "병조"; statusClass = "bg-blue-100 text-blue-700"; }
+                    else if (t.includes('미조')) { statusText = "미조"; statusClass = "bg-blue-200 text-blue-800"; }
+                    else if (t.includes('인조')) { statusText = "인조"; statusClass = "bg-green-50 text-green-600"; }
+                    else if (t === '기타') { statusText = "기타"; statusClass = "bg-purple-100 text-purple-700"; }
                   }
                   return (
                     <tr key={student.id} className="border-b border-gray-50 dark:border-gray-700/50">
@@ -137,6 +135,27 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     }
   };
 
+  // 🔥 [핵심] 위젯 위치 강제 할당 (오염된 데이터 무시)
+  const forcedWidgets = useMemo(() => {
+    // 위젯 타입별 고정 좌표 정의
+    const config = {
+      'lunch':    { x: 0, y: 0, w: 3, h: 2 },  // 1-3칸
+      'deadline': { x: 3, y: 0, w: 3, h: 2 },  // 4-6칸
+      'lesson':   { x: 6, y: 0, w: 3, h: 2 },  // 7-9칸
+      'student':  { x: 9, y: 0, w: 3, h: 2 },  // 10-12칸
+      'progress': { x: 0, y: 2, w: 12, h: 2 }, // 2열 전체
+    };
+
+    // 현재 위젯 목록에 강제 좌표 적용
+    return widgets.map(w => {
+      const fixedPos = config[w.type];
+      if (fixedPos) {
+        return { ...w, ...fixedPos };
+      }
+      return w; // 정의되지 않은 위젯은 그대로 (혹은 숨김)
+    });
+  }, [widgets]);
+
   const rglStyles = `
     .react-grid-layout { position: relative; transition: height 200ms ease; }
     .react-grid-item { transition: all 200ms ease; transition-property: left, top; }
@@ -146,76 +165,51 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     .react-resizable-handle { position: absolute; width: 20px; height: 20px; bottom: 0; right: 0; cursor: se-resize; }
   `;
 
-  // 🔥 [긴급 수정] 오염된 좌표 데이터 자동 복구 로직
-  // 모든 위젯이 x=0, y=0에 몰려 있다면, 강제로 인덱스 기반 좌표를 할당합니다.
-  const checkWidgets = useMemo(() => {
-    // 모든 위젯의 좌표가 0이거나 없는지 검사
-    const isCorrupted = widgets.length > 1 && widgets.every(w => (!w.x && !w.y) || (w.x === 0 && w.y === 0));
-    
-    if (isCorrupted) {
-      console.warn("⚠️ 레이아웃 데이터 오염 감지: 자동 복구 실행");
-      return widgets.map((w, i) => ({
-        ...w,
-        x: (i * 2) % 12, // 2칸씩 가로 배치
-        y: Math.floor((i * 2) / 12) * 2, // 줄바꿈
-        w: w.w || 2,
-        h: w.h || 2
-      }));
-    }
-    return widgets;
-  }, [widgets]);
-
   return (
     <div className="relative pb-20">
       <style>{rglStyles}</style>
 
+      {/* 헤더 버튼 영역 */}
       <div className="flex justify-end mb-4 gap-2">
-        {isEditMode && (
-          <div className="flex items-center gap-2 bg-indigo-50 dark:bg-gray-700 px-3 py-1 rounded-lg border border-indigo-100 dark:border-gray-600 animate-in fade-in slide-in-from-right-4">
-            <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 mr-1">위젯 추가:</span>
-            <button onClick={() => handleAddSpacer(2)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded" title="빈 공간 (2칸)"><Layout size={16} className="text-gray-500 dark:text-gray-300"/></button>
-            <button onClick={() => handleAddSpacer(12)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded" title="줄바꿈 (12칸)"><RotateCcw className="rotate-90" size={16}/></button>
-          </div>
-        )}
         <button onClick={() => setIsEditMode(!isEditMode)} className={`text-xs flex items-center gap-1 px-3 py-2 rounded-lg font-bold shadow-sm transition ${isEditMode ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:text-indigo-600'}`}>
           {isEditMode ? <CheckCircle size={14}/> : <Edit3 size={14}/>} {isEditMode ? '편집 완료' : '화면 편집'}
         </button>
-        <button onClick={resetLayout} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-sm font-bold"><RotateCcw size={12}/> 초기화</button>
       </div>
 
       <ResponsiveGridLayout
         className="layout"
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        // 🔥 PC는 가로 배치(12칸), 모바일은 세로 배치(1칸)
-        cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} 
+        // 🔥 모바일에서는 1열, PC에서는 12열
+        cols={{ lg: 12, md: 12, sm: 6, xs: 1, xxs: 1 }} 
         rowHeight={100} 
-        compactType="vertical" // 🔥 겹침 방지 (필수)
-        preventCollision={false} 
+        // 🔥 겹침 방지 필수
+        compactType="vertical"
+        // 🔥 편집 모드일 때만 드래그 허용 (하지만 좌표가 강제되므로 사실상 고정)
         isDraggable={isEditMode}
         isResizable={isEditMode}
         draggableHandle=".drag-handle"
-        onLayoutChange={(layout) => onLayoutChange(layout)}
         margin={[16, 16]}
+        // 🔥 레이아웃 변경 시 저장을 막거나 필터링 (강제 배치 유지)
+        onLayoutChange={() => {}} 
       >
-        {checkWidgets.map((widget) => {
+        {forcedWidgets.map((widget) => {
           if (!isHomeroom && widget.type === 'student') return <div key={widget.id} className="hidden"></div>;
           
           return (
             <div 
               key={widget.id} 
-              // 🔥 data-grid를 통해 좌표를 강제 주입 (오염된 데이터도 여기서 보정됨)
+              // 🔥 데이터 그리드 속성에 강제 좌표 주입
               data-grid={{
-                x: widget.x, y: widget.y, w: widget.w || 2, h: widget.h || 2,
-                minW: 1, minH: 1
+                x: widget.x, y: widget.y, w: widget.w, h: widget.h,
+                i: widget.id, static: !isEditMode // 편집 모드 아닐 땐 고정
               }}
               className="bg-transparent"
             >
               <div className="h-full relative group">
                 {isEditMode && (
-                  <>
-                    <div className="drag-handle absolute top-2 right-2 z-50 p-1 bg-gray-100 dark:bg-gray-700 rounded cursor-move text-gray-400 hover:text-indigo-600 shadow-sm border border-gray-200 dark:border-gray-600"><Grip size={16}/></div>
-                    {widget.type === 'spacer' && <button onClick={() => deleteWidget(widget.id)} className="absolute -top-2 -left-2 bg-red-500 text-white rounded-full p-1 shadow-md z-50 hover:bg-red-600"><X size={14}/></button>}
-                  </>
+                  <div className="drag-handle absolute top-2 right-2 z-50 p-1 bg-gray-100 dark:bg-gray-700 rounded cursor-move text-gray-400 hover:text-indigo-600 shadow-sm border border-gray-200 dark:border-gray-600">
+                    <Grip size={16}/>
+                  </div>
                 )}
                 {renderWidgetContent(widget)}
               </div>
