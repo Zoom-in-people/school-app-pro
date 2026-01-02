@@ -39,7 +39,7 @@ export default function StudentManager({
     });
   }, [safeStudents]);
 
-  // 🔥 [핵심 수정] 필터링 로직 (타입 불일치 해결)
+  // 필터링 로직 (타입 불일치 해결)
   const filteredStudents = useMemo(() => {
     return safeStudents.filter(student => {
       const matchesSearch = 
@@ -52,7 +52,6 @@ export default function StudentManager({
       // 교과일 경우 선택된 반만 표시
       if (!isHomeroomView && activeClassFilter) {
         const [g, c] = activeClassFilter.split('-');
-        // ⚠️ 여기가 문제였습니다. String()으로 감싸서 문자/숫자 차이를 없앱니다.
         if (String(student.grade) !== String(g) || String(student.class) !== String(c)) return false;
       }
       return true;
@@ -286,7 +285,8 @@ export default function StudentManager({
   };
 
   return (
-    <div className="h-full flex flex-col space-y-4">
+    // 🔥 [수정] h-full 제거, padding-bottom 추가하여 페이지 스크롤 허용
+    <div className="flex flex-col space-y-4 pb-20">
       {/* 헤더 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -341,7 +341,7 @@ export default function StudentManager({
         </button>
       </div>
 
-      {/* 🔥 통합된 학년-반 필터 버튼 */}
+      {/* 통합된 학년-반 필터 버튼 */}
       {!isHomeroomView && uniqueClassKeys.length > 0 && (
         <div className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-top-2">
           {uniqueClassKeys.map(key => {
@@ -360,7 +360,7 @@ export default function StudentManager({
         </div>
       )}
 
-      {/* 🔥 반별 사진 명렬표 패널 */}
+      {/* 반별 사진 명렬표 패널 */}
       {activeClassFilter && (
         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 p-4 rounded-2xl border border-indigo-100 dark:border-gray-600 shadow-sm animate-in slide-in-from-top-4">
           <div className="flex justify-between items-center mb-3">
@@ -401,9 +401,9 @@ export default function StudentManager({
         </div>
       )}
 
-      {/* 테이블 */}
-      <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
-        <div className="overflow-x-auto flex-1">
+      {/* 테이블 (🔥 [수정] overflow-hidden 제거) */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col">
+        <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50 dark:bg-gray-700/50 sticky top-0 z-10">
               <tr>
@@ -598,7 +598,13 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
     setProgress(`대상 학생 ${targets.length}명의 데이터를 처리 중입니다...`);
     try {
       const promptData = targets.map(s => ({ id: s.id, name: s.name, note: s.record_note }));
-      const systemPrompt = `너는 초등학교와 고등학교에서 모두 20년 경력을 가진 베테랑 교사야. 아래 학생들의 [이름, 기초자료]를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘. [작성 규칙] 1. 문체: 반드시 '~함.', '~임.', '~보임.', '~기대됨.' 등으로 끝나는 명사형 종결 어미(개조식)를 사용할 것. (절대 '~합니다'체 금지) 2. 분량: 학생당 3~4문장. 3. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘. 다른 말은 절대 하지 마.** [응답형식] [{"id": "...", "remark": "..."}]`;
+      const systemPrompt = `너는 초등학교와 고등학교에서 모두 20년 경력을 가진 베테랑 교사야. 
+      아래 학생들의 [이름, 기초자료]를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘. 
+      [작성 규칙] 
+      1. 문체: 반드시 '~함.', '~임.', '~보임.', '~기대됨.' 등으로 끝나는 명사형 종결 어미(개조식)를 사용할 것. (절대 '~합니다'체 금지)
+      2. 분량: 학생당 3~4문장. 
+      3. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘. 다른 말은 절대 하지 마.** [응답형식] [{"id": "...", "remark": "..."}]`;
+      
       const userPrompt = JSON.stringify(promptData);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }] }) });
@@ -613,8 +619,12 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
         const student = students.find(s => String(s.id) === String(res.id));
         if (student) { updates.push({ id: student.id, fields: { ai_remark: res.remark } }); }
       }
-      if (updates.length > 0) { await onUpdateStudentsMany(updates); alert(`${updates.length}명의 특기사항이 일괄 생성 및 저장되었습니다!`); } 
-      else { alert("생성된 데이터와 학생 ID 매칭에 실패했습니다."); }
+      if (updates.length > 0) {
+        await onUpdateStudentsMany(updates);
+        alert(`${updates.length}명의 특기사항이 일괄 생성 및 저장되었습니다!`);
+      } else {
+        alert("생성된 데이터와 학생 ID 매칭에 실패했습니다.");
+      }
       onClose();
     } catch (error) { console.error("Batch Error:", error); alert(`오류가 발생했습니다: ${error.message}`); } finally { setLoading(false); setProgress(''); }
   };
