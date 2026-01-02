@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { FileText, Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, Square, Layout, MessageSquare } from 'lucide-react';
-import DashboardWidget from '../components/widgets/DashboardWidget';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
 
@@ -18,7 +17,7 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [targetStudent, setTargetStudent] = useState(null);
   
-  // 🔥 [수정] 출결 팝업 상태에 note 추가
+  // 출결 팝업 상태
   const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, note: "" });
   const [isEditMode, setIsEditMode] = useState(false);
   
@@ -33,7 +32,6 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   };
   const todayStr = getTodayDateString();
 
-  // 🔥 [수정] 팝업 열기 (기존 메모 불러오기)
   const openAttPopup = (studentId) => {
     const existing = attendanceLog?.find(l => l.studentId === studentId && l.date === todayStr);
     setAttPopup({ 
@@ -43,15 +41,14 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     });
   };
 
-  // 🔥 [수정] 출결 및 메모 저장
   const saveAttendance = (type) => {
     if (!attPopup.studentId) return;
     
     const existing = attendanceLog?.find(l => l.studentId === attPopup.studentId && l.date === todayStr);
-    const { note } = attPopup; // 입력된 메모
+    const { note } = attPopup;
 
     if (type === 'reset') {
-      if (existing) onUpdateAttendance(existing.id, null); // 삭제
+      if (existing) onUpdateAttendance(existing.id, null); 
     } else {
       const data = { studentId: attPopup.studentId, date: todayStr, type, note };
       if (existing) onUpdateAttendance(existing.id, { ...existing, type, note });
@@ -220,16 +217,16 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
         className="layout"
         layouts={{ lg: layout }}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        // 🔥 [수정 1] 모바일(xs, xxs)에서는 무조건 1열(세로 정렬)로 강제
+        // 🔥 [모바일 1열 강제]
         cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} 
         rowHeight={100} 
-        // 🔥 [수정 2] width={1200} 삭제 -> 부모 컨테이너 크기에 자동 맞춤
-        // 🔥 [수정 3] 편집 모드(isEditMode)일 때만 드래그/리사이즈 허용
+        // 🔥 [겹침 방지 핵심] vertical로 설정하여 위젯이 차곡차곡 쌓이게 함 (겹침 해결)
+        compactType="vertical"
+        // 🔥 [잠금 기능] 편집 모드일 때만 드래그/리사이즈 허용
         isDraggable={isEditMode} 
         isResizable={isEditMode} 
-        draggableHandle=".drag-handle" // 핸들로만 드래그 가능하게 (안전장치)
-        compactType={null} 
-        preventCollision={true}
+        draggableHandle=".drag-handle" 
+        preventCollision={false}
         onLayoutChange={(newLayout) => onLayoutChange(newLayout)}
         margin={[16, 16]}
       >

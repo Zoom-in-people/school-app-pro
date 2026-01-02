@@ -1,144 +1,163 @@
 import React, { useState } from 'react';
-import { Users, Plus, Trash2, Edit2, X } from 'lucide-react';
+import { Search, Plus, Calendar, User, MessageSquare, Tag, Trash2, X, Save, Filter } from 'lucide-react';
 
-function ConsultationModal({ isOpen, onClose, students, preSelectedId, onSave, initialData }) {
-  const [formData, setFormData] = useState(initialData || {
-    studentId: preSelectedId || (students[0] ? students[0].id : ""),
-    date: new Date().toISOString().split('T')[0],
-    category: "진로", content: "", action: ""
-  });
-
-  // 초기 데이터가 변경되면 폼 업데이트 (수정 모드 진입 시)
-  React.useEffect(() => {
-    if (initialData) setFormData(initialData);
-    else setFormData({ studentId: preSelectedId || (students[0]?.id || ""), date: new Date().toISOString().split('T')[0], category: "진로", content: "", action: "" });
-  }, [initialData, preSelectedId, students, isOpen]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-indigo-600 text-white">
-          <h3 className="font-bold text-lg">{initialData ? "상담 기록 수정" : "상담 기록 작성"}</h3>
-          <button onClick={onClose}><X size={20}/></button>
-        </div>
-        <div className="p-6 space-y-4 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold mb-1 dark:text-gray-300">학생 선택</label>
-              <select value={formData.studentId} onChange={e => setFormData({...formData, studentId: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white">
-                {students.map(s => <option key={s.id} value={s.id}>{s.grade}-{s.class}-{s.number} {s.name}</option>)}
-              </select>
-            </div>
-            <div>
-               <label className="block text-sm font-bold mb-1 dark:text-gray-300">날짜</label>
-               <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white"/>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-bold mb-1 dark:text-gray-300">카테고리</label>
-            <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white">
-              {["진로", "학업", "교우관계", "생활", "행동특성", "기타"].map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-bold mb-1 dark:text-gray-300">내용</label>
-            <textarea value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} className="w-full p-3 border rounded h-24 dark:bg-gray-700 dark:text-white" placeholder="상담 내용"/>
-          </div>
-          <div>
-            <label className="block text-sm font-bold mb-1 dark:text-gray-300">조치사항</label>
-            <textarea value={formData.action} onChange={e => setFormData({...formData, action: e.target.value})} className="w-full p-3 border rounded h-16 dark:bg-gray-700 dark:text-white" placeholder="조치 사항"/>
-          </div>
-        </div>
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-          <button onClick={() => { onSave(formData); onClose(); }} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700">저장하기</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function ConsultationLog({ students, consultations, onAddConsultation, onDeleteConsultation }) {
-  const [selectedStudentId, setSelectedStudentId] = useState(null);
+export default function ConsultationLog({ students = [], consultations = [], onAddConsultation, onDeleteConsultation }) {
+  const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingLog, setEditingLog] = useState(null); // 수정할 로그
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [formData, setFormData] = useState({ date: new Date().toISOString().split('T')[0], type: 'student', content: '', category: '생활' });
 
-  const filteredLogs = selectedStudentId ? consultations.filter(c => c.studentId === selectedStudentId) : consultations;
-  filteredLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
+  const filteredLogs = consultations.filter(log => {
+    const student = students.find(s => s.id === log.studentId);
+    const studentName = student ? student.name : '삭제된 학생';
+    return studentName.includes(searchTerm) || log.content.includes(searchTerm);
+  }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  // 🔥 수정/추가 핸들러 통합
-  const handleSave = (data) => {
-    if (editingLog) {
-      // 수정: 기존 데이터 삭제 후 추가 (Firestore update 함수를 별도로 받는게 정석이지만, 여기선 onAddConsultation이 update 역할도 한다고 가정하거나, 삭제 후 추가 방식 사용)
-      // 하지만 App.jsx의 onAddConsultation은 addDoc만 하므로, 여기서는 App.jsx를 수정하기보다, 삭제 후 추가 방식을 쓰거나 (비효율), App.jsx에서 update함수를 받아야 함.
-      // -> 가장 깔끔한건 App.jsx에서 updateConsultation을 내려주는 것.
-      // (App.jsx 수정 없이 하려면 삭제 후 추가)
-      onDeleteConsultation(editingLog.id); // 기존 삭제
-      onAddConsultation(data); // 새 데이터 추가 (ID 변경됨)
-      // *참고: ID 유지가 중요하다면 App.jsx의 update 함수를 사용해야 합니다. 일단 기존 구조상 삭제/추가로 구현.
-    } else {
-      onAddConsultation(data);
-    }
-    setEditingLog(null);
-  };
-  
-  // * 개선: App.jsx에서 update 함수를 안 받으므로, ID 유지를 위해 onAddConsultation이 ID가 있으면 update하도록 App.jsx를 수정했는지 확인.
-  // 아까 App.jsx 전체 코드에서 `onAddConsultation={addConsultation}`만 되어있음. 
-  // 상담 수정 기능을 완벽히 하려면 App.jsx에서 `updateConsultation`을 넘겨줘야 함.
-  // 여기서는 일단 삭제 -> 추가 로직으로 구현합니다.
-
-  const openEdit = (log) => {
-    setEditingLog(log);
-    setIsModalOpen(true);
+  const handleSave = () => {
+    if (!selectedStudentId) { alert("학생을 선택해주세요."); return; }
+    if (!formData.content) { alert("상담 내용을 입력해주세요."); return; }
+    
+    onAddConsultation({
+      studentId: selectedStudentId,
+      ...formData
+    });
+    
+    setIsModalOpen(false);
+    setFormData({ date: new Date().toISOString().split('T')[0], type: 'student', content: '', category: '생활' });
+    setSelectedStudentId('');
   };
 
-  const openAdd = () => {
-    setEditingLog(null);
-    setIsModalOpen(true);
+  const getStudentName = (id) => {
+    const s = students.find(st => st.id === id);
+    return s ? s.name : '(정보 없음)';
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 min-h-[600px] flex gap-6">
-      <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 pr-6 flex flex-col">
-        <h3 className="text-xl font-bold dark:text-white mb-4 flex items-center gap-2"><Users className="text-indigo-500" /> 학생 선택</h3>
-        <div className="flex-1 overflow-y-auto pr-2 space-y-2">
-          <button onClick={() => setSelectedStudentId(null)} className={`w-full text-left p-3 rounded-lg text-sm transition ${!selectedStudentId ? 'bg-indigo-600 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-300'}`}>📋 전체 보기</button>
-          {students.sort((a,b)=>Number(a.number)-Number(b.number)).map(student => (
-            <button key={student.id} onClick={() => setSelectedStudentId(student.id)} className={`w-full text-left p-3 rounded-lg text-sm transition flex justify-between items-center ${selectedStudentId === student.id ? 'bg-indigo-600 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-300'}`}>
-              <span>{student.number}번 {student.name}</span>
-              {consultations.some(c => c.studentId === student.id) && <span className="w-2 h-2 bg-green-500 rounded-full"></span>}
-            </button>
-          ))}
+    <div className="h-full flex flex-col gap-4">
+      {/* 🔥 [수정] 모바일 최적화 헤더: flex-col sm:flex-row */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <h2 className="text-xl md:text-2xl font-bold dark:text-white flex items-center gap-2">
+          <MessageSquare className="text-indigo-600 w-6 h-6 md:w-8 md:h-8"/> 
+          <span>학생 상담 일지</span>
+        </h2>
+        
+        <div className="flex gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-none">
+            <input 
+              type="text" 
+              placeholder="이름, 내용 검색..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full sm:w-48 pl-9 pr-4 py-2 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+            />
+            <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+          </div>
+          <button 
+            onClick={() => setIsModalOpen(true)} 
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition shadow-lg text-sm shrink-0"
+          >
+            <Plus size={18} /> <span className="hidden sm:inline">상담 기록</span><span className="sm:hidden">기록</span>
+          </button>
         </div>
       </div>
-      <div className="flex-1 flex flex-col">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold dark:text-white">💬 상담 일지</h3>
-          <button onClick={openAdd} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700"><Plus size={18} /> 기록하기</button>
-        </div>
-        <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-          {filteredLogs.length > 0 ? filteredLogs.map(log => {
-            const student = students.find(s => s.id === log.studentId);
-            return (
-              <div key={log.id} className="border border-gray-200 dark:border-gray-600 rounded-xl p-5 hover:shadow-md transition bg-gray-50 dark:bg-gray-700/50 relative group">
-                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition">
-                  <button onClick={() => openEdit(log)} className="text-gray-400 hover:text-indigo-500"><Edit2 size={16}/></button>
-                  <button onClick={() => onDeleteConsultation(log.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={16}/></button>
+
+      <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
+        {filteredLogs.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-10">
+            <MessageSquare size={48} className="mb-4 opacity-20"/>
+            <p>기록된 상담 일지가 없습니다.</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {filteredLogs.map(log => (
+              <div key={log.id} className="bg-gray-50 dark:bg-gray-700/50 p-5 rounded-xl border border-gray-100 dark:border-gray-600 hover:border-indigo-200 dark:hover:border-gray-500 transition group">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+                      <User size={12}/> {getStudentName(log.studentId)}
+                    </span>
+                    <span className={`px-2 py-1 rounded-lg text-xs font-bold border ${
+                      log.type === 'student' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-orange-50 text-orange-600 border-orange-100'
+                    }`}>
+                      {log.type === 'student' ? '학생상담' : '학부모상담'}
+                    </span>
+                    <span className="text-gray-400 text-xs flex items-center gap-1">
+                      <Calendar size={12}/> {log.date}
+                    </span>
+                  </div>
+                  <button onClick={() => { if(window.confirm('삭제하시겠습니까?')) onDeleteConsultation(log.id); }} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition p-1">
+                    <Trash2 size={16}/>
+                  </button>
                 </div>
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="font-bold text-lg dark:text-white">{student ? student.name : "삭제된 학생"}</span>
-                  <span className="text-xs text-gray-500">{log.date}</span>
-                  <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded">{log.category}</span>
+                
+                <div className="pl-1 border-l-4 border-indigo-200 dark:border-indigo-800 ml-1">
+                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed text-sm ml-3">
+                    {log.content}
+                  </p>
                 </div>
-                <p className="text-sm dark:text-gray-200 whitespace-pre-wrap">{log.content}</p>
-                {log.action && <p className="mt-2 text-sm text-gray-500 border-t pt-2 dark:border-gray-600">↳ 조치: {log.action}</p>}
+
+                <div className="mt-3 flex gap-2">
+                  <span className="text-xs text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded border border-gray-200 dark:border-gray-600">#{log.category}</span>
+                </div>
               </div>
-            );
-          }) : <div className="text-center text-gray-400 py-10">기록된 상담 내용이 없습니다.</div>}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
-      <ConsultationModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} students={students} preSelectedId={selectedStudentId} onSave={handleSave} initialData={editingLog} />
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-6 border-b dark:border-gray-700">
+              <h2 className="text-xl font-bold dark:text-white">상담 기록 추가</h2>
+              <button onClick={() => setIsModalOpen(false)}><X className="text-gray-500 hover:text-gray-700 dark:text-gray-400" /></button>
+            </div>
+            
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold mb-1 dark:text-gray-300">날짜</label>
+                  <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold mb-1 dark:text-gray-300">대상 학생</label>
+                  <select value={selectedStudentId} onChange={e => setSelectedStudentId(e.target.value)} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    <option value="">선택하세요</option>
+                    {students.sort((a,b)=>parseInt(a.number)-parseInt(b.number)).map(s => (
+                      <option key={s.id} value={s.id}>{s.number}번 {s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold mb-1 dark:text-gray-300">상담 유형</label>
+                  <div className="flex p-1 bg-gray-100 dark:bg-gray-700 rounded-xl">
+                    <button onClick={() => setFormData({...formData, type: 'student'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${formData.type === 'student' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-indigo-300' : 'text-gray-500'}`}>학생</button>
+                    <button onClick={() => setFormData({...formData, type: 'parent'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${formData.type === 'parent' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-indigo-300' : 'text-gray-500'}`}>학부모</button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold mb-1 dark:text-gray-300">카테고리</label>
+                  <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    <option>생활</option><option>학업</option><option>진로</option><option>교우관계</option><option>기타</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold mb-1 dark:text-gray-300">상담 내용</label>
+                <textarea value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} rows="6" className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none" placeholder="상담 내용을 상세히 기록하세요."></textarea>
+              </div>
+
+              <button onClick={handleSave} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 mt-2">
+                <Save size={18}/> 저장하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -278,16 +278,25 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 min-h-[600px] flex flex-col">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold dark:text-white flex items-center gap-2"><CalIcon className="text-indigo-500" /> 월별 일정</h3>
-        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1.5 rounded-lg">
+      {/* 🔥 [수정] 모바일 최적화 헤더: flex-col sm:flex-row, 폰트 사이즈 조정 */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
+        <h3 className="text-xl md:text-2xl font-bold dark:text-white flex items-center gap-2">
+          <CalIcon className="text-indigo-500 w-6 h-6 md:w-8 md:h-8" /> 
+          월별 일정
+        </h3>
+        
+        <div className="flex items-center gap-2 w-full sm:w-auto bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
           <button onClick={() => setSelectedMonthIndex(Math.max(0, selectedMonthIndex - 1))} disabled={selectedMonthIndex === 0} className="p-1.5 hover:bg-white dark:hover:bg-gray-600 rounded disabled:opacity-30"><ChevronLeft size={20}/></button>
-          <select value={selectedMonthIndex} onChange={(e) => setSelectedMonthIndex(Number(e.target.value))} className="bg-transparent font-bold text-lg text-center dark:text-white appearance-none cursor-pointer outline-none px-2 py-1 hover:bg-white/50 dark:hover:bg-gray-600/50 rounded transition" style={{ textAlignLast: 'center' }}>
+          <select value={selectedMonthIndex} onChange={(e) => setSelectedMonthIndex(Number(e.target.value))} className="bg-transparent font-bold text-base md:text-lg text-center dark:text-white appearance-none cursor-pointer outline-none px-2 py-1 hover:bg-white/50 dark:hover:bg-gray-600/50 rounded transition flex-1 sm:flex-none" style={{ textAlignLast: 'center' }}>
             {months.map((m, idx) => (<option key={idx} value={idx} className="dark:bg-gray-800">{m.getFullYear()}년 {m.getMonth() + 1}월</option>))}
           </select>
           <button onClick={() => setSelectedMonthIndex(Math.min(months.length - 1, selectedMonthIndex + 1))} disabled={selectedMonthIndex === months.length - 1} className="p-1.5 hover:bg-white dark:hover:bg-gray-600 rounded disabled:opacity-30"><ChevronRight size={20}/></button>
         </div>
-        <button onClick={() => openAddEvent(1)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 flex items-center gap-2"><Plus size={18}/> 일정 추가</button>
+        
+        {/* 🔥 [수정] 버튼 텍스트 모바일 최적화 (일정 추가 -> 추가) */}
+        <button onClick={() => openAddEvent(1)} className="bg-indigo-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-sm md:text-base font-bold hover:bg-indigo-700 flex items-center gap-2 shrink-0">
+          <Plus size={18}/> <span className="hidden sm:inline">일정 추가</span><span className="sm:hidden">추가</span>
+        </button>
       </div>
 
       <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden flex flex-col mb-8">
@@ -346,7 +355,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                   <th rowSpan="2" className="p-1 border dark:border-gray-600 bg-purple-50 text-purple-700 font-bold border-l-2 border-purple-200">기타</th>
                 </tr>
                 <tr>
-                  {/* 🔥 [수정] 테두리 충돌(border-gray-200) 제거 후 특정 색상 테두리만 남김 */}
                   <th className="p-1 border dark:border-gray-600 bg-red-100 text-red-800 font-bold border-l-2 border-red-200">계</th>
                   <th className="p-1 border dark:border-gray-600 bg-red-50 text-red-600 border-red-200">병</th>
                   <th className="p-1 border dark:border-gray-600 bg-red-50 text-red-600 border-red-200">미</th>
@@ -402,7 +410,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                           </td>
                         );
                       })}
-                      {/* 🔥 [수정] 통계 셀도 테두리 충돌 해결 (border-gray-200 제거) */}
                       <td className="border dark:border-gray-600 font-bold text-red-800 bg-red-100 border-l-2 border-red-200">{totalAbsence || ''}</td>
                       <td className="border dark:border-gray-600 text-red-600 border-red-200">{stats['병결']||''}</td>
                       <td className="border dark:border-gray-600 text-red-600 border-red-200">{stats['미결']||''}</td>
