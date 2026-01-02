@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { FileText, Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, Square, Layout, MessageSquare } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
@@ -11,13 +11,13 @@ import 'react-resizable/css/styles.css';
 const ReactGridLayout = RGL.default || RGL;
 const Responsive = ReactGridLayout.Responsive || RGL.Responsive;
 const WidthProvider = ReactGridLayout.WidthProvider || RGL.WidthProvider;
-// 🔥 WidthProvider가 브라우저 너비를 자동으로 감지하여 주입합니다.
 const ResponsiveGridLayout = WidthProvider ? WidthProvider(Responsive) : Responsive;
 
 export default function Dashboard({ widgets, students, todos, setActiveView, schoolInfo, isHomeroom, attendanceLog, onUpdateAttendance, onUpdateStudent, lessonGroups, onUpdateLessonGroup, currentHandbook, onUpdateHandbook, moveWidget, resetLayout, addWidget, deleteWidget, onLayoutChange }) {
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [targetStudent, setTargetStudent] = useState(null);
   
+  // 출결 팝업 상태
   const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, note: "" });
   const [isEditMode, setIsEditMode] = useState(false);
   
@@ -43,8 +43,10 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
 
   const saveAttendance = (type) => {
     if (!attPopup.studentId) return;
+    
     const existing = attendanceLog?.find(l => l.studentId === attPopup.studentId && l.date === todayStr);
     const { note } = attPopup;
+
     if (type === 'reset') {
       if (existing) onUpdateAttendance(existing.id, null); 
     } else {
@@ -77,8 +79,7 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   };
 
   const handleAddSpacer = (cols) => {
-    // Spacer 추가 시 화면 맨 아래(Infinity)에 추가되도록 함
-    addWidget({ type: 'spacer', colSpan: cols, w: cols, h: 1, x: 0, y: Infinity });
+    addWidget({ type: 'spacer', colSpan: cols, w: cols, h: 1 });
   };
 
   const renderWidgetContent = (widget) => {
@@ -164,6 +165,41 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     }
   };
 
+  // 🔥 [핵심 수정] 반응형 레이아웃 데이터 생성 (PC vs 모바일 분리)
+  const currentLayouts = useMemo(() => {
+    // 1. PC용 레이아웃 (lg, md, sm): 저장된 x, y 좌표 사용
+    const desktopLayout = widgets.map(w => ({
+      i: w.id,
+      x: w.x || 0,
+      y: w.y || 0,
+      w: w.w || 2,
+      h: w.h || 2
+    }));
+
+    // 2. 모바일용 레이아웃 (xs, xxs): 1열로 강제 정렬 (y좌표 순차 할당)
+    // 겹침을 방지하기 위해 y 값을 인덱스 * 높이로 할당
+    let yCounter = 0;
+    const mobileLayout = widgets.map(w => {
+      const layoutItem = {
+        i: w.id,
+        x: 0, // 무조건 왼쪽
+        y: yCounter, // 차곡차곡 아래로
+        w: 1, // 가로 꽉 채움 (cols가 1이므로)
+        h: w.h || 2
+      };
+      yCounter += (w.h || 2);
+      return layoutItem;
+    });
+
+    return {
+      lg: desktopLayout,
+      md: desktopLayout,
+      sm: desktopLayout,
+      xs: mobileLayout, // 모바일 전용 레이아웃
+      xxs: mobileLayout
+    };
+  }, [widgets]);
+
   const rglStyles = `
     .react-grid-layout { position: relative; transition: height 200ms ease; }
     .react-grid-item { transition: all 200ms ease; transition-property: left, top; }
@@ -193,42 +229,29 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
 
       <ResponsiveGridLayout
         className="layout"
+        // 🔥 [수정] 위에서 계산한 반응형 레이아웃 객체 전달
+        layouts={currentLayouts}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        // 🔥 [핵심 1] PC(lg, md)는 여러 칸, 모바일(xs, xxs)은 1칸(세로 1열) 강제
+        // 🔥 [수정] 모바일(xs, xxs)에서는 1열, PC는 기존 그리드 유지
         cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} 
         rowHeight={100} 
-        // 🔥 [핵심 2] width={1200} 삭제됨 -> WidthProvider가 반응형 너비 자동 주입
-        
-        // 🔥 [핵심 3] compactType="vertical" 로 겹침 방지 (위로 자동 정렬)
+        // 🔥 [수정] compactType을 'vertical'로 하여 자동 정렬 (겹침 방지)
         compactType="vertical"
-        // 🔥 [핵심 4] 이동 시 밀려나도록 충돌 방지 false
+        // 🔥 [수정] PC 편집 시에는 자유롭게 이동 가능하도록 false
         preventCollision={false}
         
-        // 🔥 [핵심 5] 편집 모드일 때만 드래그/리사이즈 가능
         isDraggable={isEditMode} 
         isResizable={isEditMode} 
         draggableHandle=".drag-handle" 
         
-        onLayoutChange={(newLayout) => onLayoutChange(newLayout)}
+        onLayoutChange={(layout, allLayouts) => onLayoutChange(layout)}
         margin={[16, 16]}
       >
-        {widgets.map((widget, index) => {
+        {widgets.map((widget) => {
           if (!isHomeroom && widget.type === 'student') return <div key={widget.id} className="hidden"></div>;
           
           return (
-            <div 
-              key={widget.id} 
-              // 🔥 [핵심 6] data-grid로 초기 좌표 강제 (겹침 방지의 핵심)
-              // 좌표(x, y)가 없으면 Infinity로 보내서 맨 아래 빈 곳에 붙게 함
-              data-grid={{
-                x: widget.x !== undefined ? widget.x : (index * 2) % 12, 
-                y: widget.y !== undefined ? widget.y : Infinity, 
-                w: widget.w || 2, 
-                h: widget.h || 2,
-                i: widget.id
-              }}
-              className="bg-transparent"
-            >
+            <div key={widget.id} className="bg-transparent">
               <div className="h-full relative group">
                 {isEditMode && (
                   <>
