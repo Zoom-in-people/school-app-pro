@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef } from 'react';
 import { FileText, Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, Square, Layout, MessageSquare } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
@@ -165,18 +165,6 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     }
   };
 
-  // 🔥 [핵심 수정] 위젯 레이아웃 데이터 생성 (좌표가 없으면 0으로 초기화하지 말고 기존 값 유지)
-  const currentLayout = useMemo(() => {
-    return widgets.map(w => ({
-      i: w.id,
-      x: w.x !== undefined ? w.x : 0, 
-      y: w.y !== undefined ? w.y : 0,
-      w: w.w || 2,
-      h: w.h || 2,
-      minW: 1, minH: 1
-    }));
-  }, [widgets]);
-
   const rglStyles = `
     .react-grid-layout { position: relative; transition: height 200ms ease; }
     .react-grid-item { transition: all 200ms ease; transition-property: left, top; }
@@ -206,28 +194,34 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
 
       <ResponsiveGridLayout
         className="layout"
-        // 🔥 [핵심 수정] layouts 속성을 명시적으로 전달하여 겹침 방지
-        layouts={{ lg: currentLayout, md: currentLayout, sm: currentLayout }} 
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        // 🔥 [핵심 수정] PC는 12/10/6열 유지, 모바일(xs, xxs)만 1열 강제
-        cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} 
+        cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} // 🔥 [핵심] 모바일에서는 1열 강제
         rowHeight={100} 
-        // 🔥 [핵심 수정] compactType="vertical" 로 설정하여 위젯이 위로 착착 붙도록 함 (겹침 해결)
+        // 🔥 [핵심] 겹침 방지 (vertical compact) 및 이동 잠금
         compactType="vertical"
-        // 🔥 [핵심 수정] 이동 시 충돌 방지 (자연스럽게 밀려남)
         preventCollision={false}
-        
         isDraggable={isEditMode} 
         isResizable={isEditMode} 
         draggableHandle=".drag-handle" 
         onLayoutChange={(layout) => onLayoutChange(layout)}
         margin={[16, 16]}
       >
-        {widgets.map(widget => {
+        {widgets.map((widget, index) => {
           if (!isHomeroom && widget.type === 'student') return <div key={widget.id} className="hidden"></div>;
           
           return (
-            <div key={widget.id} className="bg-transparent">
+            <div 
+              key={widget.id} 
+              // 🔥 [핵심] data-grid 속성을 사용하여 초기 좌표 강제 (겹침 원인 제거)
+              data-grid={{
+                x: widget.x !== undefined ? widget.x : (index * 2) % 12,
+                y: widget.y !== undefined ? widget.y : Infinity, // 좌표 없으면 맨 아래로
+                w: widget.w || 2,
+                h: widget.h || 2,
+                i: widget.id
+              }}
+              className="bg-transparent"
+            >
               <div className="h-full relative group">
                 {isEditMode && (
                   <>
@@ -252,10 +246,18 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
         <div className="fixed inset-0 bg-black/20 z-[100] flex items-center justify-center" onClick={() => setAttPopup({isOpen: false, studentId: null, note: ""})}>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-xl w-72" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3"><h4 className="font-bold dark:text-white">출결 / 메모 입력</h4><button onClick={() => setAttPopup({isOpen: false, studentId: null, note: ""})}><X size={16}/></button></div>
+            
             <div className="mb-3">
               <div className="flex items-center gap-1 mb-1 text-xs font-bold text-gray-500 dark:text-gray-400"><MessageSquare size={12}/> 사유 (선택)</div>
-              <input type="text" value={attPopup.note} onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} placeholder="예: 독감, 체험학습" className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600" />
+              <input 
+                type="text" 
+                value={attPopup.note} 
+                onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} 
+                placeholder="예: 독감, 체험학습" 
+                className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600" 
+              />
             </div>
+
             <div className="space-y-3">
               <button onClick={() => saveAttendance('reset')} className="w-full p-2 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold">출석 (초기화)</button>
               <div className="grid grid-cols-3 gap-2 text-xs">
