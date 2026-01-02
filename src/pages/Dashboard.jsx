@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { FileText, Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, Square, Layout, MessageSquare } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
@@ -104,11 +104,7 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
               <tbody>
                 {students.sort((a,b)=>Number(a.number)-Number(b.number)).map((student) => {
                   const log = attendanceLog?.find(l => l.studentId === student.id && l.date === todayStr);
-                  
-                  let statusText = "-"; 
-                  let statusClass = "bg-gray-100 text-gray-500 hover:bg-gray-200";
-                  let hasNote = false;
-                  
+                  let statusText = "-"; let statusClass = "bg-gray-100 text-gray-500 hover:bg-gray-200"; let hasNote = false;
                   if (log) {
                     hasNote = !!log.note;
                     const t = log.type;
@@ -123,19 +119,12 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
                     else if (t.includes('인조')) { statusText = "인조"; statusClass = "bg-green-50 text-green-600 border border-green-200"; }
                     else if (t === '기타') { statusText = "기타"; statusClass = "bg-purple-100 text-purple-700"; }
                   }
-
                   return (
                     <tr key={student.id} className="border-b border-gray-50 dark:border-gray-700/50">
                       <td className="px-3 py-3 font-bold whitespace-nowrap dark:text-gray-200"><span className="mr-2 text-xs text-gray-400">{student.number}</span>{student.name}</td>
                       <td className="px-3 py-3 text-center">
-                        <button 
-                          onClick={() => openAttPopup(student.id)} 
-                          className={`px-2 py-1 rounded text-xs font-bold w-14 ${statusClass} transition relative`}
-                          title={hasNote ? log.note : ""} // 메모 툴팁
-                        >
-                          {statusText}
-                          {/* 메모가 있으면 점 표시 */}
-                          {hasNote && <div className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full border border-white"></div>}
+                        <button onClick={() => openAttPopup(student.id)} className={`px-2 py-1 rounded text-xs font-bold w-14 ${statusClass} transition relative`} title={hasNote ? log.note : ""}>
+                          {statusText}{hasNote && <div className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full border border-white"></div>}
                         </button>
                       </td>
                       <td className="px-3 py-3 text-right"><button onClick={() => handleMemoClick(student)} className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${student.memos && student.memos.length > 0 ? 'text-indigo-500' : 'text-gray-400'}`}><ClipboardList size={16}/></button></td>
@@ -147,10 +136,9 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
           </div>
         </div>
       );
-
       case 'progress': return (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 h-full flex flex-col">
-          <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2 dark:text-white"><BookOpen className="text-purple-500" /> 수업 진도 현황</h3><button onClick={() => setActiveView('lessons')} className="text-xs text-indigo-600 hover:underline">관리 &gt;</button></div>
+          <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2 dark:text-white"><BookOpen className="text-purple-500" /> 수업 진도</h3><button onClick={() => setActiveView('lessons')} className="text-xs text-indigo-600 hover:underline">관리 &gt;</button></div>
           <div className="p-4 flex-1 overflow-y-auto space-y-4">
             {lessonGroups && lessonGroups.length > 0 ? lessonGroups.map(group => (
               <div key={group.id} className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
@@ -177,13 +165,17 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     }
   };
 
-  const layout = widgets.map(w => ({
-    i: w.id,
-    x: w.x || 0,
-    y: w.y || 0,
-    w: w.w || 2,
-    h: w.h || 2
-  }));
+  // 🔥 [핵심 수정] 위젯 레이아웃 데이터 생성 (좌표가 없으면 0으로 초기화하지 말고 기존 값 유지)
+  const currentLayout = useMemo(() => {
+    return widgets.map(w => ({
+      i: w.id,
+      x: w.x !== undefined ? w.x : 0, 
+      y: w.y !== undefined ? w.y : 0,
+      w: w.w || 2,
+      h: w.h || 2,
+      minW: 1, minH: 1
+    }));
+  }, [widgets]);
 
   const rglStyles = `
     .react-grid-layout { position: relative; transition: height 200ms ease; }
@@ -214,19 +206,21 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
 
       <ResponsiveGridLayout
         className="layout"
-        layouts={{ lg: layout }}
+        // 🔥 [핵심 수정] layouts 속성을 명시적으로 전달하여 겹침 방지
+        layouts={{ lg: currentLayout, md: currentLayout, sm: currentLayout }} 
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        // 🔥 [수정 1] 모바일(xs, xxs)에서는 1열 강제 (세로 1줄)
+        // 🔥 [핵심 수정] PC는 12/10/6열 유지, 모바일(xs, xxs)만 1열 강제
         cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} 
         rowHeight={100} 
-        // 🔥 [수정 2] 겹침 방지를 위해 compactType="vertical" 추가 (이게 없으면 겹침)
+        // 🔥 [핵심 수정] compactType="vertical" 로 설정하여 위젯이 위로 착착 붙도록 함 (겹침 해결)
         compactType="vertical"
-        // 🔥 [수정 3] 편집 모드(isEditMode)일 때만 드래그/리사이즈 허용
+        // 🔥 [핵심 수정] 이동 시 충돌 방지 (자연스럽게 밀려남)
+        preventCollision={false}
+        
         isDraggable={isEditMode} 
         isResizable={isEditMode} 
         draggableHandle=".drag-handle" 
-        preventCollision={false}
-        onLayoutChange={(newLayout) => onLayoutChange(newLayout)}
+        onLayoutChange={(layout) => onLayoutChange(layout)}
         margin={[16, 16]}
       >
         {widgets.map(widget => {
@@ -258,18 +252,10 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
         <div className="fixed inset-0 bg-black/20 z-[100] flex items-center justify-center" onClick={() => setAttPopup({isOpen: false, studentId: null, note: ""})}>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-xl w-72" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3"><h4 className="font-bold dark:text-white">출결 / 메모 입력</h4><button onClick={() => setAttPopup({isOpen: false, studentId: null, note: ""})}><X size={16}/></button></div>
-            
             <div className="mb-3">
               <div className="flex items-center gap-1 mb-1 text-xs font-bold text-gray-500 dark:text-gray-400"><MessageSquare size={12}/> 사유 (선택)</div>
-              <input 
-                type="text" 
-                value={attPopup.note} 
-                onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} 
-                placeholder="예: 독감, 체험학습" 
-                className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600" 
-              />
+              <input type="text" value={attPopup.note} onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} placeholder="예: 독감, 체험학습" className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600" />
             </div>
-
             <div className="space-y-3">
               <button onClick={() => saveAttendance('reset')} className="w-full p-2 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold">출석 (초기화)</button>
               <div className="grid grid-cols-3 gap-2 text-xs">
