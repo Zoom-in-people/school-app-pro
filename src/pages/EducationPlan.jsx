@@ -1,11 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, FileText, Loader, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 
-export default function EducationPlan({ apiKey }) {
+export default function EducationPlan({ apiKey, planData = [], onSavePlan, onUpdatePlan, onDeletePlan }) {
   const [file, setFile] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  // 🔥 [신규] DB에서 데이터 불러오기
+  useEffect(() => {
+    if (planData && planData.length > 0) {
+      // 가장 최근 데이터 사용 (id='main_plan')
+      const saved = planData.find(p => p.id === 'main_plan') || planData[0];
+      if (saved) {
+        setResult(saved.content);
+        setFile({ name: saved.fileName });
+      }
+    }
+  }, [planData]);
 
   const fileToGenerativePart = async (file) => {
     const base64EncodedDataPromise = new Promise((resolve) => {
@@ -53,7 +65,6 @@ export default function EducationPlan({ apiKey }) {
         - 내용은 너무 짧지 않게, 충분한 정보를 담아주세요.
       `;
 
-      // 🔥 [수정] 요청하신 gemini-2.5-flash 모델 적용
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -70,9 +81,7 @@ export default function EducationPlan({ apiKey }) {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("API Error Details:", errorData);
         let msg = errorData.error?.message || "알 수 없는 오류";
-        // 2.5 버전 호출 시 혹시라도 발생할 수 있는 404 등에 대한 메시지 처리
         if (response.status === 404) msg = "모델을 찾을 수 없습니다. (API 키 권한을 확인해주세요)";
         throw new Error(`API 호출 실패 (${response.status}): ${msg}`);
       }
@@ -80,11 +89,26 @@ export default function EducationPlan({ apiKey }) {
       const data = await response.json();
       
       if (!data.candidates || data.candidates.length === 0) {
-        throw new Error("AI가 응답을 생성하지 못했습니다. (내용 정책 등으로 차단됨)");
+        throw new Error("AI가 응답을 생성하지 못했습니다.");
       }
 
       const text = data.candidates[0].content.parts[0].text;
       setResult(text);
+
+      // 🔥 [신규] 분석 결과 DB 저장
+      const saveData = {
+        id: 'main_plan',
+        content: text,
+        fileName: uploadedFile.name,
+        date: new Date().toISOString()
+      };
+
+      const existing = planData.find(p => p.id === 'main_plan');
+      if (existing) {
+        onUpdatePlan('main_plan', saveData);
+      } else {
+        onSavePlan(saveData);
+      }
 
     } catch (err) {
       console.error(err);
@@ -95,10 +119,15 @@ export default function EducationPlan({ apiKey }) {
   };
 
   const handleDelete = () => {
-    setFile(null);
-    setResult(null);
-    setError(null);
-    setIsAnalyzing(false);
+    if(window.confirm("분석 결과를 삭제하시겠습니까?")) {
+      const existing = planData.find(p => p.id === 'main_plan');
+      if (existing && onDeletePlan) onDeletePlan(existing.id);
+      
+      setFile(null);
+      setResult(null);
+      setError(null);
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -124,7 +153,7 @@ export default function EducationPlan({ apiKey }) {
               <span className="font-bold text-lg truncate max-w-md">{file.name}</span>
             </div>
             <button onClick={handleDelete} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm font-bold transition">
-              <Trash2 size={16}/> 다른 파일 올리기
+              <Trash2 size={16}/> 삭제하고 다시 올리기
             </button>
           </div>
           

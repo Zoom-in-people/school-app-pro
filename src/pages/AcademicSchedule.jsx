@@ -7,13 +7,11 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
   const [fileContent, setFileContent] = useState(null);
   const fileInputRef = useRef(null);
 
-  // 🔥 DB에서 데이터가 로드되면 화면에 표시
+  // DB에서 데이터 로드
   useEffect(() => {
     if (scheduleData && scheduleData.length > 0) {
       const savedData = scheduleData.find(item => item.id === 'main_schedule') || scheduleData[0];
-      if (savedData) {
-        setFileContent(savedData);
-      }
+      if (savedData) setFileContent(savedData);
     } else {
       setFileContent(null);
     }
@@ -23,16 +21,15 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
     const file = e.target.files[0];
     if (!file) return;
 
-    // 🔥 토큰 사전 검사
     const token = localStorage.getItem('google_access_token');
     if (!token) {
-      alert("구글 로그인 세션이 만료되었습니다. 로그아웃 후 다시 로그인해주세요.");
+      alert("⚠️ 구글 로그인 세션이 만료되었습니다.\n\n안전한 데이터 저장을 위해 [로그아웃] 후 다시 로그인해주세요.");
       return;
     }
 
     const fileType = file.name.split('.').pop().toLowerCase();
     
-    // 1. 엑셀 파일 처리
+    // 1. 엑셀 처리
     if (fileType === 'xlsx' || fileType === 'xls') {
       const reader = new FileReader();
       reader.onload = (evt) => {
@@ -48,19 +45,29 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
           data, 
           fileName: file.name 
         };
-
         setFileContent(contentData);
         saveToDB(contentData);
       };
       reader.readAsBinaryString(file);
     } 
-    // 2. PDF 파일 처리
+    // 2. PDF 처리
     else if (fileType === 'pdf') {
       try {
         const folderId = localStorage.getItem('cached_folder_id');
         const uploaded = await uploadFileToDrive(file, folderId);
         
-        const previewUrl = uploaded.webViewLink.replace('/view', '/preview');
+        // 🔥 [수정] webViewLink가 없을 경우 안전하게 처리 (에러 원인 해결)
+        let previewUrl;
+        
+        if (uploaded && uploaded.webViewLink) {
+            // webViewLink가 정상적으로 있으면 사용
+            previewUrl = uploaded.webViewLink.replace('/view', '/preview');
+        } else if (uploaded && uploaded.id) {
+            // webViewLink가 없으면 ID로 직접 링크 생성 (안전장치)
+            previewUrl = `https://drive.google.com/file/d/${uploaded.id}/preview`;
+        } else {
+            throw new Error("업로드된 파일 정보를 가져올 수 없습니다.");
+        }
 
         const contentData = {
           id: 'main_schedule',
@@ -68,13 +75,12 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
           url: previewUrl,
           fileName: file.name
         };
-
         setFileContent(contentData);
         saveToDB(contentData);
 
       } catch (error) {
         console.error(error);
-        alert("PDF 업로드 실패: 구글 드라이브 권한이 없거나 토큰이 만료되었습니다. 재로그인 해주세요.");
+        alert(`⚠️ 업로드 실패: ${error.message}\n\n구글 드라이브 권한 문제일 수 있습니다. 재로그인 해보세요.`);
       }
     } else {
       alert("엑셀(.xlsx) 또는 PDF(.pdf) 파일만 지원합니다.");
@@ -83,18 +89,13 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
 
   const saveToDB = (data) => {
     const existing = scheduleData.find(item => item.id === 'main_schedule');
-    if (existing) {
-      onUpdateSchedule('main_schedule', data);
-    } else {
-      onAddSchedule(data);
-    }
+    if (existing) onUpdateSchedule('main_schedule', data);
+    else onAddSchedule(data);
   };
 
   const handleDelete = () => {
     if (window.confirm("학사일정 파일을 삭제하시겠습니까?")) {
-      if (fileContent && fileContent.id) {
-        onDeleteSchedule(fileContent.id);
-      }
+      if (fileContent && fileContent.id) onDeleteSchedule(fileContent.id);
       setFileContent(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }

@@ -20,13 +20,13 @@ import MaterialManager from './pages/MaterialManager';
 import MonthlyEvents from './pages/MonthlyEvents';
 import MeetingLogs from './pages/MeetingLogs';
 import MyTimetable from './pages/MyTimetable';
-import ExternalApps from './pages/ExternalApps'; // 🔥 [추가]
+import ExternalApps from './pages/ExternalApps';
 
 export default function App() {
   const { user, loading, login, logout } = useAuth();
   
   const [activeView, setActiveView] = useState('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 모바일 초기값 false 추천
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddHandbookOpen, setIsAddHandbookOpen] = useState(false);
   const [isHandbookSettingsOpen, setIsHandbookSettingsOpen] = useState(false);
@@ -125,7 +125,7 @@ export default function App() {
   const { data: meetingLogs, add: addMeetingLog, remove: removeMeetingLog, update: updateMeetingLog } 
     = useGoogleDriveDB(`meeting_logs${collectionPrefix}`, userId);
 
-  const { data: myTimetable, update: updateMyTimetable } 
+  const { data: myTimetable, add: addMyTimetable, update: updateMyTimetable, remove: removeMyTimetable } 
     = useGoogleDriveDB(`my_timetable${collectionPrefix}`, userId);
 
   const { data: classPhotos, add: addClassPhoto, update: updateClassPhoto, remove: removeClassPhoto } 
@@ -133,6 +133,10 @@ export default function App() {
 
   const { data: academicSchedule, add: addSchedule, update: updateSchedule, remove: removeSchedule } 
     = useGoogleDriveDB(`academic_schedule${collectionPrefix}`, userId);
+
+  // 🔥 [추가] 교육계획서 데이터 DB 연결
+  const { data: educationPlans, add: addEducationPlan, update: updateEducationPlan, remove: removeEducationPlan } 
+    = useGoogleDriveDB(`education_plans${collectionPrefix}`, userId);
 
   const handleCreateHandbook = async (data) => {
     try {
@@ -171,7 +175,7 @@ export default function App() {
     setCurrentHandbook(handbook);
     setLastHandbookId(handbook.id);
     setActiveView('dashboard');
-    setIsSidebarOpen(false); // 모바일에서 선택 후 사이드바 닫기
+    setIsSidebarOpen(false);
   };
 
   const handleUpdateAttendance = (id, data) => { if (id && !data) removeAttendance(id); else if (id && data) updateAttendance(id, data); else addAttendance(data); };
@@ -212,7 +216,6 @@ export default function App() {
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
       
-      {/* 🔥 [수정] 모바일 사이드바 오버레이 */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
@@ -220,7 +223,6 @@ export default function App() {
         />
       )}
 
-      {/* 🔥 [수정] 반응형 사이드바 (모바일: fixed / 데스크탑: relative) */}
       <div className={`
         fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-2xl md:shadow-none
         transform transition-transform duration-300 ease-in-out
@@ -318,12 +320,30 @@ export default function App() {
                   />
                 )}
                 
-                {activeView === 'edu_plan' && <EducationPlan apiKey={apiKey} />}
+                {/* 🔥 [수정] 교육계획서에 DB 데이터 및 함수 전달 */}
+                {activeView === 'edu_plan' && (
+                  <EducationPlan 
+                    apiKey={apiKey} 
+                    planData={educationPlans} 
+                    onSavePlan={addEducationPlan}
+                    onUpdatePlan={updateEducationPlan}
+                    onDeletePlan={removeEducationPlan}
+                  />
+                )}
+
                 {activeView === 'materials' && <MaterialManager handbook={currentHandbook} />}
                 {activeView === 'meeting_logs' && <MeetingLogs logs={meetingLogs} onAddLog={addMeetingLog} onUpdateLog={updateMeetingLog} onDeleteLog={removeMeetingLog} />}
-                {activeView === 'my_timetable' && <MyTimetable timetableData={myTimetable} onUpdateTimetable={updateMyTimetable} />}
                 
-                {/* 🔥 [추가] 외부 앱 페이지 라우팅 */}
+                {/* 🔥 [수정] 나의 시간표에 DB 데이터 및 함수 전달 */}
+                {activeView === 'my_timetable' && (
+                  <MyTimetable 
+                    timetableData={myTimetable} 
+                    onAddTimetable={addMyTimetable}
+                    onUpdateTimetable={updateMyTimetable} 
+                    onDeleteTimetable={removeMyTimetable}
+                  />
+                )}
+                
                 {activeView === 'apps' && <ExternalApps />}
               </>
             )}
@@ -331,33 +351,10 @@ export default function App() {
         </div>
       </main>
 
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
-        settings={{ apiKey, theme, fontSize }} 
-        setSettings={{ setApiKey, setTheme, setFontSize }} 
-        onOpenSetupWizard={() => {
-          setIsSettingsOpen(false);
-          setIsSetupWizardOpen(true);
-        }}
-      />
-      
-      <SetupWizardModal 
-        isOpen={isSetupWizardOpen} 
-        onClose={() => setIsSetupWizardOpen(false)} 
-        apiKey={apiKey} 
-        setApiKey={setApiKey} 
-      />
-      
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={{ apiKey, theme, fontSize }} setSettings={{ setApiKey, setTheme, setFontSize }} onOpenSetupWizard={() => { setIsSettingsOpen(false); setIsSetupWizardOpen(true); }}/>
+      <SetupWizardModal isOpen={isSetupWizardOpen} onClose={() => setIsSetupWizardOpen(false)} apiKey={apiKey} setApiKey={setApiKey} />
       <AddHandbookModal isOpen={isAddHandbookOpen} onClose={() => setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
-      
-      <HandbookSettingsModal 
-        isOpen={isHandbookSettingsOpen} 
-        onClose={() => setIsHandbookSettingsOpen(false)} 
-        handbook={currentHandbook} 
-        onUpdate={handleUpdateHandbook}
-        onDelete={handleDeleteHandbook} 
-      />
+      <HandbookSettingsModal isOpen={isHandbookSettingsOpen} onClose={() => setIsHandbookSettingsOpen(false)} handbook={currentHandbook} onUpdate={handleUpdateHandbook} onDelete={handleDeleteHandbook} />
     </div>
   );
 }
