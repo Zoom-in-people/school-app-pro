@@ -8,7 +8,8 @@ let saveQueue = Promise.resolve();
 let globalInitPromise = null;
 let activeLoadingCount = 0;
 
-export function useGoogleDriveDB(collectionName, userId) {
+// 🔥 [수정] enabled 매개변수 추가 (기본값 true)
+export function useGoogleDriveDB(collectionName, userId, enabled = true) {
   const [data, setData] = useState(null);
   const [dbFileId, setDbFileId] = useState(null);
   const isLoaded = useRef(false);
@@ -43,8 +44,14 @@ export function useGoogleDriveDB(collectionName, userId) {
   };
 
   useEffect(() => {
-    if (!userId) { setData([]); return; }
-    if (isLoaded.current) return;
+    // 🔥 [수정] enabled가 false면 로직 수행 안 함
+    if (!userId || !enabled) { 
+      if (!enabled) setData(null); // 대기 상태일 땐 데이터 null
+      return; 
+    }
+    
+    // 이미 로드되었고 파일 ID도 있다면 스킵 (불필요한 재요청 방지)
+    if (isLoaded.current && dbFileId) return;
 
     const initDB = async () => {
       const token = localStorage.getItem('google_access_token');
@@ -116,7 +123,7 @@ export function useGoogleDriveDB(collectionName, userId) {
     };
 
     initDB();
-  }, [userId, collectionName]);
+  }, [userId, collectionName, enabled]); // 🔥 enabled 의존성 추가
 
   const saveDataToDrive = async (newData) => {
     setData(newData);
@@ -204,7 +211,6 @@ export function useGoogleDriveDB(collectionName, userId) {
     saveDataToDrive(newData);
   };
 
-  // 🔥 [신규] 데이터를 통째로 교체하는 함수 (엑셀 업로드용)
   const setAll = async (allData) => {
     if (data === null) return;
     saveDataToDrive(allData);

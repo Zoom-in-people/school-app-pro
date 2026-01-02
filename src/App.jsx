@@ -67,8 +67,9 @@ export default function App() {
 
   const userId = user ? user.uid : null;
 
+  // 1. 교무수첩 목록 먼저 로드 (무조건 실행)
   const { data: handbooks, add: addHandbook, update: updateHandbook, remove: removeHandbook } 
-    = useGoogleDriveDB('handbooks', userId);
+    = useGoogleDriveDB('handbooks', userId, true);
 
   useEffect(() => {
     if (handbooks.length > 0) {
@@ -86,6 +87,9 @@ export default function App() {
 
   const currentHandbookId = currentHandbook ? currentHandbook.id : null;
   const collectionPrefix = currentHandbookId ? `_${currentHandbookId}` : '';
+  
+  // 🔥 [핵심] 교무수첩이 선택되었을 때만 하위 데이터 로드 (속도 최적화)
+  const isHandbookLoaded = !!currentHandbookId;
 
   const { 
     data: homeroomStudents, 
@@ -95,7 +99,7 @@ export default function App() {
     update: updateHomeroomStudent, 
     updateMany: updateManyHomeroomStudents,
     setAll: setAllHomeroomStudents 
-  } = useGoogleDriveDB(`students_homeroom${collectionPrefix}`, userId);
+  } = useGoogleDriveDB(`students_homeroom${collectionPrefix}`, userId, isHandbookLoaded);
 
   const { 
     data: subjectStudents, 
@@ -105,38 +109,37 @@ export default function App() {
     update: updateSubjectStudent, 
     updateMany: updateManySubjectStudents,
     setAll: setAllSubjectStudents
-  } = useGoogleDriveDB(`students_subject${collectionPrefix}`, userId);
+  } = useGoogleDriveDB(`students_subject${collectionPrefix}`, userId, isHandbookLoaded);
     
   const { data: consultations, add: addConsultation, remove: removeConsultation, update: updateConsultation } 
-    = useGoogleDriveDB(`consultations${collectionPrefix}`, userId);
+    = useGoogleDriveDB(`consultations${collectionPrefix}`, userId, isHandbookLoaded);
     
   const { data: todos, add: addTodo, remove: removeTodo, update: updateTodo } 
-    = useGoogleDriveDB(`todos${collectionPrefix}`, userId);
+    = useGoogleDriveDB(`todos${collectionPrefix}`, userId, isHandbookLoaded);
     
   const { data: attendanceLog, add: addAttendance, remove: removeAttendance, update: updateAttendance } 
-    = useGoogleDriveDB(`attendance${collectionPrefix}`, userId);
+    = useGoogleDriveDB(`attendance${collectionPrefix}`, userId, isHandbookLoaded);
     
   const { data: events, add: addEvent, remove: removeEvent, update: updateEvent } 
-    = useGoogleDriveDB(`events${collectionPrefix}`, userId);
+    = useGoogleDriveDB(`events${collectionPrefix}`, userId, isHandbookLoaded);
     
   const { data: lessonGroups, add: addLessonGroup, remove: removeLessonGroup, update: updateLessonGroup } 
-    = useGoogleDriveDB(`lesson_groups${collectionPrefix}`, userId);
+    = useGoogleDriveDB(`lesson_groups${collectionPrefix}`, userId, isHandbookLoaded);
 
   const { data: meetingLogs, add: addMeetingLog, remove: removeMeetingLog, update: updateMeetingLog } 
-    = useGoogleDriveDB(`meeting_logs${collectionPrefix}`, userId);
+    = useGoogleDriveDB(`meeting_logs${collectionPrefix}`, userId, isHandbookLoaded);
 
   const { data: myTimetable, add: addMyTimetable, update: updateMyTimetable, remove: removeMyTimetable } 
-    = useGoogleDriveDB(`my_timetable${collectionPrefix}`, userId);
+    = useGoogleDriveDB(`my_timetable${collectionPrefix}`, userId, isHandbookLoaded);
 
   const { data: classPhotos, add: addClassPhoto, update: updateClassPhoto, remove: removeClassPhoto } 
-    = useGoogleDriveDB(`class_photos${collectionPrefix}`, userId);
+    = useGoogleDriveDB(`class_photos${collectionPrefix}`, userId, isHandbookLoaded);
 
   const { data: academicSchedule, add: addSchedule, update: updateSchedule, remove: removeSchedule } 
-    = useGoogleDriveDB(`academic_schedule${collectionPrefix}`, userId);
+    = useGoogleDriveDB(`academic_schedule${collectionPrefix}`, userId, isHandbookLoaded);
 
-  // 🔥 [추가] 교육계획서 데이터 DB 연결
   const { data: educationPlans, add: addEducationPlan, update: updateEducationPlan, remove: removeEducationPlan } 
-    = useGoogleDriveDB(`education_plans${collectionPrefix}`, userId);
+    = useGoogleDriveDB(`education_plans${collectionPrefix}`, userId, isHandbookLoaded);
 
   const handleCreateHandbook = async (data) => {
     try {
@@ -320,7 +323,6 @@ export default function App() {
                   />
                 )}
                 
-                {/* 🔥 [수정] 교육계획서에 DB 데이터 및 함수 전달 */}
                 {activeView === 'edu_plan' && (
                   <EducationPlan 
                     apiKey={apiKey} 
@@ -334,7 +336,6 @@ export default function App() {
                 {activeView === 'materials' && <MaterialManager handbook={currentHandbook} />}
                 {activeView === 'meeting_logs' && <MeetingLogs logs={meetingLogs} onAddLog={addMeetingLog} onUpdateLog={updateMeetingLog} onDeleteLog={removeMeetingLog} />}
                 
-                {/* 🔥 [수정] 나의 시간표에 DB 데이터 및 함수 전달 */}
                 {activeView === 'my_timetable' && (
                   <MyTimetable 
                     timetableData={myTimetable} 
