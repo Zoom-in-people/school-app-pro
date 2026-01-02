@@ -220,13 +220,14 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
         className="layout"
         layouts={{ lg: layout }}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        // 🔥 [모바일 최적화] xs, xxs에서는 1열 강제 (한 줄에 위젯 1개)
+        // 🔥 [수정 1] 모바일(xs, xxs)에서는 무조건 1열(세로 정렬)로 강제
         cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} 
         rowHeight={100} 
-        width={1200}
-        // 🔥 [잠금 기능] 편집 모드일 때만 드래그/리사이즈 허용
+        // 🔥 [수정 2] width={1200} 삭제 -> 부모 컨테이너 크기에 자동 맞춤
+        // 🔥 [수정 3] 편집 모드(isEditMode)일 때만 드래그/리사이즈 허용
         isDraggable={isEditMode} 
         isResizable={isEditMode} 
+        draggableHandle=".drag-handle" // 핸들로만 드래그 가능하게 (안전장치)
         compactType={null} 
         preventCollision={true}
         onLayoutChange={(newLayout) => onLayoutChange(newLayout)}
@@ -240,7 +241,7 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
               <div className="h-full relative group">
                 {isEditMode && (
                   <>
-                    <div className="absolute top-2 right-2 z-50 p-1 bg-gray-100 dark:bg-gray-700 rounded cursor-move text-gray-400 hover:text-indigo-600 shadow-sm border border-gray-200 dark:border-gray-600">
+                    <div className="drag-handle absolute top-2 right-2 z-50 p-1 bg-gray-100 dark:bg-gray-700 rounded cursor-move text-gray-400 hover:text-indigo-600 shadow-sm border border-gray-200 dark:border-gray-600">
                       <Grip size={16}/>
                     </div>
                     {widget.type === 'spacer' && (
