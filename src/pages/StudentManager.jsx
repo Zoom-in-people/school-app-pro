@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, AlertTriangle, FileText, BookOpen, StickyNote, Image as ImageIcon, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { uploadFileToDrive } from '../utils/googleDrive'; // 파일 업로드 유틸 필요
+import { uploadFileToDrive } from '../utils/googleDrive';
 
 export default function StudentManager({ 
-  students = [], onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, onUpdateStudentsMany, apiKey, isHomeroomView,
-  classPhotos = [], onAddClassPhoto, onUpdateClassPhoto // 🔥 [추가] 사진 명렬표용 Props
+  students = [], onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, onUpdateStudentsMany, 
+  onSetAllStudents, // 🔥 [필수] 전체 덮어쓰기용 함수
+  apiKey, isHomeroomView,
+  classPhotos = [], onAddClassPhoto, onUpdateClassPhoto // 🔥 [필수] 사진명렬표 데이터/함수
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -22,10 +24,10 @@ export default function StudentManager({
 
   const safeStudents = Array.isArray(students) ? students : [];
 
-  // 필터링 및 정렬
+  // 필터링 및 정렬 로직
   const filteredStudents = useMemo(() => {
     return safeStudents.filter(student => {
-      // 1. 검색어
+      // 1. 검색어 필터
       const matchesSearch = 
         student.name.includes(searchTerm) || 
         (student.studentId && student.studentId.includes(searchTerm)) ||
@@ -49,7 +51,7 @@ export default function StudentManager({
     });
   }, [safeStudents, searchTerm, selectedGrades, selectedClasses, isHomeroomView]);
 
-  // 존재하는 학년/반 목록 (필터 버튼 생성용)
+  // 존재하는 학년/반 목록 추출 (필터 버튼 생성용)
   const availableGrades = useMemo(() => [...new Set(safeStudents.map(s => s.grade))].sort(), [safeStudents]);
   const availableClasses = useMemo(() => [...new Set(safeStudents.map(s => s.class))].sort((a,b) => a-b), [safeStudents]);
 
@@ -77,14 +79,14 @@ export default function StudentManager({
       const folderId = localStorage.getItem('cached_folder_id');
       const uploaded = await uploadFileToDrive(file, folderId);
       
-      // 파일 타입 확인 (이미지인지 PDF인지)
+      // 파일 타입 확인
       const fileType = file.type.includes('pdf') ? 'pdf' : 'image';
       
       // DB에 저장할 데이터
       const photoData = {
-        id: currentClassKey, // ID를 "학년-반"으로 고정
-        url: uploaded.webContentLink, // 다운로드/미리보기 링크
-        viewUrl: uploaded.webViewLink, // 구글 드라이브 뷰어 링크
+        id: currentClassKey, 
+        url: uploaded.webContentLink, 
+        viewUrl: uploaded.webViewLink, 
         fileType: fileType,
         fileName: file.name
       };
@@ -92,7 +94,7 @@ export default function StudentManager({
       if (currentClassPhoto) {
         onUpdateClassPhoto(currentClassKey, photoData);
       } else {
-        onAddClassPhoto(photoData); // id가 있으므로 update로 동작할 수도 있지만 add도 안전
+        onAddClassPhoto(photoData); 
       }
       alert(`${selectedGrades[0]}학년 ${selectedClasses[0]}반 사진 명렬표가 업로드되었습니다.`);
     } catch (error) {
@@ -101,7 +103,7 @@ export default function StudentManager({
     }
   };
 
-  // 엑셀 업로드 (중복 업데이트 로직)
+  // 🔥 [핵심 수정] 엑셀 업로드 로직 개선 (setAll 사용)
   const handleExcelUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -115,14 +117,10 @@ export default function StudentManager({
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
-        const newStudents = [];
-        const updates = [];
-
-        // 기존 학생 맵핑 (Key: 학년-반-번호)
-        const existingMap = new Map();
-        safeStudents.forEach(s => {
-          existingMap.set(`${s.grade}-${s.class}-${s.number}`, s);
-        });
+        // 1. 기존 학생 데이터 복사
+        let finalStudents = [...safeStudents];
+        let addCount = 0;
+        let updateCount = 0;
 
         for (let i = 1; i < data.length; i++) {
           const row = data[i];
@@ -136,29 +134,42 @@ export default function StudentManager({
             number: String(row[2] || ''),
             name: name,
             phone: row[4] || '',
-            parent_phone: row[5] || '', // 학부모 전화
+            parent_phone: row[5] || '', 
             gender: row[6] === '남' ? 'male' : row[6] === '여' ? 'female' : 'other',
             note: row[7] || '',        
             record_note: row[8] || '', 
             ai_remark: row[9] || '',   
-            studentId: `${row[0]}${row[1]}${row[2]}`
+            studentId: `${row[0]}${row[1]}${row[2]}` 
           };
 
-          const key = `${studentData.grade}-${studentData.class}-${studentData.number}`;
-          if (existingMap.has(key)) {
-            // 존재하면 업데이트
-            const existing = existingMap.get(key);
-            updates.push({ id: existing.id, fields: studentData });
+          // 2. 기존 데이터에서 찾기 (학년-반-번호 기준)
+          const existingIndex = finalStudents.findIndex(s => 
+            s.grade === studentData.grade && 
+            s.class === studentData.class && 
+            s.number === studentData.number
+          );
+
+          if (existingIndex !== -1) {
+            // 업데이트: 기존 ID 유지하면서 필드만 교체
+            finalStudents[existingIndex] = { ...finalStudents[existingIndex], ...studentData };
+            updateCount++;
           } else {
-            // 없으면 추가
-            newStudents.push(studentData);
+            // 추가: 고유 ID 생성 후 추가
+            const newId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            finalStudents.push({ ...studentData, id: newId });
+            addCount++;
           }
         }
 
-        if (newStudents.length > 0) onAddStudents(newStudents);
-        if (updates.length > 0) onUpdateStudentsMany(updates);
-
-        alert(`처리 완료: 추가 ${newStudents.length}명, 업데이트 ${updates.length}명`);
+        if (addCount > 0 || updateCount > 0) {
+          if (onSetAllStudents) {
+            onSetAllStudents(finalStudents);
+            alert(`처리 완료: 추가 ${addCount}명, 업데이트 ${updateCount}명`);
+          } else {
+            // setAll 함수가 없는 경우 기존 방식 (불안정할 수 있음)
+            alert("경고: 데이터 일괄 업데이트 함수가 연결되지 않았습니다.");
+          }
+        }
       } catch (error) {
         console.error("Excel Error:", error);
         alert("엑셀 처리 실패");
@@ -315,6 +326,12 @@ export default function StudentManager({
         <button onClick={downloadExcel} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
           <Download size={16} className="text-blue-600"/> 양식 다운로드
         </button>
+
+        {/* 🔥 사진 명렬표 업로드 버튼 */}
+        <button onClick={() => rosterFileInputRef.current.click()} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
+          <ImageIcon size={16} className="text-purple-600"/> 사진 명렬표 업로드(PDF)
+        </button>
+        <input type="file" ref={rosterFileInputRef} onChange={handleRosterUpload} accept="image/*, .pdf" className="hidden" />
 
         <button onClick={createGoogleSheetInDrive} disabled={isCreatingSheet} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition shadow-sm disabled:bg-orange-300">
           {isCreatingSheet ? <Loader className="animate-spin" size={16}/> : <FileText size={16}/>}
@@ -497,6 +514,9 @@ export default function StudentManager({
   );
 }
 
+// --------------------------------------------------------------------------------
+// [하위 컴포넌트] 학생 추가/수정 모달
+// --------------------------------------------------------------------------------
 function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   const [formData, setFormData] = useState({ 
     grade: '1', class: '1', number: '1', name: '', phone: '', parent_phone: '', gender: 'male', 
@@ -577,6 +597,9 @@ function StudentModal({ isOpen, onClose, onSave, onDelete, initialData }) {
   );
 }
 
+// --------------------------------------------------------------------------------
+// [하위 컴포넌트] 일괄 작성 모달
+// --------------------------------------------------------------------------------
 function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudentsMany }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState('');
@@ -589,7 +612,13 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
     setProgress(`대상 학생 ${targets.length}명의 데이터를 처리 중입니다...`);
     try {
       const promptData = targets.map(s => ({ id: s.id, name: s.name, note: s.record_note }));
-      const systemPrompt = `너는 초등학교와 고등학교에서 모두 20년 경력을 가진 베테랑 교사야. 아래 학생들의 [이름, 기초자료]를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘. [작성 규칙] 1. 문체: 반드시 '~함.', '~임.', '~보임.', '~기대됨.' 등으로 끝나는 명사형 종결 어미(개조식)를 사용할 것. (절대 '~합니다'체 금지) 2. 분량: 학생당 3~4문장. 3. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘. 다른 말은 절대 하지 마.** [응답형식] [{"id": "...", "remark": "..."}]`;
+      const systemPrompt = `너는 초등학교와 고등학교에서 모두 20년 경력을 가진 베테랑 교사야. 
+      아래 학생들의 [이름, 기초자료]를 바탕으로, 각 학생별 '행동특성 및 종합의견'을 작성해줘. 
+      [작성 규칙] 
+      1. 문체: 반드시 '~함.', '~임.', '~보임.', '~기대됨.' 등으로 끝나는 명사형 종결 어미(개조식)를 사용할 것. (절대 '~합니다'체 금지)
+      2. 분량: 학생당 3~4문장. 
+      3. **중요: 반드시 아래와 같은 JSON 형식의 리스트로만 응답해줘. 다른 말은 절대 하지 마.** [응답형식] [{"id": "...", "remark": "..."}]`;
+      
       const userPrompt = JSON.stringify(promptData);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }] }) });
@@ -599,13 +628,18 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
       rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
       const results = JSON.parse(rawText);
       setProgress("데이터 저장 중...");
+      let updatedCount = 0;
       const updates = [];
       for (const res of results) {
         const student = students.find(s => String(s.id) === String(res.id));
         if (student) { updates.push({ id: student.id, fields: { ai_remark: res.remark } }); }
       }
-      if (updates.length > 0) { await onUpdateStudentsMany(updates); alert(`${updates.length}명의 특기사항이 일괄 생성 및 저장되었습니다!`); } 
-      else { alert("생성된 데이터와 학생 ID 매칭에 실패했습니다."); }
+      if (updates.length > 0) {
+        await onUpdateStudentsMany(updates);
+        alert(`${updates.length}명의 특기사항이 일괄 생성 및 저장되었습니다!`);
+      } else {
+        alert("생성된 데이터와 학생 ID 매칭에 실패했습니다.");
+      }
       onClose();
     } catch (error) { console.error("Batch Error:", error); alert(`오류가 발생했습니다: ${error.message}`); } finally { setLoading(false); setProgress(''); }
   };

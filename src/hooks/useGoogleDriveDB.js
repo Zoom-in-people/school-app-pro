@@ -3,11 +3,9 @@ import { getOrCreateFolder, uploadFileToDrive } from '../utils/googleDrive';
 
 const DB_FILE_NAME = 'school_app_db.json';
 
-// 전역 변수 (중복 실행 방지 및 로딩 상태 동기화)
+// 전역 변수
 let saveQueue = Promise.resolve();
 let globalInitPromise = null;
-
-// 🔥 [핵심] 로딩 중인 작업 개수를 세는 전역 변수
 let activeLoadingCount = 0;
 
 export function useGoogleDriveDB(collectionName, userId) {
@@ -15,12 +13,10 @@ export function useGoogleDriveDB(collectionName, userId) {
   const [dbFileId, setDbFileId] = useState(null);
   const isLoaded = useRef(false);
 
-  // 이벤트 발송 헬퍼
   const dispatchSaveEvent = (status) => {
     window.dispatchEvent(new CustomEvent('db-save-status', { detail: status }));
   };
 
-  // 🔥 로딩 상태 관리 헬퍼 함수
   const startLoading = () => {
     if (activeLoadingCount === 0) dispatchSaveEvent('loading');
     activeLoadingCount++;
@@ -28,7 +24,6 @@ export function useGoogleDriveDB(collectionName, userId) {
 
   const finishLoading = () => {
     activeLoadingCount = Math.max(0, activeLoadingCount - 1);
-    // 모든 로딩이 끝났을 때만 'loaded' 신호 발송
     if (activeLoadingCount === 0) {
       dispatchSaveEvent('loaded');
     }
@@ -58,11 +53,9 @@ export function useGoogleDriveDB(collectionName, userId) {
         return;
       }
 
-      // 🔥 로딩 시작 카운트 증가
       startLoading();
 
       try {
-        // 초기화 로직 (싱글톤 패턴)
         if (!globalInitPromise) {
           globalInitPromise = (async () => {
             let folderId = localStorage.getItem('cached_folder_id');
@@ -118,7 +111,6 @@ export function useGoogleDriveDB(collectionName, userId) {
         console.error("🚨 DB Init Error:", error);
         dispatchSaveEvent('error');
       } finally {
-        // 🔥 로딩 종료 카운트 감소 (성공하든 실패하든 무조건 실행)
         finishLoading();
       }
     };
@@ -200,7 +192,6 @@ export function useGoogleDriveDB(collectionName, userId) {
     saveDataToDrive(newData);
   };
 
-  // 일괄 업데이트 함수
   const updateMany = async (updates) => {
     if (data === null) return;
     const newData = data.map(item => {
@@ -213,5 +204,11 @@ export function useGoogleDriveDB(collectionName, userId) {
     saveDataToDrive(newData);
   };
 
-  return { data: data || [], add, addMany, remove, update, updateMany };
+  // 🔥 [신규] 데이터를 통째로 교체하는 함수 (엑셀 업로드용)
+  const setAll = async (allData) => {
+    if (data === null) return;
+    saveDataToDrive(allData);
+  };
+
+  return { data: data || [], add, addMany, remove, update, updateMany, setAll };
 }

@@ -86,13 +86,15 @@ export default function App() {
   const currentHandbookId = currentHandbook ? currentHandbook.id : null;
   const collectionPrefix = currentHandbookId ? `_${currentHandbookId}` : '';
 
+  // 🔥 [수정] setAll 함수를 받아옴 (useGoogleDriveDB에서 반환하도록 수정했으므로)
   const { 
     data: homeroomStudents, 
     add: addHomeroomStudent, 
     addMany: addManyHomeroomStudents, 
     remove: removeHomeroomStudent, 
-    update: updateHomeroomStudent,
-    updateMany: updateManyHomeroomStudents 
+    update: updateHomeroomStudent, 
+    updateMany: updateManyHomeroomStudents,
+    setAll: setAllHomeroomStudents // 🔥 추가됨
   } = useGoogleDriveDB(`students_homeroom${collectionPrefix}`, userId);
 
   const { 
@@ -101,7 +103,8 @@ export default function App() {
     addMany: addManySubjectStudents, 
     remove: removeSubjectStudent, 
     update: updateSubjectStudent, 
-    updateMany: updateManySubjectStudents 
+    updateMany: updateManySubjectStudents,
+    setAll: setAllSubjectStudents // 🔥 추가됨
   } = useGoogleDriveDB(`students_subject${collectionPrefix}`, userId);
     
   const { data: consultations, add: addConsultation, remove: removeConsultation, update: updateConsultation } 
@@ -244,6 +247,7 @@ export default function App() {
                 )}
                 {activeView === 'monthly' && <MonthlyEvents handbook={currentHandbook} isHomeroom={currentHandbook.isHomeroom} students={homeroomStudents} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} events={events} onUpdateEvent={handleUpdateEvent} />}
                 
+                {/* 🔥 [수정] setAllStudents 전달 */}
                 {activeView === 'students_homeroom' && (
                   <StudentManager 
                     key="homeroom-manager"
@@ -253,12 +257,13 @@ export default function App() {
                     onUpdateStudent={updateHomeroomStudent} 
                     onDeleteStudent={removeHomeroomStudent}
                     onUpdateStudentsMany={updateManyHomeroomStudents} 
+                    onSetAllStudents={setAllHomeroomStudents} 
                     apiKey={apiKey} 
                     isHomeroomView={true} 
                   />
                 )}
                 
-                {/* 🔥 [수정] 교과 학생 명렬표에 사진명렬표 데이터 전달 */}
+                {/* 🔥 [수정] setAllStudents 전달 */}
                 {activeView === 'students_subject' && (
                   <StudentManager 
                     key="subject-manager"
@@ -268,8 +273,9 @@ export default function App() {
                     onUpdateStudent={updateSubjectStudent} 
                     onDeleteStudent={removeSubjectStudent}
                     onUpdateStudentsMany={updateManySubjectStudents}
+                    onSetAllStudents={setAllSubjectStudents} 
                     apiKey={apiKey} 
-                    isHomeroomView={false}
+                    isHomeroomView={false} 
                     classPhotos={classPhotos} 
                     onAddClassPhoto={addClassPhoto}
                     onUpdateClassPhoto={updateClassPhoto}
