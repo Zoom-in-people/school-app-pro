@@ -11,13 +11,13 @@ import 'react-resizable/css/styles.css';
 const ReactGridLayout = RGL.default || RGL;
 const Responsive = ReactGridLayout.Responsive || RGL.Responsive;
 const WidthProvider = ReactGridLayout.WidthProvider || RGL.WidthProvider;
+// 🔥 WidthProvider가 브라우저 너비를 자동으로 감지하여 주입합니다.
 const ResponsiveGridLayout = WidthProvider ? WidthProvider(Responsive) : Responsive;
 
 export default function Dashboard({ widgets, students, todos, setActiveView, schoolInfo, isHomeroom, attendanceLog, onUpdateAttendance, onUpdateStudent, lessonGroups, onUpdateLessonGroup, currentHandbook, onUpdateHandbook, moveWidget, resetLayout, addWidget, deleteWidget, onLayoutChange }) {
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [targetStudent, setTargetStudent] = useState(null);
   
-  // 출결 팝업 상태
   const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, note: "" });
   const [isEditMode, setIsEditMode] = useState(false);
   
@@ -43,10 +43,8 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
 
   const saveAttendance = (type) => {
     if (!attPopup.studentId) return;
-    
     const existing = attendanceLog?.find(l => l.studentId === attPopup.studentId && l.date === todayStr);
     const { note } = attPopup;
-
     if (type === 'reset') {
       if (existing) onUpdateAttendance(existing.id, null); 
     } else {
@@ -79,7 +77,8 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   };
 
   const handleAddSpacer = (cols) => {
-    addWidget({ type: 'spacer', colSpan: cols, w: cols, h: 1 });
+    // Spacer 추가 시 화면 맨 아래(Infinity)에 추가되도록 함
+    addWidget({ type: 'spacer', colSpan: cols, w: cols, h: 1, x: 0, y: Infinity });
   };
 
   const renderWidgetContent = (widget) => {
@@ -195,15 +194,22 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
       <ResponsiveGridLayout
         className="layout"
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} // 🔥 [핵심] 모바일에서는 1열 강제
+        // 🔥 [핵심 1] PC(lg, md)는 여러 칸, 모바일(xs, xxs)은 1칸(세로 1열) 강제
+        cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} 
         rowHeight={100} 
-        // 🔥 [핵심] 겹침 방지 (vertical compact) 및 이동 잠금
+        // 🔥 [핵심 2] width={1200} 삭제됨 -> WidthProvider가 반응형 너비 자동 주입
+        
+        // 🔥 [핵심 3] compactType="vertical" 로 겹침 방지 (위로 자동 정렬)
         compactType="vertical"
+        // 🔥 [핵심 4] 이동 시 밀려나도록 충돌 방지 false
         preventCollision={false}
+        
+        // 🔥 [핵심 5] 편집 모드일 때만 드래그/리사이즈 가능
         isDraggable={isEditMode} 
         isResizable={isEditMode} 
         draggableHandle=".drag-handle" 
-        onLayoutChange={(layout) => onLayoutChange(layout)}
+        
+        onLayoutChange={(newLayout) => onLayoutChange(newLayout)}
         margin={[16, 16]}
       >
         {widgets.map((widget, index) => {
@@ -212,11 +218,12 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
           return (
             <div 
               key={widget.id} 
-              // 🔥 [핵심] data-grid 속성을 사용하여 초기 좌표 강제 (겹침 원인 제거)
+              // 🔥 [핵심 6] data-grid로 초기 좌표 강제 (겹침 방지의 핵심)
+              // 좌표(x, y)가 없으면 Infinity로 보내서 맨 아래 빈 곳에 붙게 함
               data-grid={{
-                x: widget.x !== undefined ? widget.x : (index * 2) % 12,
-                y: widget.y !== undefined ? widget.y : Infinity, // 좌표 없으면 맨 아래로
-                w: widget.w || 2,
+                x: widget.x !== undefined ? widget.x : (index * 2) % 12, 
+                y: widget.y !== undefined ? widget.y : Infinity, 
+                w: widget.w || 2, 
                 h: widget.h || 2,
                 i: widget.id
               }}
@@ -246,18 +253,10 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
         <div className="fixed inset-0 bg-black/20 z-[100] flex items-center justify-center" onClick={() => setAttPopup({isOpen: false, studentId: null, note: ""})}>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-xl w-72" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3"><h4 className="font-bold dark:text-white">출결 / 메모 입력</h4><button onClick={() => setAttPopup({isOpen: false, studentId: null, note: ""})}><X size={16}/></button></div>
-            
             <div className="mb-3">
               <div className="flex items-center gap-1 mb-1 text-xs font-bold text-gray-500 dark:text-gray-400"><MessageSquare size={12}/> 사유 (선택)</div>
-              <input 
-                type="text" 
-                value={attPopup.note} 
-                onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} 
-                placeholder="예: 독감, 체험학습" 
-                className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600" 
-              />
+              <input type="text" value={attPopup.note} onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} placeholder="예: 독감, 체험학습" className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600" />
             </div>
-
             <div className="space-y-3">
               <button onClick={() => saveAttendance('reset')} className="w-full p-2 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold">출석 (초기화)</button>
               <div className="grid grid-cols-3 gap-2 text-xs">
