@@ -1,54 +1,157 @@
 import React, { useState } from 'react';
-import { Upload, FileText, Loader, Trash2 } from 'lucide-react';
+import { Upload, FileText, Loader, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 
-export default function EducationPlan() {
+export default function EducationPlan({ apiKey }) {
   const [file, setFile] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [result, setResult] = useState(null); 
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
 
-  const handleUpload = (e) => {
-    const uploaded = e.target.files[0];
-    if (uploaded) {
-      setFile(uploaded);
-      setIsAnalyzing(true);
-      setTimeout(() => {
-        setIsAnalyzing(false);
-        setResult("교육과정 재구성 포인트: \n1. 문해력 강화 수업 (국어-사회 연계)\n2. AI 도구 활용 데이터 분석 (실과-수학 연계)\n3. 생태 환경 프로젝트 (창체)"); 
-      }, 3000);
+  // 파일을 Base64 문자열로 변환하는 헬퍼 함수
+  const fileToGenerativePart = async (file) => {
+    const base64EncodedDataPromise = new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.readAsDataURL(file);
+    });
+    return {
+      inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
+    };
+  };
+
+  const handleUpload = async (e) => {
+    const uploadedFile = e.target.files[0];
+    if (!uploadedFile) return;
+
+    if (!apiKey) {
+      alert("API 키가 설정되지 않았습니다. 설정 메뉴에서 키를 먼저 등록해주세요.");
+      return;
+    }
+
+    setFile(uploadedFile);
+    setIsAnalyzing(true);
+    setResult(null);
+    setError(null);
+
+    try {
+      // 1. 파일 데이터 준비
+      const filePart = await fileToGenerativePart(uploadedFile);
+
+      // 2. 강력한 페르소나 프롬프트 적용
+      const prompt = `
+        당신은 30년차 베테랑 초등학교 및 고등학교 교사입니다. 
+        탁월한 업무 수행 능력과 교육과정 문해력을 갖추고 있어, 어떤 복잡한 교육계획서라도 핵심을 빠르고 정확하게 파악합니다.
+        
+        [임무]
+        첨부된 교육계획서(PDF)를 정밀 분석하여 다음 3가지 항목으로 정리해 주세요.
+        내용은 구체적이고 실질적이어야 하며, 선생님들이 바로 참고할 수 있도록 요약하세요.
+
+        1. 🎯 핵심 교육 목표 및 비전 (3줄 요약)
+        2. 📅 주요 학사 일정 및 필수 행사 (월별 핵심 사항 정리)
+        3. 💡 교육과정 재구성 포인트 및 수업 아이디어 (교과 연계, 창체 활용 등 전문적인 제언 포함)
+
+        [출력 스타일]
+        - 전문적인 교육 용어를 적절히 사용하십시오.
+        - 가독성 좋게 마크다운 형식으로 작성하십시오.
+        - 내용은 너무 짧지 않게, 충분한 정보를 담아주세요.
+      `;
+
+      // 3. Gemini API 호출 (1.5 Flash 모델 사용)
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            role: "user",
+            parts: [
+              { text: prompt },
+              filePart // PDF 파일 데이터
+            ]
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API 호출 실패: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const text = data.candidates[0].content.parts[0].text;
+      
+      setResult(text);
+
+    } catch (err) {
+      console.error(err);
+      setError("분석 중 오류가 발생했습니다. 파일이 너무 크거나 API 키를 확인해주세요.");
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
-  const handleDelete = () => { setFile(null); setResult(null); setIsAnalyzing(false); };
+  const handleDelete = () => {
+    setFile(null);
+    setResult(null);
+    setError(null);
+    setIsAnalyzing(false);
+  };
 
   return (
     <div className="h-full flex flex-col gap-4">
-      <h2 className="text-2xl font-bold dark:text-white flex items-center gap-2"><FileText className="text-indigo-600"/> 교육계획서 분석</h2>
+      <h2 className="text-2xl font-bold dark:text-white flex items-center gap-2">
+        <FileText className="text-indigo-600"/> 교육계획서 분석
+      </h2>
       
       {!file ? (
-        <label className="flex-1 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-          <Upload size={48} className="text-gray-400 mb-2"/>
-          <span className="text-gray-500">PDF 파일을 이곳에 드래그하거나 클릭하여 업로드</span>
+        <label className="flex-1 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
+          <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-4">
+            <Upload size={40} className="text-indigo-500"/>
+          </div>
+          <span className="text-lg font-bold text-gray-700 dark:text-gray-300">교육계획서 PDF 업로드</span>
+          <span className="text-sm text-gray-500 mt-2">AI가 내용을 심층 분석하여 핵심을 요약해 드립니다.</span>
           <input type="file" accept=".pdf" className="hidden" onChange={handleUpload} />
         </label>
       ) : (
-        <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center">
-          <FileText size={48} className="text-indigo-600 mb-4"/>
-          <h3 className="text-lg font-bold mb-2">{file.name}</h3>
+        <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+          {/* 상단 헤더 */}
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/30">
+            <div className="flex items-center gap-3">
+              <FileText size={24} className="text-indigo-600"/>
+              <span className="font-bold text-lg truncate max-w-md">{file.name}</span>
+            </div>
+            <button onClick={handleDelete} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm font-bold transition">
+              <Trash2 size={16}/> 다른 파일 올리기
+            </button>
+          </div>
           
-          {isAnalyzing ? (
-            <div className="flex flex-col items-center gap-2 text-indigo-600 animate-in fade-in">
-              <Loader className="animate-spin"/>
-              <span className="font-bold">AI가 교육계획서를 분석 중입니다...</span>
-            </div>
-          ) : (
-            <div className="text-center w-full max-w-2xl animate-in fade-in slide-in-from-bottom-4">
-              <div className="bg-green-50 text-green-700 p-4 rounded-xl mb-4 font-bold border border-green-200">✅ 분석 완료</div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-xl text-left text-sm whitespace-pre-wrap border border-gray-200 dark:border-gray-600 leading-relaxed shadow-inner">
-                {result}
+          {/* 본문 영역 */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {isAnalyzing ? (
+              <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
+                <Loader className="animate-spin w-12 h-12 text-indigo-600"/>
+                <div>
+                  <p className="text-xl font-bold text-indigo-600 animate-pulse">AI가 교육계획서를 분석 중입니다...</p>
+                  <p className="text-sm text-gray-500 mt-2">30년차 베테랑 교사의 시각으로 꼼꼼히 살펴보고 있습니다.<br/>잠시만 기다려 주세요.</p>
+                </div>
               </div>
-              <button onClick={handleDelete} className="mt-6 text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg flex items-center gap-2 mx-auto transition"><Trash2 size={16}/> 파일 삭제 및 다시 올리기</button>
-            </div>
-          )}
+            ) : error ? (
+              <div className="h-full flex flex-col items-center justify-center text-red-500 gap-2">
+                <AlertCircle size={48}/>
+                <p className="font-bold">{error}</p>
+              </div>
+            ) : (
+              <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4">
+                <div className="flex items-center gap-2 mb-6">
+                  <CheckCircle className="text-green-500" size={24}/>
+                  <h3 className="text-2xl font-bold text-gray-800 dark:text-white">분석 결과</h3>
+                </div>
+                <div className="prose dark:prose-invert max-w-none bg-indigo-50/50 dark:bg-gray-700/30 p-8 rounded-2xl border border-indigo-100 dark:border-gray-600">
+                  <div className="whitespace-pre-wrap leading-relaxed text-gray-700 dark:text-gray-200">
+                    {result}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
