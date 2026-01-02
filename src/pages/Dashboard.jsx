@@ -1,5 +1,5 @@
-import React, { useState, useRef, useMemo } from 'react';
-import { FileText, Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, Square, Layout, MessageSquare, Wrench } from 'lucide-react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, MessageSquare } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
 
@@ -16,18 +16,14 @@ const ResponsiveGridLayout = WidthProvider ? WidthProvider(Responsive) : Respons
 export default function Dashboard({ widgets, students, todos, setActiveView, schoolInfo, isHomeroom, attendanceLog, onUpdateAttendance, onUpdateStudent, lessonGroups, onUpdateLessonGroup, currentHandbook, onUpdateHandbook, moveWidget, resetLayout, addWidget, deleteWidget, onLayoutChange }) {
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [targetStudent, setTargetStudent] = useState(null);
-  
   const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, note: "" });
   const [isEditMode, setIsEditMode] = useState(false);
-  
   const fileInputRef = useRef(null);
 
+  // 날짜 및 데이터 처리 로직
   const getTodayDateString = () => { 
     const d = new Date(); 
-    const y = d.getFullYear(); 
-    const m = String(d.getMonth() + 1).padStart(2, '0'); 
-    const day = String(d.getDate()).padStart(2, '0'); 
-    return `${y}-${m}-${day}`; 
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; 
   };
   const todayStr = getTodayDateString();
 
@@ -40,19 +36,18 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     if (!attPopup.studentId) return;
     const existing = attendanceLog?.find(l => l.studentId === attPopup.studentId && l.date === todayStr);
     const { note } = attPopup;
-    if (type === 'reset') {
-      if (existing) onUpdateAttendance(existing.id, null); 
-    } else {
-      const data = { studentId: attPopup.studentId, date: todayStr, type, note };
-      if (existing) onUpdateAttendance(existing.id, { ...existing, type, note });
-      else onUpdateAttendance(null, data);
-    }
+    const data = type === 'reset' ? null : { studentId: attPopup.studentId, date: todayStr, type, note };
+    
+    if (type === 'reset' && existing) onUpdateAttendance(existing.id, null);
+    else if (existing) onUpdateAttendance(existing.id, { ...existing, type, note });
+    else if (!existing && type !== 'reset') onUpdateAttendance(null, data);
+    
     setAttPopup({ isOpen: false, studentId: null, note: "" });
   };
 
   const handleMemoClick = (student) => { setTargetStudent(student); setMemoModalOpen(true); };
   const handleMemoSave = (studentId, updatedFields) => { onUpdateStudent(studentId, updatedFields); setTargetStudent(prev => ({...prev, ...updatedFields})); };
-
+  
   const handleTimetableUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -66,77 +61,46 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     const group = lessonGroups.find(g => g.id === groupId);
     if (!group) return;
     const key = `${classId}_${itemName}`;
-    const currentStatus = group.status[key];
-    const newStatus = { ...group.status, [key]: currentStatus ? null : todayStr };
+    const newStatus = { ...group.status, [key]: group.status[key] ? null : todayStr };
     onUpdateLessonGroup(groupId, { status: newStatus });
   };
 
-  // 🔥 [핵심 기능] 위젯 배치 강제 복구 (Emergency Fix)
-  const handleForceRepair = () => {
-    if(!window.confirm("현재 꼬여있는 위젯 배치를 강제로 초기화하여 복구하시겠습니까?")) return;
+  // 🔥 [핵심 수정 1] 강제 레이아웃 생성기 (저장된 꼬인 데이터 무시)
+  const generateForcedLayouts = () => {
+    // 선생님이 지정하신 순서대로 좌표를 하드코딩합니다.
+    // 12칸 그리드 기준
+    const layoutMap = {
+      'lunch':    { x: 0, y: 0, w: 3, h: 4 }, // 1. 급식 (맨 왼쪽)
+      'deadline': { x: 3, y: 0, w: 3, h: 4 }, // 2. 업무 (그 다음)
+      'lesson':   { x: 6, y: 0, w: 3, h: 4 }, // 3. 수업 (그 다음)
+      'student':  { x: 9, y: 0, w: 3, h: 4 }, // 4. 출결 (맨 오른쪽)
+      'progress': { x: 0, y: 4, w: 12, h: 4 }, // 5. 진도 (아래쪽 전체)
+    };
 
-    // 선생님이 지정하신 순서대로 좌표 강제 할당
-    // 1열: 급식(0-2), 업무(3-5), 수업(6-8), 출결(9-11) (각 너비 3)
-    // 2열: 진도(0-11) (너비 12)
-    
-    const repairedLayout = widgets.map(w => {
-      let newItem = { i: w.id, w: 2, h: 2, x: 0, y: 0 }; // 기본값
-
-      switch(w.type) {
-        case 'lunch':    newItem = { i: w.id, x: 0, y: 0, w: 3, h: 2 }; break; // 1~3칸
-        case 'deadline': newItem = { i: w.id, x: 3, y: 0, w: 3, h: 2 }; break; // 4~6칸
-        case 'lesson':   newItem = { i: w.id, x: 6, y: 0, w: 3, h: 2 }; break; // 7~9칸
-        case 'student':  newItem = { i: w.id, x: 9, y: 0, w: 3, h: 2 }; break; // 10~12칸
-        case 'progress': newItem = { i: w.id, x: 0, y: 2, w: 12, h: 2 }; break; // 2열 전체
-        default:         newItem = { i: w.id, x: 0, y: Infinity, w: 2, h: 2 }; break; // 나머지는 아래로
-      }
-      return newItem;
+    const lgLayout = widgets.map(w => {
+      const forced = layoutMap[w.type] || { x: 0, y: Infinity, w: 3, h: 4 };
+      return { i: w.id, ...forced };
     });
 
-    // 상위 컴포넌트(App.jsx)에 수정된 레이아웃 전달하여 저장
-    onLayoutChange(repairedLayout);
-    alert("배치가 복구되었습니다.");
-    window.location.reload(); // 확실한 적용을 위해 새로고침
-  };
-
-  const handleAddSpacer = (cols) => {
-    addWidget({ type: 'spacer', colSpan: cols, w: cols, h: 1, x: 0, y: Infinity });
-  };
-
-  // 렌더링용 레이아웃 생성
-  const currentLayouts = useMemo(() => {
-    // PC 레이아웃: 저장된 좌표 사용
-    const desktopLayout = widgets.map(w => ({
-      i: w.id,
-      x: w.x || 0,
-      y: w.y || 0,
-      w: w.w || 2,
-      h: w.h || 2
+    // 모바일용 (1열)
+    const xsLayout = widgets.map((w, idx) => ({
+      i: w.id, x: 0, y: idx * 4, w: 1, h: 4
     }));
 
-    // 모바일 레이아웃: 강제 1열 (순서대로)
-    let yCounter = 0;
-    const mobileLayout = widgets.map(w => {
-      const h = w.h || 2;
-      const item = { i: w.id, x: 0, y: yCounter, w: 1, h };
-      yCounter += h;
-      return item;
-    });
+    return { lg: lgLayout, md: lgLayout, sm: lgLayout, xs: xsLayout, xxs: xsLayout };
+  };
 
-    return { lg: desktopLayout, md: desktopLayout, sm: desktopLayout, xs: mobileLayout, xxs: mobileLayout };
-  }, [widgets]);
+  // useMemo를 사용해 렌더링 시마다 강제 레이아웃을 주입
+  const forcedLayouts = useMemo(() => generateForcedLayouts(), [widgets]);
 
   const renderWidgetContent = (widget) => {
-    if (widget.type === 'spacer') {
-      return <div className={`w-full h-full rounded-xl flex items-center justify-center transition-all ${isEditMode ? 'border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400' : 'opacity-0'}`}>{isEditMode && <span className="text-xs font-bold">빈 공간</span>}</div>;
-    }
     switch (widget.type) {
       case 'lunch': return <LunchWidget schoolInfo={schoolInfo || {}} />;
-      case 'deadline': return (<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 h-full overflow-hidden"><div className="flex justify-between items-center mb-4"><h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2"><AlertTriangle size={18} className="text-red-500"/> 업무 체크</h4><button onClick={() => setActiveView('tasks')} className="text-xs text-gray-400 hover:text-indigo-500">전체보기</button></div><div className="space-y-3">{todos.slice(0, 5).map(todo => (<div key={todo.id} className={`flex items-start gap-3 p-2 rounded-lg transition ${todo.done ? 'opacity-50' : ''}`}><input type="checkbox" checked={todo.done} readOnly className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"/><div className="flex-1"><p className={`text-sm font-medium ${todo.done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{todo.title}</p><span className="text-xs text-red-500 font-medium">{todo.done ? '완료' : 'D-Day'}</span></div></div>))}</div></div>);
+      case 'deadline': return (<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 h-full overflow-hidden flex flex-col"><div className="flex justify-between items-center mb-4"><h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2"><AlertTriangle size={18} className="text-red-500"/> 업무 체크</h4><button onClick={() => setActiveView('tasks')} className="text-xs text-gray-400 hover:text-indigo-500">전체보기</button></div><div className="space-y-3 overflow-y-auto flex-1">{todos.slice(0, 5).map(todo => (<div key={todo.id} className={`flex items-start gap-3 p-2 rounded-lg transition ${todo.done ? 'opacity-50' : ''}`}><input type="checkbox" checked={todo.done} readOnly className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"/><div className="flex-1"><p className={`text-sm font-medium ${todo.done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{todo.title}</p><span className="text-xs text-red-500 font-medium">{todo.done ? '완료' : 'D-Day'}</span></div></div>))}</div></div>);
       case 'lesson': return (<div className="bg-indigo-600 rounded-xl shadow-lg p-5 text-white h-full flex flex-col overflow-hidden relative group"><h4 className="font-bold mb-2 flex items-center justify-between z-10">오늘의 수업</h4><div className="flex-1 flex items-center justify-center bg-indigo-500/50 rounded-lg overflow-hidden relative">{currentHandbook?.timetableImage ? (<img src={currentHandbook.timetableImage} alt="TimeTable" className="w-full h-full object-cover"/>) : (<div className="text-center text-indigo-200 text-sm p-4"><p>등록된 시간표가 없습니다.</p><p className="text-xs mt-1">이미지를 클릭하여 업로드</p></div>)}<div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer" onClick={() => fileInputRef.current.click()}><Upload className="text-white"/></div><input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleTimetableUpload}/></div></div>);
       case 'student': return (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 h-full flex flex-col">
-          <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2 dark:text-white"><Users className="text-green-500" /> 오늘 출결 ({todayStr})</h3><button onClick={() => setActiveView('students_homeroom')} className="text-xs text-indigo-600 hover:underline">관리 &gt;</button></div>
+          <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2 dark:text-white"><Users className="text-green-500" /> 오늘 출결</h3><button onClick={() => setActiveView('students_homeroom')} className="text-xs text-indigo-600 hover:underline">관리 &gt;</button></div>
           <div className="p-2 flex-1 overflow-y-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-50 dark:bg-gray-700 text-xs text-gray-500 dark:text-gray-400 sticky top-0"><tr><th className="px-3 py-2">이름</th><th className="px-3 py-2 text-center">상태</th><th className="px-3 py-2 text-right">메모</th></tr></thead>
@@ -186,75 +150,53 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     }
   };
 
-  const rglStyles = `
-    .react-grid-layout { position: relative; transition: height 200ms ease; }
-    .react-grid-item { transition: all 200ms ease; transition-property: left, top; }
-    .react-grid-item.cssTransforms { transition-property: transform; }
-    .react-grid-item.resizing { z-index: 100; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
-    .react-grid-item.react-grid-placeholder { background: rgba(79, 70, 229, 0.1) !important; opacity: 0.5; border-radius: 12px; border: 2px dashed #6366f1; }
-    .react-resizable-handle { position: absolute; width: 20px; height: 20px; bottom: 0; right: 0; cursor: se-resize; }
-  `;
-
   return (
-    <div className="relative pb-20">
-      <style>{rglStyles}</style>
+    <div className="relative pb-20 w-full">
+      <style>{`.react-grid-layout { position: relative; transition: height 200ms ease; } .react-grid-item { transition: all 200ms ease; transition-property: left, top; } .react-grid-item.resizing { z-index: 100; box-shadow: 0 0 10px rgba(0,0,0,0.2); } .react-resizable-handle { position: absolute; width: 20px; height: 20px; bottom: 0; right: 0; cursor: se-resize; }`}</style>
 
       <div className="flex justify-end mb-4 gap-2">
-        {/* 🔥 [신규] 배치 강제 복구 버튼 */}
-        <button onClick={handleForceRepair} className="text-xs flex items-center gap-1 px-3 py-2 rounded-lg font-bold shadow-sm bg-red-100 text-red-600 hover:bg-red-200">
-          <Wrench size={14}/> 배치 강제 복구
-        </button>
-
-        {isEditMode && (
-          <div className="flex items-center gap-2 bg-indigo-50 dark:bg-gray-700 px-3 py-1 rounded-lg border border-indigo-100 dark:border-gray-600 animate-in fade-in slide-in-from-right-4">
-            <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 mr-1">위젯 추가:</span>
-            <button onClick={() => handleAddSpacer(2)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded" title="빈 공간 (2칸)"><Layout size={16} className="text-gray-500 dark:text-gray-300"/></button>
-            <button onClick={() => handleAddSpacer(12)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded" title="줄바꿈 (12칸)"><RotateCcw className="rotate-90" size={16}/></button>
-          </div>
-        )}
         <button onClick={() => setIsEditMode(!isEditMode)} className={`text-xs flex items-center gap-1 px-3 py-2 rounded-lg font-bold shadow-sm transition ${isEditMode ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:text-indigo-600'}`}>
           {isEditMode ? <CheckCircle size={14}/> : <Edit3 size={14}/>} {isEditMode ? '편집 완료' : '화면 편집'}
         </button>
+        {/* 🔥 [핵심 기능] 긴급 복구 버튼 (데이터 오염 해결용) */}
+        <button onClick={resetLayout} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-sm font-bold"><RotateCcw size={12}/> 배치 초기화</button>
       </div>
 
-      <ResponsiveGridLayout
-        className="layout"
-        layouts={currentLayouts}
-        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} 
-        rowHeight={100} 
-        compactType="vertical"
-        preventCollision={false} 
-        isDraggable={isEditMode}
-        isResizable={isEditMode}
-        draggableHandle=".drag-handle"
-        
-        // 모바일에서는 레이아웃 변경을 저장하지 않음 (PC 레이아웃 보호)
-        onLayoutChange={(layout) => {
-          if (window.innerWidth >= 768) {
-            onLayoutChange(layout);
-          }
-        }}
-        margin={[16, 16]}
-      >
-        {widgets.map((widget) => {
-          if (!isHomeroom && widget.type === 'student') return <div key={widget.id} className="hidden"></div>;
-          
-          return (
-            <div key={widget.id} className="bg-transparent">
-              <div className="h-full relative group">
-                {isEditMode && (
-                  <>
+      {/* 🔥 [핵심 수정 2] width: 100% 강제하여 화면 너비 인식 오류 해결 */}
+      <div style={{ width: '100%' }}>
+        <ResponsiveGridLayout
+          className="layout"
+          layouts={forcedLayouts} // 🔥 강제로 좌표를 할당한 레이아웃 사용
+          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+          cols={{ lg: 12, md: 12, sm: 6, xs: 1, xxs: 1 }} 
+          rowHeight={100}
+          compactType="vertical" // 위로 정렬 (겹침 방지)
+          isDraggable={isEditMode}
+          isResizable={isEditMode}
+          draggableHandle=".drag-handle"
+          onLayoutChange={(layout) => {
+             // PC 모드일 때만 변경사항 저장 (데이터 보호)
+             if (window.innerWidth > 768) {
+               onLayoutChange(layout);
+             }
+          }}
+          margin={[16, 16]}
+        >
+          {widgets.map((widget) => {
+            if (!isHomeroom && widget.type === 'student') return <div key={widget.id} className="hidden"></div>;
+            return (
+              <div key={widget.id} className="bg-transparent">
+                <div className="h-full relative group">
+                  {isEditMode && (
                     <div className="drag-handle absolute top-2 right-2 z-50 p-1 bg-gray-100 dark:bg-gray-700 rounded cursor-move text-gray-400 hover:text-indigo-600 shadow-sm border border-gray-200 dark:border-gray-600"><Grip size={16}/></div>
-                    {widget.type === 'spacer' && <button onClick={() => deleteWidget(widget.id)} className="absolute -top-2 -left-2 bg-red-500 text-white rounded-full p-1 shadow-md z-50 hover:bg-red-600"><X size={14}/></button>}
-                  </>
-                )}
-                {renderWidgetContent(widget)}
+                  )}
+                  {renderWidgetContent(widget)}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </ResponsiveGridLayout>
+            );
+          })}
+        </ResponsiveGridLayout>
+      </div>
 
       {memoModalOpen && targetStudent && <MemoLogModal isOpen={memoModalOpen} onClose={() => setMemoModalOpen(false)} student={targetStudent} onSave={handleMemoSave} />}
       {attPopup.isOpen && (
