@@ -1,8 +1,12 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, AlertTriangle, FileText, BookOpen, StickyNote, Image as ImageIcon } from 'lucide-react';
+import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, AlertTriangle, FileText, BookOpen, StickyNote, Image as ImageIcon, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { uploadFileToDrive } from '../utils/googleDrive'; // 파일 업로드 유틸 필요
 
-export default function StudentManager({ students = [], onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, onUpdateStudentsMany, apiKey, isHomeroomView }) {
+export default function StudentManager({ 
+  students = [], onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, onUpdateStudentsMany, apiKey, isHomeroomView,
+  classPhotos = [], onAddClassPhoto, onUpdateClassPhoto // 🔥 [추가] 사진 명렬표용 Props
+}) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBatchAiModalOpen, setIsBatchAiModalOpen] = useState(false);
@@ -14,7 +18,7 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
   const [selectedClasses, setSelectedClasses] = useState([]);
 
   const fileInputRef = useRef(null);
-  const photoListInputRef = useRef(null);
+  const rosterFileInputRef = useRef(null); // 사진명렬표용 ref
 
   const safeStudents = Array.isArray(students) ? students : [];
 
@@ -54,6 +58,46 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
       setSelectedGrades(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
     } else {
       setSelectedClasses(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
+    }
+  };
+
+  // 🔥 [신규] 특정 반(1개 학년, 1개 반) 선택 여부 확인
+  const isSingleClassSelected = !isHomeroomView && selectedGrades.length === 1 && selectedClasses.length === 1;
+  const currentClassKey = isSingleClassSelected ? `${selectedGrades[0]}-${selectedClasses[0]}` : null; // 예: "3-2"
+  
+  // 현재 선택된 반의 사진명렬표 데이터 찾기
+  const currentClassPhoto = isSingleClassSelected && classPhotos ? classPhotos.find(p => p.id === currentClassKey) : null;
+
+  // 🔥 [신규] 사진 명렬표 업로드 핸들러
+  const handleRosterUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !currentClassKey) return;
+
+    try {
+      const folderId = localStorage.getItem('cached_folder_id');
+      const uploaded = await uploadFileToDrive(file, folderId);
+      
+      // 파일 타입 확인 (이미지인지 PDF인지)
+      const fileType = file.type.includes('pdf') ? 'pdf' : 'image';
+      
+      // DB에 저장할 데이터
+      const photoData = {
+        id: currentClassKey, // ID를 "학년-반"으로 고정
+        url: uploaded.webContentLink, // 다운로드/미리보기 링크
+        viewUrl: uploaded.webViewLink, // 구글 드라이브 뷰어 링크
+        fileType: fileType,
+        fileName: file.name
+      };
+
+      if (currentClassPhoto) {
+        onUpdateClassPhoto(currentClassKey, photoData);
+      } else {
+        onAddClassPhoto(photoData); // id가 있으므로 update로 동작할 수도 있지만 add도 안전
+      }
+      alert(`${selectedGrades[0]}학년 ${selectedClasses[0]}반 사진 명렬표가 업로드되었습니다.`);
+    } catch (error) {
+      console.error(error);
+      alert("업로드 실패: 구글 드라이브 권한을 확인해주세요.");
     }
   };
 
@@ -142,14 +186,6 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "학생명단");
     XLSX.writeFile(wb, `${isHomeroomView ? '우리반' : '교과'}_학생명단.xlsx`);
-  };
-
-  // 사진 명렬표 PDF 업로드 (UI 시뮬레이션)
-  const handlePhotoListUpload = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      alert("사진 명렬표가 업로드되었습니다. (현재 버전에서는 파일 저장만 지원됩니다.)");
-    }
   };
 
   const createGoogleSheetInDrive = async () => {
@@ -280,12 +316,6 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
           <Download size={16} className="text-blue-600"/> 양식 다운로드
         </button>
 
-        {/* 사진 명렬표 업로드 */}
-        <button onClick={() => photoListInputRef.current.click()} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
-          <ImageIcon size={16} className="text-purple-600"/> 사진 명렬표 업로드(PDF)
-        </button>
-        <input type="file" ref={photoListInputRef} onChange={handlePhotoListUpload} accept=".pdf" className="hidden" />
-
         <button onClick={createGoogleSheetInDrive} disabled={isCreatingSheet} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition shadow-sm disabled:bg-orange-300">
           {isCreatingSheet ? <Loader className="animate-spin" size={16}/> : <FileText size={16}/>}
           Drive에 시트 생성 (Gemini용)
@@ -321,6 +351,44 @@ export default function StudentManager({ students = [], onAddStudent, onAddStude
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* 🔥 [추가] 반별 사진 명렬표 패널 (1개 학년, 1개 반 선택 시 표시) */}
+      {isSingleClassSelected && (
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 p-4 rounded-2xl border border-indigo-100 dark:border-gray-600 shadow-sm animate-in slide-in-from-top-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2">
+              <ImageIcon className="text-purple-600"/> {selectedGrades[0]}학년 {selectedClasses[0]}반 사진 명렬표
+            </h3>
+            <div className="flex gap-2">
+              {currentClassPhoto && (
+                <a href={currentClassPhoto.viewUrl} target="_blank" rel="noreferrer" className="bg-white dark:bg-gray-600 text-gray-700 dark:text-white px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-500 text-sm font-bold hover:bg-gray-50 transition">
+                  크게 보기 (Drive)
+                </a>
+              )}
+              <button onClick={() => rosterFileInputRef.current.click()} className="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-700 flex items-center gap-2">
+                <Upload size={14}/> {currentClassPhoto ? '파일 교체' : '파일 업로드'}
+              </button>
+              <input type="file" ref={rosterFileInputRef} onChange={handleRosterUpload} accept="image/*, .pdf" className="hidden" />
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-600 min-h-[150px] flex items-center justify-center overflow-hidden">
+            {currentClassPhoto ? (
+              currentClassPhoto.fileType === 'pdf' ? (
+                <iframe src={currentClassPhoto.url} className="w-full h-[400px] border-none" title="Roster PDF"></iframe>
+              ) : (
+                <img src={currentClassPhoto.url} alt="Class Roster" className="max-w-full max-h-[400px] object-contain" />
+              )
+            ) : (
+              <div className="text-center text-gray-400 py-10">
+                <ImageIcon size={48} className="mx-auto mb-2 opacity-30"/>
+                <p>등록된 사진 명렬표가 없습니다.</p>
+                <p className="text-xs mt-1">우측 상단 버튼을 눌러 업로드하세요.</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

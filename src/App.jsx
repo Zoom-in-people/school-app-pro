@@ -98,9 +98,9 @@ export default function App() {
   const { 
     data: subjectStudents, 
     add: addSubjectStudent, 
-    addMany: addManySubjectStudents,
+    addMany: addManySubjectStudents, 
     remove: removeSubjectStudent, 
-    update: updateSubjectStudent,
+    update: updateSubjectStudent, 
     updateMany: updateManySubjectStudents 
   } = useGoogleDriveDB(`students_subject${collectionPrefix}`, userId);
     
@@ -119,12 +119,15 @@ export default function App() {
   const { data: lessonGroups, add: addLessonGroup, remove: removeLessonGroup, update: updateLessonGroup } 
     = useGoogleDriveDB(`lesson_groups${collectionPrefix}`, userId);
 
-  // 신규 기능 DB
   const { data: meetingLogs, add: addMeetingLog, remove: removeMeetingLog, update: updateMeetingLog } 
     = useGoogleDriveDB(`meeting_logs${collectionPrefix}`, userId);
 
   const { data: myTimetable, update: updateMyTimetable } 
     = useGoogleDriveDB(`my_timetable${collectionPrefix}`, userId);
+
+  // 🔥 [추가] 반별 사진 명렬표 데이터 연결
+  const { data: classPhotos, add: addClassPhoto, update: updateClassPhoto } 
+    = useGoogleDriveDB(`class_photos${collectionPrefix}`, userId);
 
   const handleCreateHandbook = async (data) => {
     try {
@@ -255,6 +258,7 @@ export default function App() {
                   />
                 )}
                 
+                {/* 🔥 [수정] 교과 학생 명렬표에 사진명렬표 데이터 전달 */}
                 {activeView === 'students_subject' && (
                   <StudentManager 
                     key="subject-manager"
@@ -265,7 +269,10 @@ export default function App() {
                     onDeleteStudent={removeSubjectStudent}
                     onUpdateStudentsMany={updateManySubjectStudents}
                     apiKey={apiKey} 
-                    isHomeroomView={false} 
+                    isHomeroomView={false}
+                    classPhotos={classPhotos} 
+                    onAddClassPhoto={addClassPhoto}
+                    onUpdateClassPhoto={updateClassPhoto}
                   />
                 )}
                 
