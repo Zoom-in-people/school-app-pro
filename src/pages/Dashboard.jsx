@@ -1,9 +1,9 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, MessageSquare, Layout } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, MessageSquare, Wrench, Layout } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
 
-// 라이브러리 Import
+// RGL 라이브러리 설정
 import * as RGL from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -20,7 +20,7 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   const [isEditMode, setIsEditMode] = useState(false);
   const fileInputRef = useRef(null);
 
-  // 날짜 관련
+  // 날짜
   const getTodayDateString = () => { 
     const d = new Date(); 
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; 
@@ -28,45 +28,54 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   const todayStr = getTodayDateString();
 
   // -------------------------------------------------------------------------
-  // 🔥 [핵심] 배치 강제 설정 (저장된 좌표 무시하고 여기서 정의한 대로만 그립니다)
+  // 🔥 [핵심 기능] 꼬인 데이터 강제 복구 (선생님이 지정한 배치로 리셋)
   // -------------------------------------------------------------------------
-  const fixedLayouts = useMemo(() => {
-    // 1. PC용 강제 배치 (12칸 그리드)
-    const desktopLayout = widgets.map(w => {
-      let pos = { x: 0, y: Infinity, w: 3, h: 4 }; // 기본값
+  const handleForceRepair = () => {
+    if(!window.confirm("화면이 겹치거나 깨졌나요?\n위젯 배치를 '기본 설정'으로 강제 복구합니다.")) return;
 
-      // 선생님이 지정하신 순서대로 좌표 하드코딩
+    // 선생님이 요청하신 12컬럼 기준 배치 (좌표 하드코딩)
+    const fixedWidgets = widgets.map(w => {
+      let layout = { x: 0, y: 0, w: 3, h: 4 }; // 기본값
+
       switch (w.type) {
-        case 'lunch':    pos = { x: 0, y: 0, w: 3, h: 4 }; break; // 1열 1번
-        case 'deadline': pos = { x: 3, y: 0, w: 3, h: 4 }; break; // 1열 2번
-        case 'lesson':   pos = { x: 6, y: 0, w: 3, h: 4 }; break; // 1열 3번
-        case 'student':  pos = { x: 9, y: 0, w: 3, h: 4 }; break; // 1열 4번
-        case 'progress': pos = { x: 0, y: 4, w: 12, h: 5 }; break; // 2열 전체
-        default:         pos = { x: 0, y: 10, w: 3, h: 4 }; break; // 기타
+        case 'lunch':    layout = { x: 0, y: 0, w: 3, h: 4 }; break; // (1~3칸)
+        case 'deadline': layout = { x: 3, y: 0, w: 3, h: 4 }; break; // (4~6칸)
+        case 'lesson':   layout = { x: 6, y: 0, w: 3, h: 4 }; break; // (7~9칸)
+        case 'student':  layout = { x: 9, y: 0, w: 3, h: 4 }; break; // (10~12칸)
+        case 'progress': layout = { x: 0, y: 4, w: 12, h: 5 }; break; // (2열 전체)
+        default:         layout = { x: 0, y: 10, w: 3, h: 4 }; break; // 나머지는 아래로
       }
-      return { i: w.id, ...pos, minW: 2, minH: 2 };
+      
+      return { ...w, ...layout };
     });
 
-    // 2. 모바일용 강제 배치 (1칸 그리드 - 세로 일렬)
-    let yStack = 0;
-    const mobileLayout = widgets.map(w => {
-      const height = w.type === 'progress' ? 5 : 4;
-      const item = { i: w.id, x: 0, y: yStack, w: 1, h: height };
-      yStack += height;
-      return item;
-    });
+    // 부모 컴포넌트(App.jsx)에 수정된 데이터 즉시 반영
+    if (onLayoutChange) {
+      // RGL 포맷에 맞춰 변환 후 전달 (필수)
+      const layoutData = fixedWidgets.map(w => ({
+        i: w.id, x: w.x, y: w.y, w: w.w, h: w.h
+      }));
+      onLayoutChange(layoutData);
+      
+      // 확실한 적용을 위해 0.1초 뒤 새로고침 (데이터 저장 시간 확보)
+      setTimeout(() => window.location.reload(), 100);
+    }
+  };
 
-    return {
-      lg: desktopLayout,
-      md: desktopLayout,
-      sm: desktopLayout, // 태블릿도 PC 배치 유지
-      xs: mobileLayout,  // 모바일
-      xxs: mobileLayout  // 초소형 모바일
-    };
-  }, [widgets]);
+  // RGL에 전달할 현재 레이아웃 데이터 생성
+  const generateLayout = () => {
+    return widgets.map(w => ({
+      i: w.id,
+      x: w.x !== undefined ? w.x : 0,
+      y: w.y !== undefined ? w.y : 0,
+      w: w.w || 3,
+      h: w.h || 4,
+      minW: 2, minH: 2
+    }));
+  };
 
   // -------------------------------------------------------------------------
-  // 기능 로직 (출결, 메모, 업로드 등)
+  // 기능 로직 (출결, 메모, 업로드 등 기존 유지)
   // -------------------------------------------------------------------------
   const openAttPopup = (studentId) => {
     const existing = attendanceLog?.find(l => l.studentId === studentId && l.date === todayStr);
@@ -77,19 +86,18 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     if (!attPopup.studentId) return;
     const existing = attendanceLog?.find(l => l.studentId === attPopup.studentId && l.date === todayStr);
     const { note } = attPopup;
-    if (type === 'reset') {
-      if (existing) onUpdateAttendance(existing.id, null); 
-    } else {
-      const data = { studentId: attPopup.studentId, date: todayStr, type, note };
-      if (existing) onUpdateAttendance(existing.id, { ...existing, type, note });
-      else onUpdateAttendance(null, data);
-    }
+    const data = type === 'reset' ? null : { studentId: attPopup.studentId, date: todayStr, type, note };
+    
+    if (type === 'reset' && existing) onUpdateAttendance(existing.id, null);
+    else if (existing) onUpdateAttendance(existing.id, { ...existing, type, note });
+    else if (!existing && type !== 'reset') onUpdateAttendance(null, data);
+    
     setAttPopup({ isOpen: false, studentId: null, note: "" });
   };
 
   const handleMemoClick = (student) => { setTargetStudent(student); setMemoModalOpen(true); };
   const handleMemoSave = (studentId, updatedFields) => { onUpdateStudent(studentId, updatedFields); setTargetStudent(prev => ({...prev, ...updatedFields})); };
-
+  
   const handleTimetableUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -107,9 +115,10 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     onUpdateLessonGroup(groupId, { status: newStatus });
   };
 
-  // -------------------------------------------------------------------------
-  // 위젯 렌더링
-  // -------------------------------------------------------------------------
+  const handleAddSpacer = (cols) => {
+    addWidget({ type: 'spacer', colSpan: cols, w: cols, h: 2, x: 0, y: Infinity });
+  };
+
   const renderWidgetContent = (widget) => {
     if (widget.type === 'spacer') {
       return <div className={`w-full h-full rounded-xl flex items-center justify-center transition-all ${isEditMode ? 'border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400' : 'opacity-0'}`}>{isEditMode && <span className="text-xs font-bold">빈 공간</span>}</div>;
@@ -120,7 +129,7 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
       case 'lesson': return (<div className="bg-indigo-600 rounded-xl shadow-lg p-5 text-white h-full flex flex-col overflow-hidden relative group"><h4 className="font-bold mb-2 flex items-center justify-between z-10">오늘의 수업</h4><div className="flex-1 flex items-center justify-center bg-indigo-500/50 rounded-lg overflow-hidden relative">{currentHandbook?.timetableImage ? (<img src={currentHandbook.timetableImage} alt="TimeTable" className="w-full h-full object-cover"/>) : (<div className="text-center text-indigo-200 text-sm p-4"><p>등록된 시간표가 없습니다.</p><p className="text-xs mt-1">이미지를 클릭하여 업로드</p></div>)}<div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer" onClick={() => fileInputRef.current.click()}><Upload className="text-white"/></div><input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleTimetableUpload}/></div></div>);
       case 'student': return (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 h-full flex flex-col">
-          <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2 dark:text-white"><Users className="text-green-500" /> 오늘 출결 ({todayStr})</h3><button onClick={() => setActiveView('students_homeroom')} className="text-xs text-indigo-600 hover:underline">관리 &gt;</button></div>
+          <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2 dark:text-white"><Users className="text-green-500" /> 오늘 출결</h3><button onClick={() => setActiveView('students_homeroom')} className="text-xs text-indigo-600 hover:underline">관리 &gt;</button></div>
           <div className="p-2 flex-1 overflow-y-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-50 dark:bg-gray-700 text-xs text-gray-500 dark:text-gray-400 sticky top-0"><tr><th className="px-3 py-2">이름</th><th className="px-3 py-2 text-center">상태</th><th className="px-3 py-2 text-right">메모</th></tr></thead>
@@ -138,7 +147,7 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
                   return (
                     <tr key={student.id} className="border-b border-gray-50 dark:border-gray-700/50">
                       <td className="px-3 py-3 font-bold dark:text-gray-200">{student.number}. {student.name}</td>
-                      <td className="px-3 py-3 text-center"><button onClick={() => openAttPopup(student.id)} className={`px-2 py-1 rounded text-xs font-bold w-14 ${statusClass} relative`}>{statusText}{hasNote && <div className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full"></div>}</button></td>
+                      <td className="px-3 py-3 text-center"><button onClick={() => openAttPopup(student.id)} className={`px-2 py-1 rounded text-xs font-bold w-14 ${statusClass} transition relative`} title={hasNote ? log.note : ""}>{statusText}{hasNote && <div className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full border border-white"></div>}</button></td>
                       <td className="px-3 py-3 text-right"><button onClick={() => handleMemoClick(student)} className="p-1 text-gray-400 hover:text-indigo-500"><ClipboardList size={16}/></button></td>
                     </tr>
                   );
@@ -170,65 +179,62 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
     }
   };
 
-  const rglStyles = `
-    .react-grid-layout { position: relative; transition: height 200ms ease; }
-    .react-grid-item { transition: all 200ms ease; transition-property: left, top; }
-    .react-grid-item.cssTransforms { transition-property: transform; }
-    .react-grid-item.resizing { z-index: 100; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
-    .react-grid-item.react-grid-placeholder { background: rgba(79, 70, 229, 0.1) !important; opacity: 0.5; border-radius: 12px; border: 2px dashed #6366f1; }
-    .react-resizable-handle { position: absolute; width: 20px; height: 20px; bottom: 0; right: 0; cursor: se-resize; }
-  `;
-
   return (
     <div className="relative pb-20 w-full">
-      <style>{rglStyles}</style>
+      {/* 스타일: 드래그 애니메이션 등 */}
+      <style>{`.react-grid-layout { position: relative; transition: height 200ms ease; } .react-grid-item { transition: all 200ms ease; transition-property: left, top; } .react-grid-item.resizing { z-index: 100; box-shadow: 0 0 10px rgba(0,0,0,0.2); } .react-resizable-handle { position: absolute; width: 20px; height: 20px; bottom: 0; right: 0; cursor: se-resize; }`}</style>
 
       <div className="flex justify-end mb-4 gap-2">
-        {/* 🔥 강제 복구 버튼 */}
-        <button onClick={resetLayout} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-sm font-bold"><RotateCcw size={12}/> 배치 초기화</button>
+        {/* 🔥 [긴급 버튼] 배치 강제 복구 */}
+        <button onClick={handleForceRepair} className="text-xs flex items-center gap-1 px-3 py-2 rounded-lg font-bold shadow-sm bg-red-100 text-red-600 hover:bg-red-200 border border-red-200 animate-pulse">
+          <Wrench size={14}/> 배치 강제 복구
+        </button>
+
+        {isEditMode && (
+          <div className="flex items-center gap-2 bg-indigo-50 dark:bg-gray-700 px-3 py-1 rounded-lg border border-indigo-100 dark:border-gray-600 animate-in fade-in slide-in-from-right-4">
+            <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 mr-1">위젯 추가:</span>
+            <button onClick={() => handleAddSpacer(2)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded" title="빈 공간 (2칸)"><Layout size={16} className="text-gray-500 dark:text-gray-300"/></button>
+            <button onClick={() => handleAddSpacer(12)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded" title="줄바꿈 (12칸)"><RotateCcw className="rotate-90" size={16}/></button>
+          </div>
+        )}
         <button onClick={() => setIsEditMode(!isEditMode)} className={`text-xs flex items-center gap-1 px-3 py-2 rounded-lg font-bold shadow-sm transition ${isEditMode ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:text-indigo-600'}`}>
           {isEditMode ? <CheckCircle size={14}/> : <Edit3 size={14}/>} {isEditMode ? '편집 완료' : '화면 편집'}
         </button>
       </div>
 
-      <ResponsiveGridLayout
-        className="layout"
-        // 🔥 [핵심] 저장된 좌표 무시하고 여기서 계산한 강제 좌표 사용
-        layouts={fixedLayouts}
-        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        // 🔥 PC 12열, 모바일 1열
-        cols={{ lg: 12, md: 12, sm: 12, xs: 1, xxs: 1 }} 
-        rowHeight={100} 
-        
-        compactType="vertical"
-        preventCollision={false}
-        
-        isDraggable={isEditMode}
-        isResizable={isEditMode}
-        draggableHandle=".drag-handle"
-        
-        // 🔥 레이아웃 변경 시 저장을 막지는 않지만, 어차피 위에서 fixedLayouts를 쓰므로 렌더링엔 영향 없음
-        onLayoutChange={(layout) => onLayoutChange(layout)}
-        margin={[16, 16]}
-      >
-        {widgets.map((widget) => {
-          if (!isHomeroom && widget.type === 'student') return <div key={widget.id} className="hidden"></div>;
-          
-          return (
-            <div key={widget.id} className="bg-transparent">
-              <div className="h-full relative group">
-                {isEditMode && (
-                  <>
-                    <div className="drag-handle absolute top-2 right-2 z-50 p-1 bg-gray-100 dark:bg-gray-700 rounded cursor-move text-gray-400 hover:text-indigo-600 shadow-sm border border-gray-200 dark:border-gray-600"><Grip size={16}/></div>
-                    {widget.type === 'spacer' && <button onClick={() => deleteWidget(widget.id)} className="absolute -top-2 -left-2 bg-red-500 text-white rounded-full p-1 shadow-md z-50 hover:bg-red-600"><X size={14}/></button>}
-                  </>
-                )}
-                {renderWidgetContent(widget)}
+      <div style={{ width: '100%' }}>
+        <ResponsiveGridLayout
+          className="layout"
+          layouts={{ lg: generateLayout(), md: generateLayout(), sm: generateLayout() }}
+          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+          // 🔥 [핵심] PC는 12칸, 모바일(xs)은 1칸으로 자동 반응형 전환 (자동화 로직 제거 후 RGL 기본 기능 사용)
+          cols={{ lg: 12, md: 12, sm: 6, xs: 1, xxs: 1 }} 
+          rowHeight={100} 
+          compactType="vertical" // 위로 자동 정렬
+          isDraggable={isEditMode}
+          isResizable={isEditMode}
+          draggableHandle=".drag-handle"
+          onLayoutChange={(layout) => onLayoutChange(layout)} // 변경된 좌표 저장
+          margin={[16, 16]}
+        >
+          {widgets.map((widget) => {
+            if (!isHomeroom && widget.type === 'student') return <div key={widget.id} className="hidden"></div>;
+            return (
+              <div key={widget.id} className="bg-transparent">
+                <div className="h-full relative group">
+                  {isEditMode && (
+                    <>
+                      <div className="drag-handle absolute top-2 right-2 z-50 p-1 bg-gray-100 dark:bg-gray-700 rounded cursor-move text-gray-400 hover:text-indigo-600 shadow-sm border border-gray-200 dark:border-gray-600"><Grip size={16}/></div>
+                      {widget.type === 'spacer' && <button onClick={() => deleteWidget(widget.id)} className="absolute -top-2 -left-2 bg-red-500 text-white rounded-full p-1 shadow-md z-50 hover:bg-red-600"><X size={14}/></button>}
+                    </>
+                  )}
+                  {renderWidgetContent(widget)}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </ResponsiveGridLayout>
+            );
+          })}
+        </ResponsiveGridLayout>
+      </div>
 
       {memoModalOpen && targetStudent && <MemoLogModal isOpen={memoModalOpen} onClose={() => setMemoModalOpen(false)} student={targetStudent} onSave={handleMemoSave} />}
       {attPopup.isOpen && (
