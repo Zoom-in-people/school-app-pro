@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { FileText, Users, AlertTriangle, BookOpen, Edit3, ClipboardList, CheckCircle, Upload, RotateCcw, X, Grip, Square, Layout, MessageSquare } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
@@ -16,12 +16,13 @@ const ResponsiveGridLayout = WidthProvider ? WidthProvider(Responsive) : Respons
 export default function Dashboard({ widgets, students, todos, setActiveView, schoolInfo, isHomeroom, attendanceLog, onUpdateAttendance, onUpdateStudent, lessonGroups, onUpdateLessonGroup, currentHandbook, onUpdateHandbook, moveWidget, resetLayout, addWidget, deleteWidget, onLayoutChange }) {
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [targetStudent, setTargetStudent] = useState(null);
+  
+  // 출결 팝업 상태
   const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, note: "" });
   const [isEditMode, setIsEditMode] = useState(false);
   
   const fileInputRef = useRef(null);
 
-  // 날짜 관련
   const getTodayDateString = () => { 
     const d = new Date(); 
     const y = d.getFullYear(); 
@@ -31,7 +32,6 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   };
   const todayStr = getTodayDateString();
 
-  // 출결 팝업
   const openAttPopup = (studentId) => {
     const existing = attendanceLog?.find(l => l.studentId === studentId && l.date === todayStr);
     setAttPopup({ isOpen: true, studentId, note: existing ? (existing.note || "") : "" });
@@ -73,55 +73,8 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   };
 
   const handleAddSpacer = (cols) => {
-    // 새 위젯은 항상 맨 아래(y: Infinity)에 추가
+    // 새 위젯 추가 시 맨 아래(y: Infinity)로 보냄
     addWidget({ type: 'spacer', colSpan: cols, w: cols, h: 1, x: 0, y: Infinity });
-  };
-
-  // 🔥 [핵심 수정] 레이아웃 생성 로직 분리 (PC vs Mobile)
-  const layouts = useMemo(() => {
-    // 1. PC용 레이아웃: 저장된 좌표(x, y) 그대로 사용
-    const desktopLayout = widgets.map(w => ({
-      i: w.id,
-      x: w.x !== undefined ? w.x : 0,
-      y: w.y !== undefined ? w.y : 0,
-      w: w.w || 2,
-      h: w.h || 2,
-      minW: 1, minH: 1
-    }));
-
-    // 2. 모바일용 레이아웃: 강제로 1열 정렬 (좌표 무시하고 순서대로 쌓음)
-    let yCounter = 0;
-    const mobileLayout = widgets.map(w => {
-      const layoutItem = {
-        i: w.id,
-        x: 0, // 무조건 왼쪽
-        y: yCounter, // 차곡차곡 아래로
-        w: 1, // 가로 꽉 채움
-        h: w.h || 2
-      };
-      yCounter += (w.h || 2);
-      return layoutItem;
-    });
-
-    return {
-      lg: desktopLayout,
-      md: desktopLayout,
-      sm: desktopLayout,
-      xs: mobileLayout, // 모바일
-      xxs: mobileLayout // 초소형 모바일
-    };
-  }, [widgets]);
-
-  // 🔥 [핵심 수정] 레이아웃 변경 핸들러 (PC에서만 저장)
-  const handleLayoutChange = (currentLayout, allLayouts) => {
-    // 현재 화면 너비가 모바일(xs, xxs)이라면 저장을 막음 (PC 레이아웃 오염 방지)
-    // RGL은 width를 직접 주지 않으므로, cols 값으로 추론하거나 window width 확인
-    const width = window.innerWidth;
-    const isMobile = width < 768; // sm 이하
-
-    if (!isMobile) {
-      onLayoutChange(currentLayout);
-    }
   };
 
   const renderWidgetContent = (widget) => {
@@ -187,10 +140,30 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
   const rglStyles = `
     .react-grid-layout { position: relative; transition: height 200ms ease; }
     .react-grid-item { transition: all 200ms ease; transition-property: left, top; }
+    .react-grid-item.cssTransforms { transition-property: transform; }
     .react-grid-item.resizing { z-index: 100; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
     .react-grid-item.react-grid-placeholder { background: rgba(79, 70, 229, 0.1) !important; opacity: 0.5; border-radius: 12px; border: 2px dashed #6366f1; }
     .react-resizable-handle { position: absolute; width: 20px; height: 20px; bottom: 0; right: 0; cursor: se-resize; }
   `;
+
+  // 🔥 [긴급 수정] 오염된 좌표 데이터 자동 복구 로직
+  // 모든 위젯이 x=0, y=0에 몰려 있다면, 강제로 인덱스 기반 좌표를 할당합니다.
+  const checkWidgets = useMemo(() => {
+    // 모든 위젯의 좌표가 0이거나 없는지 검사
+    const isCorrupted = widgets.length > 1 && widgets.every(w => (!w.x && !w.y) || (w.x === 0 && w.y === 0));
+    
+    if (isCorrupted) {
+      console.warn("⚠️ 레이아웃 데이터 오염 감지: 자동 복구 실행");
+      return widgets.map((w, i) => ({
+        ...w,
+        x: (i * 2) % 12, // 2칸씩 가로 배치
+        y: Math.floor((i * 2) / 12) * 2, // 줄바꿈
+        w: w.w || 2,
+        h: w.h || 2
+      }));
+    }
+    return widgets;
+  }, [widgets]);
 
   return (
     <div className="relative pb-20">
@@ -212,23 +185,31 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
 
       <ResponsiveGridLayout
         className="layout"
-        layouts={layouts} // 🔥 PC/모바일 분리된 레이아웃 전달
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} // 🔥 모바일 1열 강제
-        rowHeight={100}
-        compactType="vertical" // 🔥 겹침 방지 (위로 자동 정렬)
-        preventCollision={false} // 자연스러운 이동
+        // 🔥 PC는 가로 배치(12칸), 모바일은 세로 배치(1칸)
+        cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} 
+        rowHeight={100} 
+        compactType="vertical" // 🔥 겹침 방지 (필수)
+        preventCollision={false} 
         isDraggable={isEditMode}
         isResizable={isEditMode}
         draggableHandle=".drag-handle"
-        onLayoutChange={handleLayoutChange} // 🔥 수정된 핸들러 사용
-        measureBeforeMount={false}
+        onLayoutChange={(layout) => onLayoutChange(layout)}
         margin={[16, 16]}
       >
-        {widgets.map((widget) => {
+        {checkWidgets.map((widget) => {
           if (!isHomeroom && widget.type === 'student') return <div key={widget.id} className="hidden"></div>;
+          
           return (
-            <div key={widget.id} className="bg-transparent">
+            <div 
+              key={widget.id} 
+              // 🔥 data-grid를 통해 좌표를 강제 주입 (오염된 데이터도 여기서 보정됨)
+              data-grid={{
+                x: widget.x, y: widget.y, w: widget.w || 2, h: widget.h || 2,
+                minW: 1, minH: 1
+              }}
+              className="bg-transparent"
+            >
               <div className="h-full relative group">
                 {isEditMode && (
                   <>
