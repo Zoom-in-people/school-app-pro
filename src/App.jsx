@@ -18,13 +18,14 @@ import TaskList from './pages/TaskList';
 import LessonManager from './pages/LessonManager';
 import MaterialManager from './pages/MaterialManager';
 import MonthlyEvents from './pages/MonthlyEvents';
+import MeetingLogs from './pages/MeetingLogs';
+import MyTimetable from './pages/MyTimetable';
 
 export default function App() {
   const { user, loading, login, logout } = useAuth();
   
   const [activeView, setActiveView] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddHandbookOpen, setIsAddHandbookOpen] = useState(false);
   const [isHandbookSettingsOpen, setIsHandbookSettingsOpen] = useState(false);
@@ -38,7 +39,7 @@ export default function App() {
 
   const [currentHandbook, setCurrentHandbook] = useState(null);
 
-  useEffect(() => {
+  useEffect(() => { 
     if (user && !apiKey) {
       setIsSetupWizardOpen(true);
     }
@@ -85,14 +86,13 @@ export default function App() {
   const currentHandbookId = currentHandbook ? currentHandbook.id : null;
   const collectionPrefix = currentHandbookId ? `_${currentHandbookId}` : '';
 
-  // 🔥 [수정] updateMany 받아오기
   const { 
     data: homeroomStudents, 
     add: addHomeroomStudent, 
     addMany: addManyHomeroomStudents, 
     remove: removeHomeroomStudent, 
     update: updateHomeroomStudent,
-    updateMany: updateManyHomeroomStudents // 추가됨
+    updateMany: updateManyHomeroomStudents 
   } = useGoogleDriveDB(`students_homeroom${collectionPrefix}`, userId);
 
   const { 
@@ -101,7 +101,7 @@ export default function App() {
     addMany: addManySubjectStudents,
     remove: removeSubjectStudent, 
     update: updateSubjectStudent,
-    updateMany: updateManySubjectStudents // 추가됨
+    updateMany: updateManySubjectStudents 
   } = useGoogleDriveDB(`students_subject${collectionPrefix}`, userId);
     
   const { data: consultations, add: addConsultation, remove: removeConsultation, update: updateConsultation } 
@@ -118,6 +118,13 @@ export default function App() {
     
   const { data: lessonGroups, add: addLessonGroup, remove: removeLessonGroup, update: updateLessonGroup } 
     = useGoogleDriveDB(`lesson_groups${collectionPrefix}`, userId);
+
+  // 신규 기능 DB
+  const { data: meetingLogs, add: addMeetingLog, remove: removeMeetingLog, update: updateMeetingLog } 
+    = useGoogleDriveDB(`meeting_logs${collectionPrefix}`, userId);
+
+  const { data: myTimetable, update: updateMyTimetable } 
+    = useGoogleDriveDB(`my_timetable${collectionPrefix}`, userId);
 
   const handleCreateHandbook = async (data) => {
     try {
@@ -229,6 +236,7 @@ export default function App() {
                     onLayoutChange={onLayoutChange} resetLayout={resetLayout}
                     addWidget={(newWidget) => setWidgets(prev => [...prev, { ...newWidget, id: Date.now().toString(), x: 0, y: Infinity }])}
                     deleteWidget={(id) => setWidgets(prev => prev.filter(w => w.id !== id))}
+                    myTimetable={myTimetable}
                   />
                 )}
                 {activeView === 'monthly' && <MonthlyEvents handbook={currentHandbook} isHomeroom={currentHandbook.isHomeroom} students={homeroomStudents} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} events={events} onUpdateEvent={handleUpdateEvent} />}
@@ -241,7 +249,6 @@ export default function App() {
                     onAddStudents={addManyHomeroomStudents} 
                     onUpdateStudent={updateHomeroomStudent} 
                     onDeleteStudent={removeHomeroomStudent}
-                    // 🔥 [추가] 일괄 업데이트 함수 전달
                     onUpdateStudentsMany={updateManyHomeroomStudents} 
                     apiKey={apiKey} 
                     isHomeroomView={true} 
@@ -256,7 +263,6 @@ export default function App() {
                     onAddStudents={addManySubjectStudents} 
                     onUpdateStudent={updateSubjectStudent} 
                     onDeleteStudent={removeSubjectStudent}
-                    // 🔥 [추가] 일괄 업데이트 함수 전달
                     onUpdateStudentsMany={updateManySubjectStudents}
                     apiKey={apiKey} 
                     isHomeroomView={false} 
@@ -269,6 +275,8 @@ export default function App() {
                 {activeView === 'schedule' && <AcademicSchedule apiKey={apiKey} />}
                 {activeView === 'edu_plan' && <EducationPlan apiKey={apiKey} />}
                 {activeView === 'materials' && <MaterialManager handbook={currentHandbook} />}
+                {activeView === 'meeting_logs' && <MeetingLogs logs={meetingLogs} onAddLog={addMeetingLog} onUpdateLog={updateMeetingLog} onDeleteLog={removeMeetingLog} />}
+                {activeView === 'my_timetable' && <MyTimetable timetableData={myTimetable} onUpdateTimetable={updateMyTimetable} />}
               </>
             )}
           </div>

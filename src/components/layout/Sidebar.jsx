@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, BookOpen, CheckSquare, 
-  MessageSquare, FileText, Settings, LogOut, ChevronDown, Plus, FolderOpen 
+  MessageSquare, FileText, Settings, LogOut, ChevronDown, Plus, FolderOpen, ClipboardList, Clock 
 } from 'lucide-react';
 
 export default function Sidebar({ 
@@ -62,12 +62,14 @@ export default function Sidebar({
       items: [
         { id: 'students_subject', label: '학생 명렬표 (교과)', icon: Users },
         { id: 'lessons', label: '진도 관리', icon: BookOpen },
+        { id: 'my_timetable', label: '나의 시간표', icon: Clock }, // [신규]
       ]
     },
     {
       title: "행정/업무",
       items: [
         { id: 'tasks', label: '업무 체크리스트', icon: CheckSquare },
+        { id: 'meeting_logs', label: '회의록', icon: ClipboardList }, // [신규]
         { id: 'schedule', label: '학사일정', icon: Calendar },
         { id: 'edu_plan', label: '교육계획서 분석', icon: FileText },
         { id: 'materials', label: '자료함 (드라이브)', icon: FolderOpen },
@@ -164,7 +166,6 @@ export default function Sidebar({
               </div>
             </div>
           )}
-          {/* 🔥 [추가] 로딩 완료 메시지 */}
           {saveStatus === 'loaded' && (
             <div className="px-1 text-[10px] text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-300">
               <span>✓ 데이터 로딩 완료!</span>

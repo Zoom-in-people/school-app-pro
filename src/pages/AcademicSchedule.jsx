@@ -1,30 +1,48 @@
 import React, { useState, useRef } from 'react';
-import { Calendar, RefreshCw, FilePlus } from 'lucide-react';
+import { Calendar, Upload, FileText, X } from 'lucide-react';
 
-export default function AcademicSchedule({ apiKey }) {
-  const [imgData, setImgData] = useState(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [extractedEvents, setExtractedEvents] = useState([]);
+export default function AcademicSchedule() {
+  const [files, setFiles] = useState([]);
   const fileInputRef = useRef(null);
 
-  const handleUpload = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => { setImgData(reader.result); analyzeImage(reader.result); }; reader.readAsDataURL(file); } };
-  const analyzeImage = async (base64Image) => {
-    setIsAnalyzing(true);
-    try {
-      const base64Data = base64Image.split(',')[1];
-      const prompt = `이 학사일정 이미지에서 날짜와 행사명을 추출해줘. JSON 형식으로 반환해줘: [{"date": "YYYY-MM-DD", "title": "행사명"}] 날짜는 2026년을 기준으로 해줘.`;
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [ { text: prompt }, { inline_data: { mime_type: "image/jpeg", data: base64Data } } ] }] }) });
-      const data = await response.json();
-      const text = data.candidates[0].content.parts[0].text;
-      const jsonMatch = text.match(/\[.*\]/s);
-      if (jsonMatch) { setExtractedEvents(JSON.parse(jsonMatch[0])); }
-    } catch (e) { console.error(e); setExtractedEvents([{ date: "2026-03-02", title: "입학식 (예시)" }]); } finally { setIsAnalyzing(false); }
+  const handleUpload = (e) => {
+    const newFiles = Array.from(e.target.files);
+    setFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const removeFile = (index) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 min-h-[600px] flex flex-col">
-      <div className="flex justify-between items-center mb-6"><h3 className="text-2xl font-bold dark:text-white flex items-center gap-2"><Calendar className="text-indigo-500"/> 학사일정 분석</h3><div className="flex gap-2"><button onClick={() => fileInputRef.current.click()} className="border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2 dark:text-white dark:hover:bg-gray-700"><RefreshCw size={18}/> {imgData ? "다시 업로드" : "이미지 업로드"}</button><input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleUpload}/></div></div>
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8"><div className="border rounded-xl bg-gray-50 dark:bg-gray-900 flex items-center justify-center overflow-hidden relative min-h-[400px]">{imgData ? (<img src={imgData} alt="Schedule" className="max-w-full max-h-[500px] object-contain"/>) : (<div className="text-gray-400 text-center"><FilePlus size={48} className="mx-auto mb-2"/><p>학사일정 표 이미지를 업로드하세요</p></div>)}</div><div className="border rounded-xl p-6 overflow-y-auto bg-gray-50 dark:bg-gray-800/50"><h4 className="font-bold mb-4 dark:text-white">📅 분석 결과</h4><ul className="space-y-2">{extractedEvents.map((evt, idx) => (<li key={idx} className="bg-white dark:bg-gray-700 p-3 rounded shadow-sm flex justify-between"><span className="font-bold text-indigo-600">{evt.date}</span><span className="dark:text-white">{evt.title}</span></li>))}</ul></div></div>
+    <div className="h-full flex flex-col gap-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold dark:text-white flex items-center gap-2"><Calendar className="text-indigo-600"/> 학사일정</h2>
+        <button onClick={() => fileInputRef.current.click()} className="bg-indigo-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-bold hover:bg-indigo-700 transition">
+          <Upload size={18}/> 파일 업로드 (PDF/Excel)
+        </button>
+        <input type="file" ref={fileInputRef} onChange={handleUpload} multiple className="hidden" />
+      </div>
+
+      <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm overflow-y-auto">
+        {files.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-gray-400">
+            <FileText size={48} className="mb-2 opacity-50"/>
+            <p>등록된 학사일정 파일이 없습니다.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {files.map((file, idx) => (
+              <div key={idx} className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl flex flex-col items-center justify-center relative group hover:border-indigo-500 bg-gray-50 dark:bg-gray-700/50 transition">
+                <button onClick={() => removeFile(idx)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><X size={16}/></button>
+                <FileText size={32} className="text-indigo-500 mb-2"/>
+                <span className="text-sm font-bold text-center truncate w-full px-2" title={file.name}>{file.name}</span>
+                <span className="text-xs text-gray-500 mt-1">{(file.size / 1024).toFixed(1)} KB</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
