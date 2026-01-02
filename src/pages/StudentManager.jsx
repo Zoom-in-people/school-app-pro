@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, AlertTriangle, FileText, BookOpen, StickyNote, Image as ImageIcon, Upload } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, FileText, BookOpen, StickyNote, Image as ImageIcon, Upload, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { uploadFileToDrive } from '../utils/googleDrive';
 
 export default function StudentManager({ 
   students = [], onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, onUpdateStudentsMany, 
-  onSetAllStudents, // 🔥 [필수] 전체 덮어쓰기용 함수
+  onSetAllStudents, 
   apiKey, isHomeroomView,
-  classPhotos = [], onAddClassPhoto, onUpdateClassPhoto // 🔥 [필수] 사진명렬표 데이터/함수
+  classPhotos = [], onAddClassPhoto, onUpdateClassPhoto, onDeleteClassPhoto // 🔥 [필수] 삭제 함수 포함
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -15,19 +15,32 @@ export default function StudentManager({
   const [editingStudent, setEditingStudent] = useState(null);
   const [isCreatingSheet, setIsCreatingSheet] = useState(false);
   
-  // 교과용 필터 상태
-  const [selectedGrades, setSelectedGrades] = useState([]);
-  const [selectedClasses, setSelectedClasses] = useState([]);
+  // 🔥 [수정] 통합된 반 필터 (예: "1-1")
+  const [activeClassFilter, setActiveClassFilter] = useState(null);
 
   const fileInputRef = useRef(null);
-  const rosterFileInputRef = useRef(null); // 사진명렬표용 ref
+  const rosterFileInputRef = useRef(null);
 
   const safeStudents = Array.isArray(students) ? students : [];
 
-  // 필터링 및 정렬 로직
+  // 등록된 반 목록 추출 (예: ["1-1", "1-2", "3-1"])
+  const uniqueClassKeys = useMemo(() => {
+    const keys = new Set();
+    safeStudents.forEach(s => {
+      if (s.grade && s.class) keys.add(`${s.grade}-${s.class}`);
+    });
+    // 정렬 (학년 -> 반 순서)
+    return Array.from(keys).sort((a, b) => {
+      const [g1, c1] = a.split('-').map(Number);
+      const [g2, c2] = b.split('-').map(Number);
+      if (g1 !== g2) return g1 - g2;
+      return c1 - c2;
+    });
+  }, [safeStudents]);
+
+  // 필터링 로직
   const filteredStudents = useMemo(() => {
     return safeStudents.filter(student => {
-      // 1. 검색어 필터
       const matchesSearch = 
         student.name.includes(searchTerm) || 
         (student.studentId && student.studentId.includes(searchTerm)) ||
@@ -35,75 +48,68 @@ export default function StudentManager({
       
       if (!matchesSearch) return false;
 
-      // 2. 학년/반 필터 (교과일 때만)
-      if (!isHomeroomView) {
-        if (selectedGrades.length > 0 && !selectedGrades.includes(student.grade)) return false;
-        if (selectedClasses.length > 0 && !selectedClasses.includes(student.class)) return false;
+      // 🔥 교과일 경우 선택된 반만 표시
+      if (!isHomeroomView && activeClassFilter) {
+        const [g, c] = activeClassFilter.split('-');
+        if (student.grade !== g || student.class !== c) return false;
       }
       return true;
     }).sort((a, b) => {
-      // 정렬: 학년 -> 반 -> 번호
       if (a.grade !== b.grade) return a.grade - b.grade;
       if (a.class !== b.class) return a.class - b.class;
       const numA = parseInt(a.number) || 0;
       const numB = parseInt(b.number) || 0;
       return numA - numB;
     });
-  }, [safeStudents, searchTerm, selectedGrades, selectedClasses, isHomeroomView]);
+  }, [safeStudents, searchTerm, activeClassFilter, isHomeroomView]);
 
-  // 존재하는 학년/반 목록 추출 (필터 버튼 생성용)
-  const availableGrades = useMemo(() => [...new Set(safeStudents.map(s => s.grade))].sort(), [safeStudents]);
-  const availableClasses = useMemo(() => [...new Set(safeStudents.map(s => s.class))].sort((a,b) => a-b), [safeStudents]);
+  // 🔥 현재 선택된 반의 사진명렬표 데이터
+  const currentClassPhoto = activeClassFilter && classPhotos ? classPhotos.find(p => p.id === activeClassFilter) : null;
 
-  const toggleFilter = (type, value) => {
-    if (type === 'grade') {
-      setSelectedGrades(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
-    } else {
-      setSelectedClasses(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
-    }
-  };
-
-  // 🔥 [신규] 특정 반(1개 학년, 1개 반) 선택 여부 확인
-  const isSingleClassSelected = !isHomeroomView && selectedGrades.length === 1 && selectedClasses.length === 1;
-  const currentClassKey = isSingleClassSelected ? `${selectedGrades[0]}-${selectedClasses[0]}` : null; // 예: "3-2"
-  
-  // 현재 선택된 반의 사진명렬표 데이터 찾기
-  const currentClassPhoto = isSingleClassSelected && classPhotos ? classPhotos.find(p => p.id === currentClassKey) : null;
-
-  // 🔥 [신규] 사진 명렬표 업로드 핸들러
+  // 사진 명렬표 업로드
   const handleRosterUpload = async (e) => {
     const file = e.target.files[0];
-    if (!file || !currentClassKey) return;
+    if (!file || !activeClassFilter) return;
+
+    // PDF 확인
+    if (file.type !== 'application/pdf') {
+      alert("PDF 파일만 업로드 가능합니다.");
+      return;
+    }
 
     try {
       const folderId = localStorage.getItem('cached_folder_id');
       const uploaded = await uploadFileToDrive(file, folderId);
       
-      // 파일 타입 확인
-      const fileType = file.type.includes('pdf') ? 'pdf' : 'image';
-      
-      // DB에 저장할 데이터
       const photoData = {
-        id: currentClassKey, 
+        id: activeClassFilter, 
         url: uploaded.webContentLink, 
         viewUrl: uploaded.webViewLink, 
-        fileType: fileType,
+        fileType: 'pdf',
         fileName: file.name
       };
 
       if (currentClassPhoto) {
-        onUpdateClassPhoto(currentClassKey, photoData);
+        onUpdateClassPhoto(activeClassFilter, photoData);
       } else {
         onAddClassPhoto(photoData); 
       }
-      alert(`${selectedGrades[0]}학년 ${selectedClasses[0]}반 사진 명렬표가 업로드되었습니다.`);
+      alert(`${activeClassFilter.replace('-', '학년 ')}반 사진 명렬표가 업로드되었습니다.`);
     } catch (error) {
       console.error(error);
       alert("업로드 실패: 구글 드라이브 권한을 확인해주세요.");
     }
   };
 
-  // 🔥 [핵심 수정] 엑셀 업로드 로직 개선 (setAll 사용)
+  // 사진 명렬표 삭제
+  const handleRosterDelete = () => {
+    if (!currentClassPhoto || !onDeleteClassPhoto) return;
+    if (window.confirm("사진 명렬표 파일을 삭제하시겠습니까?")) {
+      onDeleteClassPhoto(currentClassPhoto.id); // id는 '1-1' 형태
+    }
+  };
+
+  // 엑셀 업로드
   const handleExcelUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -117,7 +123,6 @@ export default function StudentManager({
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
-        // 1. 기존 학생 데이터 복사
         let finalStudents = [...safeStudents];
         let addCount = 0;
         let updateCount = 0;
@@ -142,7 +147,6 @@ export default function StudentManager({
             studentId: `${row[0]}${row[1]}${row[2]}` 
           };
 
-          // 2. 기존 데이터에서 찾기 (학년-반-번호 기준)
           const existingIndex = finalStudents.findIndex(s => 
             s.grade === studentData.grade && 
             s.class === studentData.class && 
@@ -150,11 +154,9 @@ export default function StudentManager({
           );
 
           if (existingIndex !== -1) {
-            // 업데이트: 기존 ID 유지하면서 필드만 교체
             finalStudents[existingIndex] = { ...finalStudents[existingIndex], ...studentData };
             updateCount++;
           } else {
-            // 추가: 고유 ID 생성 후 추가
             const newId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             finalStudents.push({ ...studentData, id: newId });
             addCount++;
@@ -166,7 +168,6 @@ export default function StudentManager({
             onSetAllStudents(finalStudents);
             alert(`처리 완료: 추가 ${addCount}명, 업데이트 ${updateCount}명`);
           } else {
-            // setAll 함수가 없는 경우 기존 방식 (불안정할 수 있음)
             alert("경고: 데이터 일괄 업데이트 함수가 연결되지 않았습니다.");
           }
         }
@@ -316,7 +317,7 @@ export default function StudentManager({
         </div>
       </div>
 
-      {/* 툴바 */}
+      {/* 툴바 (사진 업로드 버튼 삭제됨) */}
       <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 items-center">
         <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
           <FileSpreadsheet size={16} className="text-green-600"/> 엑셀 업로드
@@ -326,12 +327,6 @@ export default function StudentManager({
         <button onClick={downloadExcel} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
           <Download size={16} className="text-blue-600"/> 양식 다운로드
         </button>
-
-        {/* 🔥 사진 명렬표 업로드 버튼 */}
-        <button onClick={() => rosterFileInputRef.current.click()} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition border border-gray-200 dark:border-gray-600">
-          <ImageIcon size={16} className="text-purple-600"/> 사진 명렬표 업로드(PDF)
-        </button>
-        <input type="file" ref={rosterFileInputRef} onChange={handleRosterUpload} accept="image/*, .pdf" className="hidden" />
 
         <button onClick={createGoogleSheetInDrive} disabled={isCreatingSheet} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition shadow-sm disabled:bg-orange-300">
           {isCreatingSheet ? <Loader className="animate-spin" size={16}/> : <FileText size={16}/>}
@@ -345,64 +340,60 @@ export default function StudentManager({
         </button>
       </div>
 
-      {/* 필터 버튼 (교과용) */}
-      {!isHomeroomView && (availableGrades.length > 0 || availableClasses.length > 0) && (
+      {/* 🔥 [변경] 통합된 학년-반 필터 버튼 */}
+      {!isHomeroomView && uniqueClassKeys.length > 0 && (
         <div className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-top-2">
-          {availableGrades.length > 0 && (
-            <div className="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700">
-              <span className="text-xs font-bold text-gray-500 mr-1">학년:</span>
-              {availableGrades.map(g => (
-                <button key={g} onClick={() => toggleFilter('grade', g)} className={`px-2 py-1 text-xs rounded-lg transition border ${selectedGrades.includes(g) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}>
-                  {g}학년
-                </button>
-              ))}
-            </div>
-          )}
-          {availableClasses.length > 0 && (
-            <div className="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700">
-              <span className="text-xs font-bold text-gray-500 mr-1">반:</span>
-              {availableClasses.map(c => (
-                <button key={c} onClick={() => toggleFilter('class', c)} className={`px-2 py-1 text-xs rounded-lg transition border ${selectedClasses.includes(c) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}>
-                  {c}반
-                </button>
-              ))}
-            </div>
-          )}
+          {uniqueClassKeys.map(key => {
+            const [g, c] = key.split('-');
+            const isActive = activeClassFilter === key;
+            return (
+              <button 
+                key={key} 
+                onClick={() => setActiveClassFilter(isActive ? null : key)} 
+                className={`px-3 py-2 text-sm font-bold rounded-xl transition border shadow-sm ${isActive ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+              >
+                {g}학년 {c}반
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* 🔥 [추가] 반별 사진 명렬표 패널 (1개 학년, 1개 반 선택 시 표시) */}
-      {isSingleClassSelected && (
+      {/* 🔥 [신규] 반별 사진 명렬표 패널 (필터 선택 시에만 표시) */}
+      {activeClassFilter && (
         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 p-4 rounded-2xl border border-indigo-100 dark:border-gray-600 shadow-sm animate-in slide-in-from-top-4">
           <div className="flex justify-between items-center mb-3">
             <h3 className="font-bold text-lg text-indigo-900 dark:text-white flex items-center gap-2">
-              <ImageIcon className="text-purple-600"/> {selectedGrades[0]}학년 {selectedClasses[0]}반 사진 명렬표
+              <ImageIcon className="text-purple-600"/> {activeClassFilter.replace('-', '학년 ')}반 사진 명렬표
             </h3>
             <div className="flex gap-2">
               {currentClassPhoto && (
-                <a href={currentClassPhoto.viewUrl} target="_blank" rel="noreferrer" className="bg-white dark:bg-gray-600 text-gray-700 dark:text-white px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-500 text-sm font-bold hover:bg-gray-50 transition">
-                  크게 보기 (Drive)
-                </a>
+                <>
+                   <a href={currentClassPhoto.viewUrl} target="_blank" rel="noreferrer" className="bg-white dark:bg-gray-600 text-gray-700 dark:text-white px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-500 text-sm font-bold hover:bg-gray-50 transition">
+                     크게 보기
+                   </a>
+                   <button onClick={handleRosterDelete} className="bg-red-100 text-red-600 px-3 py-1.5 rounded-lg border border-red-200 text-sm font-bold hover:bg-red-200 transition flex items-center gap-1">
+                     <Trash2 size={14}/> 삭제
+                   </button>
+                </>
               )}
-              <button onClick={() => rosterFileInputRef.current.click()} className="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-700 flex items-center gap-2">
-                <Upload size={14}/> {currentClassPhoto ? '파일 교체' : '파일 업로드'}
-              </button>
-              <input type="file" ref={rosterFileInputRef} onChange={handleRosterUpload} accept="image/*, .pdf" className="hidden" />
+              {!currentClassPhoto && (
+                <button onClick={() => rosterFileInputRef.current.click()} className="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-700 flex items-center gap-2">
+                   <Upload size={14}/> PDF 파일 업로드
+                </button>
+              )}
+              <input type="file" ref={rosterFileInputRef} onChange={handleRosterUpload} accept=".pdf" className="hidden" />
             </div>
           </div>
           
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-600 min-h-[150px] flex items-center justify-center overflow-hidden">
             {currentClassPhoto ? (
-              currentClassPhoto.fileType === 'pdf' ? (
-                <iframe src={currentClassPhoto.url} className="w-full h-[400px] border-none" title="Roster PDF"></iframe>
-              ) : (
-                <img src={currentClassPhoto.url} alt="Class Roster" className="max-w-full max-h-[400px] object-contain" />
-              )
+              <iframe src={currentClassPhoto.url} className="w-full h-[500px] border-none" title="Roster PDF"></iframe>
             ) : (
               <div className="text-center text-gray-400 py-10">
-                <ImageIcon size={48} className="mx-auto mb-2 opacity-30"/>
+                <FileText size={48} className="mx-auto mb-2 opacity-30"/>
                 <p>등록된 사진 명렬표가 없습니다.</p>
-                <p className="text-xs mt-1">우측 상단 버튼을 눌러 업로드하세요.</p>
+                <p className="text-xs mt-1 text-gray-500">PDF 파일을 업로드해주세요.</p>
               </div>
             )}
           </div>
@@ -433,7 +424,7 @@ export default function StudentManager({
               {filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan="10" className="p-10 text-center text-gray-400 dark:text-gray-500">
-                    등록된 학생이 없습니다.
+                    {activeClassFilter ? "선택된 반에 학생이 없습니다." : "등록된 학생이 없습니다."}
                   </td>
                 </tr>
               ) : (
@@ -628,7 +619,6 @@ function BatchAiRemarkModal({ isOpen, onClose, students, apiKey, onUpdateStudent
       rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
       const results = JSON.parse(rawText);
       setProgress("데이터 저장 중...");
-      let updatedCount = 0;
       const updates = [];
       for (const res of results) {
         const student = students.find(s => String(s.id) === String(res.id));

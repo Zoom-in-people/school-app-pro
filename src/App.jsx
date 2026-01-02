@@ -86,7 +86,6 @@ export default function App() {
   const currentHandbookId = currentHandbook ? currentHandbook.id : null;
   const collectionPrefix = currentHandbookId ? `_${currentHandbookId}` : '';
 
-  // 🔥 [수정] setAll 함수를 받아옴 (useGoogleDriveDB에서 반환하도록 수정했으므로)
   const { 
     data: homeroomStudents, 
     add: addHomeroomStudent, 
@@ -94,7 +93,7 @@ export default function App() {
     remove: removeHomeroomStudent, 
     update: updateHomeroomStudent, 
     updateMany: updateManyHomeroomStudents,
-    setAll: setAllHomeroomStudents // 🔥 추가됨
+    setAll: setAllHomeroomStudents 
   } = useGoogleDriveDB(`students_homeroom${collectionPrefix}`, userId);
 
   const { 
@@ -104,7 +103,7 @@ export default function App() {
     remove: removeSubjectStudent, 
     update: updateSubjectStudent, 
     updateMany: updateManySubjectStudents,
-    setAll: setAllSubjectStudents // 🔥 추가됨
+    setAll: setAllSubjectStudents
   } = useGoogleDriveDB(`students_subject${collectionPrefix}`, userId);
     
   const { data: consultations, add: addConsultation, remove: removeConsultation, update: updateConsultation } 
@@ -128,8 +127,8 @@ export default function App() {
   const { data: myTimetable, update: updateMyTimetable } 
     = useGoogleDriveDB(`my_timetable${collectionPrefix}`, userId);
 
-  // 🔥 [추가] 반별 사진 명렬표 데이터 연결
-  const { data: classPhotos, add: addClassPhoto, update: updateClassPhoto } 
+  // 🔥 [수정] remove(삭제) 함수도 가져옴
+  const { data: classPhotos, add: addClassPhoto, update: updateClassPhoto, remove: removeClassPhoto } 
     = useGoogleDriveDB(`class_photos${collectionPrefix}`, userId);
 
   const handleCreateHandbook = async (data) => {
@@ -247,7 +246,6 @@ export default function App() {
                 )}
                 {activeView === 'monthly' && <MonthlyEvents handbook={currentHandbook} isHomeroom={currentHandbook.isHomeroom} students={homeroomStudents} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} events={events} onUpdateEvent={handleUpdateEvent} />}
                 
-                {/* 🔥 [수정] setAllStudents 전달 */}
                 {activeView === 'students_homeroom' && (
                   <StudentManager 
                     key="homeroom-manager"
@@ -263,7 +261,6 @@ export default function App() {
                   />
                 )}
                 
-                {/* 🔥 [수정] setAllStudents 전달 */}
                 {activeView === 'students_subject' && (
                   <StudentManager 
                     key="subject-manager"
@@ -279,6 +276,7 @@ export default function App() {
                     classPhotos={classPhotos} 
                     onAddClassPhoto={addClassPhoto}
                     onUpdateClassPhoto={updateClassPhoto}
+                    onDeleteClassPhoto={removeClassPhoto} // 🔥 [수정] 삭제 함수 전달
                   />
                 )}
                 
