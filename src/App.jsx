@@ -287,7 +287,7 @@ export default function App() {
                 {activeView === 'consultation' && <ConsultationLog students={homeroomStudents} consultations={consultations} onAddConsultation={addConsultation} onDeleteConsultation={removeConsultation} />}
                 {activeView === 'tasks' && <TaskList todos={todos} onAddTodo={addTodo} onUpdateTodo={updateTodo} onDeleteTodo={removeTodo} />}
                 
-                {/* 🔥 [수정] 학사일정 Props 전달 (CRUD 함수) */}
+                {/* 🔥 [추가] 학사일정 DB 데이터 전달 */}
                 {activeView === 'schedule' && (
                   <AcademicSchedule 
                     apiKey={apiKey} 

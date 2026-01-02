@@ -1,16 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, Upload, FileText, X, FileSpreadsheet, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { uploadFileToDrive } from '../utils/googleDrive'; // Drive 업로드 유틸
+import { uploadFileToDrive } from '../utils/googleDrive';
 
 export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, onAddSchedule, onDeleteSchedule }) {
-  const [fileContent, setFileContent] = useState(null); // { type: 'excel' | 'pdf', data: ..., url: ..., fileName: ... }
+  const [fileContent, setFileContent] = useState(null);
   const fileInputRef = useRef(null);
 
-  // 🔥 [핵심] DB에서 데이터가 로드되면 화면에 표시
+  // 🔥 DB에서 데이터가 로드되면 화면에 표시
   useEffect(() => {
     if (scheduleData && scheduleData.length > 0) {
-      // 가장 최근 파일 하나만 사용 (id='main_schedule'로 관리할 예정)
       const savedData = scheduleData.find(item => item.id === 'main_schedule') || scheduleData[0];
       if (savedData) {
         setFileContent(savedData);
@@ -23,6 +22,13 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // 🔥 토큰 사전 검사
+    const token = localStorage.getItem('google_access_token');
+    if (!token) {
+      alert("구글 로그인 세션이 만료되었습니다. 로그아웃 후 다시 로그인해주세요.");
+      return;
+    }
 
     const fileType = file.name.split('.').pop().toLowerCase();
     
@@ -37,26 +43,23 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
         const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
         
         const contentData = { 
-          id: 'main_schedule', // 고정 ID 사용하여 덮어쓰기 유도
+          id: 'main_schedule',
           type: 'excel', 
           data, 
           fileName: file.name 
         };
 
-        // 로컬 상태 업데이트 + DB 저장
         setFileContent(contentData);
         saveToDB(contentData);
       };
       reader.readAsBinaryString(file);
     } 
-    // 2. PDF 파일 처리 (Drive 업로드 후 링크 저장)
+    // 2. PDF 파일 처리
     else if (fileType === 'pdf') {
       try {
         const folderId = localStorage.getItem('cached_folder_id');
         const uploaded = await uploadFileToDrive(file, folderId);
         
-        // Drive 뷰어 링크를 임베드용 프리뷰 링크로 변환
-        // 예: .../view -> .../preview
         const previewUrl = uploaded.webViewLink.replace('/view', '/preview');
 
         const contentData = {
@@ -71,7 +74,7 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
 
       } catch (error) {
         console.error(error);
-        alert("PDF 업로드 실패: 구글 드라이브 권한을 확인해주세요.");
+        alert("PDF 업로드 실패: 구글 드라이브 권한이 없거나 토큰이 만료되었습니다. 재로그인 해주세요.");
       }
     } else {
       alert("엑셀(.xlsx) 또는 PDF(.pdf) 파일만 지원합니다.");
@@ -79,7 +82,6 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
   };
 
   const saveToDB = (data) => {
-    // 기존 데이터가 있으면 업데이트, 없으면 추가
     const existing = scheduleData.find(item => item.id === 'main_schedule');
     if (existing) {
       onUpdateSchedule('main_schedule', data);
@@ -110,7 +112,6 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
               <Trash2 size={18}/> 삭제
             </button>
           )}
-          {/* 이미 파일이 있으면 '교체', 없으면 '업로드' */}
           <button onClick={() => fileInputRef.current.click()} className="bg-indigo-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-bold hover:bg-indigo-700 transition">
             <Upload size={18}/> {fileContent ? '일정 교체' : '일정 업로드'}
           </button>
@@ -130,7 +131,6 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
           </div>
         ) : (
           <div className="flex-1 w-full h-full overflow-auto flex flex-col">
-            {/* 파일명 헤더 */}
             <div className="p-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between sticky top-0 z-20">
                <div className="flex items-center gap-2 font-bold text-sm text-gray-700 dark:text-gray-200">
                   {fileContent.type === 'excel' ? <FileSpreadsheet size={16} className="text-green-600"/> : <FileText size={16} className="text-red-500"/>}
@@ -138,7 +138,6 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
                </div>
             </div>
 
-            {/* 1. 엑셀 뷰어 */}
             {fileContent.type === 'excel' && (
               <div className="p-4 w-full">
                 <table className="w-full border-collapse text-sm text-left">
@@ -157,7 +156,6 @@ export default function AcademicSchedule({ scheduleData = [], onUpdateSchedule, 
               </div>
             )}
 
-            {/* 2. PDF 뷰어 */}
             {fileContent.type === 'pdf' && (
               <iframe 
                 src={fileContent.url} 

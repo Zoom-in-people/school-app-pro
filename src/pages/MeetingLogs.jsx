@@ -11,14 +11,15 @@ export default function MeetingLogs({ logs = [], onAddLog, onUpdateLog, onDelete
     if (currentLog.id) {
       onUpdateLog(currentLog.id, currentLog);
     } else {
-      onAddLog({ ...currentLog, date: new Date().toISOString() });
+      onAddLog(currentLog);
     }
     setIsEditing(false);
     setCurrentLog(null);
   };
 
   const startNewLog = () => {
-    setCurrentLog({ title: '', content: '', date: new Date().toISOString() });
+    const today = new Date().toISOString().split('T')[0];
+    setCurrentLog({ title: '', content: '', date: today });
     setIsEditing(true);
   };
 
@@ -34,29 +35,37 @@ export default function MeetingLogs({ logs = [], onAddLog, onUpdateLog, onDelete
       </div>
 
       <div className="flex-1 overflow-hidden flex gap-6">
-        {/* 목록 리스트 */}
         <div className={`flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${isEditing ? 'hidden md:grid w-1/3' : ''}`}>
           {sortedLogs.map(log => (
             <div key={log.id} onClick={() => { setCurrentLog(log); setIsEditing(true); }} className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-indigo-500 cursor-pointer shadow-sm transition group">
               <div className="flex justify-between items-start mb-2">
                 <h3 className="font-bold text-lg dark:text-white truncate pr-2">{log.title || '제목 없음'}</h3>
-                <span className="text-xs text-gray-400 flex items-center gap-1 shrink-0"><Calendar size={12}/> {new Date(log.date).toLocaleDateString()}</span>
+                <span className="text-xs text-gray-400 flex items-center gap-1 shrink-0"><Calendar size={12}/> {log.date}</span>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-3 whitespace-pre-wrap">{log.content}</p>
             </div>
           ))}
         </div>
 
-        {/* 편집기 (우측) */}
         {isEditing && currentLog && (
           <div className="flex-[2] bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 flex flex-col shadow-lg animate-in slide-in-from-right-4">
-            <input 
-              type="text" 
-              placeholder="회의 제목을 입력하세요" 
-              value={currentLog.title}
-              onChange={e => setCurrentLog({...currentLog, title: e.target.value})}
-              className="text-2xl font-bold border-b border-gray-200 dark:border-gray-700 pb-2 mb-4 outline-none bg-transparent dark:text-white placeholder-gray-300"
-            />
+            <div className="flex items-center gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
+              <input 
+                type="text" 
+                placeholder="회의 제목" 
+                value={currentLog.title}
+                onChange={e => setCurrentLog({...currentLog, title: e.target.value})}
+                className="flex-1 text-2xl font-bold outline-none bg-transparent dark:text-white placeholder-gray-300"
+              />
+              {/* 🔥 [추가] 날짜 선택 */}
+              <input 
+                type="date"
+                value={currentLog.date}
+                onChange={e => setCurrentLog({...currentLog, date: e.target.value})}
+                className="text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 dark:text-white"
+              />
+            </div>
+            
             <textarea 
               className="flex-1 w-full resize-none outline-none bg-transparent dark:text-white text-base leading-relaxed" 
               placeholder="회의 내용을 자유롭게 작성하세요..."

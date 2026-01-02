@@ -220,11 +220,13 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
         className="layout"
         layouts={{ lg: layout }}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+        // 🔥 [모바일 최적화] xs, xxs에서는 1열 강제 (한 줄에 위젯 1개)
+        cols={{ lg: 12, md: 10, sm: 6, xs: 1, xxs: 1 }} 
         rowHeight={100} 
         width={1200}
-        isDraggable={isEditMode}
-        isResizable={false}
+        // 🔥 [잠금 기능] 편집 모드일 때만 드래그/리사이즈 허용
+        isDraggable={isEditMode} 
+        isResizable={isEditMode} 
         compactType={null} 
         preventCollision={true}
         onLayoutChange={(newLayout) => onLayoutChange(newLayout)}
@@ -242,7 +244,7 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
                       <Grip size={16}/>
                     </div>
                     {widget.type === 'spacer' && (
-                       <button onClick={() => deleteWidget(widget.id)} className="absolute -top-2 -left-2 bg-red-500 text-white rounded-full p-1 shadow-md z-50 hover:bg-red-600 transition scale-75 hover:scale-100"><X size={14}/></button>
+                        <button onClick={() => deleteWidget(widget.id)} className="absolute -top-2 -left-2 bg-red-500 text-white rounded-full p-1 shadow-md z-50 hover:bg-red-600 transition scale-75 hover:scale-100"><X size={14}/></button>
                     )}
                   </>
                 )}
@@ -260,15 +262,14 @@ export default function Dashboard({ widgets, students, todos, setActiveView, sch
           <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-xl w-72" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3"><h4 className="font-bold dark:text-white">출결 / 메모 입력</h4><button onClick={() => setAttPopup({isOpen: false, studentId: null, note: ""})}><X size={16}/></button></div>
             
-            {/* 🔥 메모 입력창 추가 */}
             <div className="mb-3">
               <div className="flex items-center gap-1 mb-1 text-xs font-bold text-gray-500 dark:text-gray-400"><MessageSquare size={12}/> 사유 (선택)</div>
               <input 
                 type="text" 
                 value={attPopup.note} 
-                onChange={(e) => setAttPopup({...attPopup, note: e.target.value})}
+                onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} 
                 placeholder="예: 독감, 체험학습" 
-                className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600" 
               />
             </div>
 

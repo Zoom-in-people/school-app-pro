@@ -7,7 +7,6 @@ export default function EducationPlan({ apiKey }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  // 파일을 Base64 문자열로 변환하는 헬퍼 함수
   const fileToGenerativePart = async (file) => {
     const base64EncodedDataPromise = new Promise((resolve) => {
       const reader = new FileReader();
@@ -34,10 +33,8 @@ export default function EducationPlan({ apiKey }) {
     setError(null);
 
     try {
-      // 1. 파일 데이터 준비 (Base64 변환)
       const filePart = await fileToGenerativePart(uploadedFile);
 
-      // 2. 강력한 페르소나 프롬프트 적용
       const prompt = `
         당신은 30년차 베테랑 초등학교 및 고등학교 교사입니다. 
         탁월한 업무 수행 능력과 교육과정 문해력을 갖추고 있어, 어떤 복잡한 교육계획서라도 핵심을 빠르고 정확하게 파악합니다.
@@ -56,9 +53,8 @@ export default function EducationPlan({ apiKey }) {
         - 내용은 너무 짧지 않게, 충분한 정보를 담아주세요.
       `;
 
-      // 3. Gemini API 호출
-      // 모델명을 'gemini-1.5-flash-latest'로 변경하여 안정성 확보
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+      // 🔥 [수정] 모델명 변경 (gemini-1.5-flash-latest -> gemini-1.5-flash)
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -66,7 +62,7 @@ export default function EducationPlan({ apiKey }) {
             role: "user",
             parts: [
               { text: prompt },
-              filePart // PDF 파일 데이터
+              filePart 
             ]
           }]
         })
@@ -119,7 +115,6 @@ export default function EducationPlan({ apiKey }) {
         </label>
       ) : (
         <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
-          {/* 상단 헤더 */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/30">
             <div className="flex items-center gap-3">
               <FileText size={24} className="text-indigo-600"/>
@@ -130,7 +125,6 @@ export default function EducationPlan({ apiKey }) {
             </button>
           </div>
           
-          {/* 본문 영역 */}
           <div className="flex-1 overflow-y-auto p-6">
             {isAnalyzing ? (
               <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
@@ -145,7 +139,7 @@ export default function EducationPlan({ apiKey }) {
                 <AlertCircle size={48}/>
                 <p className="font-bold text-lg">오류가 발생했습니다</p>
                 <p className="text-sm text-center max-w-md bg-red-50 p-3 rounded-lg border border-red-200">{error}</p>
-                <p className="text-xs text-gray-400 mt-2">💡 팁: API 키가 올바른지 설정에서 확인해보세요.</p>
+                <p className="text-xs text-gray-400 mt-2">💡 팁: 설정 메뉴에서 API 키가 올바른지 확인해주세요.</p>
               </div>
             ) : (
               <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4">
