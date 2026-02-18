@@ -10,18 +10,21 @@ export const OFFICE_CODES = {
 };
 export const OFFICES_OF_EDUCATION = Object.keys(OFFICE_CODES);
 
-// 초기 위젯 배치 (수정됨: 1열 배치)
+// 초기 위젯 배치 (순서 변경: 출결 <-> 급식)
 export const INITIAL_WIDGETS = [
-  // 1. 급식 (3칸)
-  { id: 'lunch', type: 'lunch', x: 0, y: 0, w: 3, h: 3 },
-  // 2. 업무 (2칸 - 줄임)
-  { id: 'deadline', type: 'deadline', x: 3, y: 0, w: 2, h: 3 },
-  // 3. 시간표 (2칸)
-  { id: 'lesson', type: 'lesson', x: 5, y: 0, w: 2, h: 3 },
-  // 4. 출결 (3칸 - 줄임 & 1열로 이동)
-  { id: 'student', type: 'student', x: 7, y: 0, w: 3, h: 3 },
+  // 1. [변경] 오늘 출결 (맨 앞으로 이동)
+  { id: 'student', type: 'student', x: 0, y: 0, w: 3, h: 3 },
   
-  // 2열: 진도 (12칸 - 전체)
+  // 2. 업무 (그대로)
+  { id: 'deadline', type: 'deadline', x: 3, y: 0, w: 2, h: 3 },
+  
+  // 3. 시간표 (그대로)
+  { id: 'lesson', type: 'lesson', x: 5, y: 0, w: 2, h: 3 },
+  
+  // 4. [변경] 오늘의 급식 (뒤로 이동)
+  { id: 'lunch', type: 'lunch', x: 7, y: 0, w: 3, h: 3 },
+  
+  // 2열: 진도 (전체)
   { id: 'progress', type: 'progress', x: 0, y: 3, w: 12, h: 4 }
 ];
 
