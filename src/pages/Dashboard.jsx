@@ -18,7 +18,7 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
   const todayStr = getTodayDateString();
 
   // -------------------------------------------------------------------------
-  // 기능 로직 (기존 유지)
+  // 기능 로직
   // -------------------------------------------------------------------------
   const openAttPopup = (studentId) => {
     const existing = attendanceLog?.find(l => l.studentId === studentId && l.date === todayStr);
@@ -59,7 +59,7 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
   };
 
   // -------------------------------------------------------------------------
-  // 위젯 렌더러 (디자인 유지)
+  // 위젯 렌더러
   // -------------------------------------------------------------------------
   const WidgetCard = ({ children, title, icon: Icon, colorClass = "text-gray-900 dark:text-white" }) => (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 h-full flex flex-col overflow-hidden transition hover:shadow-md">
@@ -78,59 +78,9 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
 
   return (
     <div className="pb-20 w-full">
-      {/* 🔥 [핵심] CSS Grid 레이아웃 (설치 불필요, 겹침 없음, 완벽한 반응형) 
-        - grid-cols-1: 모바일에서는 1열
-        - lg:grid-cols-12: PC(큰 화면)에서는 12열
-        - gap-4: 위젯 사이 간격
-      */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 auto-rows-fr">
         
-        {/* 1. 오늘의 급식 (PC: 3칸 / 모바일: 1줄) */}
-        <div className="lg:col-span-3 h-80 lg:h-96">
-          <LunchWidget schoolInfo={schoolInfo || {}} />
-        </div>
-
-        {/* 2. 업무 체크 (PC: 3칸 / 모바일: 1줄) */}
-        <div className="lg:col-span-3 h-80 lg:h-96">
-          <WidgetCard title="업무 체크" icon={AlertTriangle} colorClass="text-red-500">
-            <div className="p-4 space-y-3">
-              <div className="flex justify-end mb-2"><button onClick={() => setActiveView('tasks')} className="text-xs text-gray-400 hover:text-indigo-500 font-bold">전체보기 &gt;</button></div>
-              {todos.slice(0, 5).map(todo => (
-                <div key={todo.id} className={`flex items-start gap-3 p-2 rounded-lg transition ${todo.done ? 'opacity-50' : ''}`}>
-                  <input type="checkbox" checked={todo.done} readOnly className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"/>
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium ${todo.done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{todo.title}</p>
-                    <span className="text-xs text-red-500 font-medium">{todo.done ? '완료' : 'D-Day'}</span>
-                  </div>
-                </div>
-              ))}
-              {todos.length === 0 && <div className="text-center text-gray-400 py-10 text-sm">등록된 업무가 없습니다.</div>}
-            </div>
-          </WidgetCard>
-        </div>
-
-        {/* 3. 오늘의 수업 (PC: 3칸 / 모바일: 1줄) */}
-        <div className="lg:col-span-3 h-80 lg:h-96">
-          <div className="bg-indigo-600 rounded-2xl shadow-lg p-5 text-white h-full flex flex-col overflow-hidden relative group">
-            <h4 className="font-bold mb-3 flex items-center gap-2 z-10 text-lg"><BookOpen size={20}/> 오늘의 수업</h4>
-            <div className="flex-1 flex items-center justify-center bg-indigo-500/50 rounded-xl overflow-hidden relative border border-indigo-400/30">
-              {currentHandbook?.timetableImage ? (
-                <img src={currentHandbook.timetableImage} alt="TimeTable" className="w-full h-full object-cover"/>
-              ) : (
-                <div className="text-center text-indigo-200 text-sm p-4">
-                  <p className="font-bold">등록된 시간표가 없습니다.</p>
-                  <p className="text-xs mt-1 opacity-70">클릭하여 이미지를 업로드하세요</p>
-                </div>
-              )}
-              <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer" onClick={() => fileInputRef.current.click()}>
-                <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm"><Upload className="text-white" size={24}/></div>
-              </div>
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleTimetableUpload}/>
-            </div>
-          </div>
-        </div>
-
-        {/* 4. 오늘 출결 (PC: 3칸 / 모바일: 1줄) - 담임일 때만 표시 */}
+        {/* 1. [위치 변경] 오늘 출결 (맨 앞으로 이동) */}
         {isHomeroom && (
           <div className="lg:col-span-3 h-80 lg:h-96">
             <WidgetCard title={`오늘 출결 (${todayStr})`} icon={Users} colorClass="text-green-500">
@@ -166,7 +116,52 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           </div>
         )}
 
-        {/* 5. 수업 진도 (PC: 12칸 전체 / 모바일: 1줄) */}
+        {/* 2. 업무 체크 */}
+        <div className="lg:col-span-3 h-80 lg:h-96">
+          <WidgetCard title="업무 체크" icon={AlertTriangle} colorClass="text-red-500">
+            <div className="p-4 space-y-3">
+              <div className="flex justify-end mb-2"><button onClick={() => setActiveView('tasks')} className="text-xs text-gray-400 hover:text-indigo-500 font-bold">전체보기 &gt;</button></div>
+              {todos.slice(0, 5).map(todo => (
+                <div key={todo.id} className={`flex items-start gap-3 p-2 rounded-lg transition ${todo.done ? 'opacity-50' : ''}`}>
+                  <input type="checkbox" checked={todo.done} readOnly className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"/>
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${todo.done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{todo.title}</p>
+                    <span className="text-xs text-red-500 font-medium">{todo.done ? '완료' : 'D-Day'}</span>
+                  </div>
+                </div>
+              ))}
+              {todos.length === 0 && <div className="text-center text-gray-400 py-10 text-sm">등록된 업무가 없습니다.</div>}
+            </div>
+          </WidgetCard>
+        </div>
+
+        {/* 3. 오늘의 수업 */}
+        <div className="lg:col-span-3 h-80 lg:h-96">
+          <div className="bg-indigo-600 rounded-2xl shadow-lg p-5 text-white h-full flex flex-col overflow-hidden relative group">
+            <h4 className="font-bold mb-3 flex items-center gap-2 z-10 text-lg"><BookOpen size={20}/> 오늘의 수업</h4>
+            <div className="flex-1 flex items-center justify-center bg-indigo-500/50 rounded-xl overflow-hidden relative border border-indigo-400/30">
+              {currentHandbook?.timetableImage ? (
+                <img src={currentHandbook.timetableImage} alt="TimeTable" className="w-full h-full object-cover"/>
+              ) : (
+                <div className="text-center text-indigo-200 text-sm p-4">
+                  <p className="font-bold">등록된 시간표가 없습니다.</p>
+                  <p className="text-xs mt-1 opacity-70">클릭하여 이미지를 업로드하세요</p>
+                </div>
+              )}
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer" onClick={() => fileInputRef.current.click()}>
+                <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm"><Upload className="text-white" size={24}/></div>
+              </div>
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleTimetableUpload}/>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. [위치 변경] 오늘의 급식 (출결 자리로 이동) */}
+        <div className="lg:col-span-3 h-80 lg:h-96">
+          <LunchWidget schoolInfo={schoolInfo || {}} />
+        </div>
+
+        {/* 5. 수업 진도 */}
         <div className="lg:col-span-12 h-96">
           <WidgetCard title="수업 진도 현황" icon={BookOpen} colorClass="text-purple-500">
             <div className="flex justify-end px-4 pt-2"><button onClick={() => setActiveView('lessons')} className="text-xs text-indigo-600 hover:underline font-bold">관리 &gt;</button></div>
@@ -209,7 +204,7 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
 
       </div>
 
-      {/* 모달 컴포넌트들 (기존 유지) */}
+      {/* 모달들 */}
       {memoModalOpen && targetStudent && <MemoLogModal isOpen={memoModalOpen} onClose={() => setMemoModalOpen(false)} student={targetStudent} onSave={handleMemoSave} />}
       
       {attPopup.isOpen && (
@@ -224,7 +219,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
 
             <div className="space-y-3">
               <button onClick={() => saveAttendance('reset')} className="w-full p-3 bg-white border-2 border-gray-100 hover:border-gray-300 rounded-xl text-gray-600 font-bold transition">출석 (초기화)</button>
-              
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div className="col-span-3 text-xs font-bold text-gray-400 mt-2 mb-1 pl-1">결석</div>
                 <button onClick={() => saveAttendance('병결')} className="p-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-lg transition">병결</button>
