@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, LogIn, Plus } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
-import { useGoogleDriveDB } from './hooks/useGoogleDriveDB'; 
+import { useFirestore } from './hooks/useFirestore'; 
 import { useLocalStorage } from './utils/useLocalStorage';
 import { INITIAL_WIDGETS } from './constants/data';
 import Sidebar from './components/layout/Sidebar';
@@ -16,7 +16,6 @@ import AcademicSchedule from './pages/AcademicSchedule';
 import EducationPlan from './pages/EducationPlan';
 import TaskList from './pages/TaskList';
 import LessonManager from './pages/LessonManager';
-import MaterialManager from './pages/MaterialManager';
 import MonthlyEvents from './pages/MonthlyEvents';
 import MeetingLogs from './pages/MeetingLogs';
 import MyTimetable from './pages/MyTimetable';
@@ -47,12 +46,6 @@ export default function App() {
   }, [user, apiKey]);
 
   useEffect(() => {
-    // 위젯 데이터 무결성 검사 (좌표가 없으면 초기화)
-    const needsReset = widgets.length === 0 || !widgets[0].hasOwnProperty('x');
-    if (needsReset) setWidgets(INITIAL_WIDGETS);
-  }, []);
-
-  useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [theme]);
@@ -68,9 +61,8 @@ export default function App() {
 
   const userId = user ? user.uid : null;
 
-  // 1. 교무수첩 목록 먼저 로드 (무조건 실행)
   const { data: handbooks, add: addHandbook, update: updateHandbook, remove: removeHandbook } 
-    = useGoogleDriveDB('handbooks', userId, true);
+    = useFirestore('handbooks', userId, true);
 
   useEffect(() => {
     if (handbooks.length > 0) {
@@ -88,59 +80,20 @@ export default function App() {
 
   const currentHandbookId = currentHandbook ? currentHandbook.id : null;
   const collectionPrefix = currentHandbookId ? `_${currentHandbookId}` : '';
-  
-  // 🔥 [핵심] 교무수첩이 선택되었을 때만 하위 데이터 로드 (속도 최적화)
   const isHandbookLoaded = !!currentHandbookId;
 
-  const { 
-    data: homeroomStudents, 
-    add: addHomeroomStudent, 
-    addMany: addManyHomeroomStudents, 
-    remove: removeHomeroomStudent, 
-    update: updateHomeroomStudent, 
-    updateMany: updateManyHomeroomStudents,
-    setAll: setAllHomeroomStudents 
-  } = useGoogleDriveDB(`students_homeroom${collectionPrefix}`, userId, isHandbookLoaded);
-
-  const { 
-    data: subjectStudents, 
-    add: addSubjectStudent, 
-    addMany: addManySubjectStudents, 
-    remove: removeSubjectStudent, 
-    update: updateSubjectStudent, 
-    updateMany: updateManySubjectStudents,
-    setAll: setAllSubjectStudents
-  } = useGoogleDriveDB(`students_subject${collectionPrefix}`, userId, isHandbookLoaded);
-    
-  const { data: consultations, add: addConsultation, remove: removeConsultation, update: updateConsultation } 
-    = useGoogleDriveDB(`consultations${collectionPrefix}`, userId, isHandbookLoaded);
-    
-  const { data: todos, add: addTodo, remove: removeTodo, update: updateTodo } 
-    = useGoogleDriveDB(`todos${collectionPrefix}`, userId, isHandbookLoaded);
-    
-  const { data: attendanceLog, add: addAttendance, remove: removeAttendance, update: updateAttendance } 
-    = useGoogleDriveDB(`attendance${collectionPrefix}`, userId, isHandbookLoaded);
-    
-  const { data: events, add: addEvent, remove: removeEvent, update: updateEvent } 
-    = useGoogleDriveDB(`events${collectionPrefix}`, userId, isHandbookLoaded);
-    
-  const { data: lessonGroups, add: addLessonGroup, remove: removeLessonGroup, update: updateLessonGroup } 
-    = useGoogleDriveDB(`lesson_groups${collectionPrefix}`, userId, isHandbookLoaded);
-
-  const { data: meetingLogs, add: addMeetingLog, remove: removeMeetingLog, update: updateMeetingLog } 
-    = useGoogleDriveDB(`meeting_logs${collectionPrefix}`, userId, isHandbookLoaded);
-
-  const { data: myTimetable, add: addMyTimetable, update: updateMyTimetable, remove: removeMyTimetable } 
-    = useGoogleDriveDB(`my_timetable${collectionPrefix}`, userId, isHandbookLoaded);
-
-  const { data: classPhotos, add: addClassPhoto, update: updateClassPhoto, remove: removeClassPhoto } 
-    = useGoogleDriveDB(`class_photos${collectionPrefix}`, userId, isHandbookLoaded);
-
-  const { data: academicSchedule, add: addSchedule, update: updateSchedule, remove: removeSchedule } 
-    = useGoogleDriveDB(`academic_schedule${collectionPrefix}`, userId, isHandbookLoaded);
-
-  const { data: educationPlans, add: addEducationPlan, update: updateEducationPlan, remove: removeEducationPlan } 
-    = useGoogleDriveDB(`education_plans${collectionPrefix}`, userId, isHandbookLoaded);
+  const { data: homeroomStudents, add: addHomeroomStudent, addMany: addManyHomeroomStudents, remove: removeHomeroomStudent, update: updateHomeroomStudent, updateMany: updateManyHomeroomStudents, setAll: setAllHomeroomStudents } = useFirestore(`students_homeroom${collectionPrefix}`, userId, isHandbookLoaded);
+  const { data: subjectStudents, add: addSubjectStudent, addMany: addManySubjectStudents, remove: removeSubjectStudent, update: updateSubjectStudent, updateMany: updateManySubjectStudents, setAll: setAllSubjectStudents } = useFirestore(`students_subject${collectionPrefix}`, userId, isHandbookLoaded);
+  const { data: consultations, add: addConsultation, remove: removeConsultation, update: updateConsultation } = useFirestore(`consultations${collectionPrefix}`, userId, isHandbookLoaded);
+  const { data: todos, add: addTodo, remove: removeTodo, update: updateTodo } = useFirestore(`todos${collectionPrefix}`, userId, isHandbookLoaded);
+  const { data: attendanceLog, add: addAttendance, remove: removeAttendance, update: updateAttendance } = useFirestore(`attendance${collectionPrefix}`, userId, isHandbookLoaded);
+  const { data: events, add: addEvent, remove: removeEvent, update: updateEvent } = useFirestore(`events${collectionPrefix}`, userId, isHandbookLoaded);
+  const { data: lessonGroups, add: addLessonGroup, remove: removeLessonGroup, update: updateLessonGroup } = useFirestore(`lesson_groups${collectionPrefix}`, userId, isHandbookLoaded);
+  const { data: meetingLogs, add: addMeetingLog, remove: removeMeetingLog, update: updateMeetingLog } = useFirestore(`meeting_logs${collectionPrefix}`, userId, isHandbookLoaded);
+  const { data: myTimetable, add: addMyTimetable, update: updateMyTimetable, remove: removeMyTimetable } = useFirestore(`my_timetable${collectionPrefix}`, userId, isHandbookLoaded);
+  const { data: classPhotos, add: addClassPhoto, update: updateClassPhoto, remove: removeClassPhoto } = useFirestore(`class_photos${collectionPrefix}`, userId, isHandbookLoaded);
+  const { data: academicSchedule, add: addSchedule, update: updateSchedule, remove: removeSchedule } = useFirestore(`academic_schedule${collectionPrefix}`, userId, isHandbookLoaded);
+  const { data: educationPlans, add: addEducationPlan, update: updateEducationPlan, remove: removeEducationPlan } = useFirestore(`education_plans${collectionPrefix}`, userId, isHandbookLoaded);
 
   const handleCreateHandbook = async (data) => {
     try {
@@ -182,34 +135,12 @@ export default function App() {
     setIsSidebarOpen(false);
   };
 
+  // 대시보드 위젯 제어 (CSS Grid 사용시 좌표저장 불필요하므로 제거 또는 단순화)
+  const onLayoutChange = (newLayout) => { /* CSS Grid 사용시 불필요하지만 에러 방지용 */ };
+  const resetLayout = () => { /* CSS Grid는 초기화가 필요 없음 */ };
+
   const handleUpdateAttendance = (id, data) => { if (id && !data) removeAttendance(id); else if (id && data) updateAttendance(id, data); else addAttendance(data); };
   const handleUpdateEvent = (id, data) => { if (id && !data) removeEvent(id); else if (id && data) updateEvent(id, data); else addEvent(data); };
-
-  const onLayoutChange = (newLayout) => {
-    // 레이아웃 변경 시 x, y 좌표 업데이트
-    const updatedWidgets = widgets.map(widget => {
-      const layoutItem = newLayout.find(l => l.i === widget.id);
-      if (layoutItem) {
-        return { ...widget, x: layoutItem.x, y: layoutItem.y, w: layoutItem.w, h: layoutItem.h };
-      }
-      return widget;
-    });
-    // 여기서 setState를 하면 로컬스토리지 훅에 의해 자동 저장됨
-    setWidgets(updatedWidgets);
-  };
-
-  const resetLayout = () => {
-    if(window.confirm("대시보드 배치를 초기 상태로 되돌리시겠습니까?\n(화면이 겹쳐 보이거나 오류가 있을 때 권장합니다)")) {
-      // 1. 로컬 스토리지 강제 초기화 (오염된 데이터 제거)
-      localStorage.removeItem('widgets'); // 아예 지워버림
-      // 2. 상태 초기화
-      setWidgets(INITIAL_WIDGETS);
-      // 3. 확실한 적용을 위해 페이지 새로고침
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
-    }
-  };
 
   if (loading) return <div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin text-4xl">⏳</div></div>;
 
@@ -232,10 +163,7 @@ export default function App() {
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
       
       {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
       )}
 
       <div className={`
@@ -248,10 +176,7 @@ export default function App() {
           activeView={activeView} 
           setActiveView={(view) => { setActiveView(view); setIsSidebarOpen(false); }} 
           onOpenSettings={() => { setIsSettingsOpen(true); setIsSidebarOpen(false); }} 
-          user={user} 
-          logout={logout} 
-          handbooks={handbooks} 
-          currentHandbook={currentHandbook} 
+          user={user} logout={logout} handbooks={handbooks} currentHandbook={currentHandbook} 
           onSelectHandbook={handleSelectHandbook} 
           onOpenAddHandbook={() => { setIsAddHandbookOpen(true); setIsSidebarOpen(false); }} 
           onOpenHandbookSettings={() => { setIsHandbookSettingsOpen(true); setIsSidebarOpen(false); }}
@@ -261,9 +186,7 @@ export default function App() {
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
         <header className="md:hidden bg-white dark:bg-gray-800 p-4 flex items-center justify-between border-b dark:border-gray-700 sticky top-0 z-30">
           <span className="font-bold text-lg">{currentHandbook ? currentHandbook.title : "교무수첩 Pro"}</span>
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-            <Menu size={24}/>
-          </button>
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><Menu size={24}/></button>
         </header>
 
         <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
@@ -272,92 +195,17 @@ export default function App() {
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (
               <>
-                {activeView === 'dashboard' && (
-                  <Dashboard 
-                    widgets={widgets} 
-                    students={homeroomStudents}
-                    todos={todos} setActiveView={setActiveView} isHomeroom={currentHandbook.isHomeroom} schoolInfo={currentHandbook.schoolInfo || {}} 
-                    attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => updateHomeroomStudent(id, data)} lessonGroups={lessonGroups} onUpdateLessonGroup={updateLessonGroup} 
-                    currentHandbook={currentHandbook} onUpdateHandbook={handleUpdateHandbook}
-                    onLayoutChange={onLayoutChange} 
-                    resetLayout={resetLayout} // 🔥 [수정] 강화된 초기화 함수 전달
-                    addWidget={(newWidget) => setWidgets(prev => [...prev, { ...newWidget, id: Date.now().toString(), x: 0, y: Infinity }])}
-                    deleteWidget={(id) => setWidgets(prev => prev.filter(w => w.id !== id))}
-                    myTimetable={myTimetable}
-                  />
-                )}
+                {activeView === 'dashboard' && <Dashboard students={homeroomStudents} todos={todos} setActiveView={setActiveView} isHomeroom={currentHandbook.isHomeroom} schoolInfo={currentHandbook.schoolInfo || {}} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => updateHomeroomStudent(id, data)} lessonGroups={lessonGroups} onUpdateLessonGroup={updateLessonGroup} currentHandbook={currentHandbook} onUpdateHandbook={handleUpdateHandbook} />}
                 {activeView === 'monthly' && <MonthlyEvents handbook={currentHandbook} isHomeroom={currentHandbook.isHomeroom} students={homeroomStudents} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} events={events} onUpdateEvent={handleUpdateEvent} />}
-                
-                {activeView === 'students_homeroom' && (
-                  <StudentManager 
-                    key="homeroom-manager"
-                    students={homeroomStudents} 
-                    onAddStudent={addHomeroomStudent} 
-                    onAddStudents={addManyHomeroomStudents} 
-                    onUpdateStudent={updateHomeroomStudent} 
-                    onDeleteStudent={removeHomeroomStudent}
-                    onUpdateStudentsMany={updateManyHomeroomStudents} 
-                    onSetAllStudents={setAllHomeroomStudents} 
-                    apiKey={apiKey} 
-                    isHomeroomView={true} 
-                  />
-                )}
-                
-                {activeView === 'students_subject' && (
-                  <StudentManager 
-                    key="subject-manager"
-                    students={subjectStudents} 
-                    onAddStudent={addSubjectStudent} 
-                    onAddStudents={addManySubjectStudents} 
-                    onUpdateStudent={updateSubjectStudent} 
-                    onDeleteStudent={removeSubjectStudent}
-                    onUpdateStudentsMany={updateManySubjectStudents}
-                    onSetAllStudents={setAllSubjectStudents} 
-                    apiKey={apiKey} 
-                    isHomeroomView={false} 
-                    classPhotos={classPhotos} 
-                    onAddClassPhoto={addClassPhoto}
-                    onUpdateClassPhoto={updateClassPhoto}
-                    onDeleteClassPhoto={removeClassPhoto}
-                  />
-                )}
-                
+                {activeView === 'students_homeroom' && <StudentManager key="homeroom-manager" students={homeroomStudents} onAddStudent={addHomeroomStudent} onAddStudents={addManyHomeroomStudents} onUpdateStudent={updateHomeroomStudent} onDeleteStudent={removeHomeroomStudent} onUpdateStudentsMany={updateManyHomeroomStudents} onSetAllStudents={setAllHomeroomStudents} apiKey={apiKey} isHomeroomView={true} />}
+                {activeView === 'students_subject' && <StudentManager key="subject-manager" students={subjectStudents} onAddStudent={addSubjectStudent} onAddStudents={addManySubjectStudents} onUpdateStudent={updateSubjectStudent} onDeleteStudent={removeSubjectStudent} onUpdateStudentsMany={updateManySubjectStudents} onSetAllStudents={setAllSubjectStudents} apiKey={apiKey} isHomeroomView={false} classPhotos={classPhotos} onAddClassPhoto={addClassPhoto} onUpdateClassPhoto={updateClassPhoto} onDeleteClassPhoto={removeClassPhoto} />}
                 {activeView === 'lessons' && <LessonManager lessonGroups={lessonGroups} onAddGroup={addLessonGroup} onUpdateGroup={updateLessonGroup} onDeleteGroup={removeLessonGroup} />}
                 {activeView === 'consultation' && <ConsultationLog students={homeroomStudents} consultations={consultations} onAddConsultation={addConsultation} onDeleteConsultation={removeConsultation} />}
                 {activeView === 'tasks' && <TaskList todos={todos} onAddTodo={addTodo} onUpdateTodo={updateTodo} onDeleteTodo={removeTodo} />}
-                
-                {activeView === 'schedule' && (
-                  <AcademicSchedule 
-                    apiKey={apiKey} 
-                    scheduleData={academicSchedule} 
-                    onUpdateSchedule={updateSchedule}
-                    onAddSchedule={addSchedule}
-                    onDeleteSchedule={removeSchedule}
-                  />
-                )}
-                
-                {activeView === 'edu_plan' && (
-                  <EducationPlan 
-                    apiKey={apiKey} 
-                    planData={educationPlans} 
-                    onSavePlan={addEducationPlan}
-                    onUpdatePlan={updateEducationPlan}
-                    onDeletePlan={removeEducationPlan}
-                  />
-                )}
-
-                {activeView === 'materials' && <MaterialManager handbook={currentHandbook} />}
+                {activeView === 'schedule' && <AcademicSchedule apiKey={apiKey} scheduleData={academicSchedule} onUpdateSchedule={updateSchedule} onAddSchedule={addSchedule} onDeleteSchedule={removeSchedule} />}
+                {activeView === 'edu_plan' && <EducationPlan apiKey={apiKey} planData={educationPlans} onSavePlan={addEducationPlan} onUpdatePlan={updateEducationPlan} onDeletePlan={removeEducationPlan} />}
                 {activeView === 'meeting_logs' && <MeetingLogs logs={meetingLogs} onAddLog={addMeetingLog} onUpdateLog={updateMeetingLog} onDeleteLog={removeMeetingLog} />}
-                
-                {activeView === 'my_timetable' && (
-                  <MyTimetable 
-                    timetableData={myTimetable} 
-                    onAddTimetable={addMyTimetable}
-                    onUpdateTimetable={updateMyTimetable} 
-                    onDeleteTimetable={removeMyTimetable}
-                  />
-                )}
-                
+                {activeView === 'my_timetable' && <MyTimetable timetableData={myTimetable} onAddTimetable={addMyTimetable} onUpdateTimetable={updateMyTimetable} onDeleteTimetable={removeMyTimetable} />}
                 {activeView === 'apps' && <ExternalApps />}
               </>
             )}
