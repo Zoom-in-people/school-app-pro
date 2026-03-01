@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Users, AlertTriangle, BookOpen, ClipboardList, Upload, MessageSquare, CheckCircle } from 'lucide-react';
+import { Users, AlertTriangle, BookOpen, ClipboardList, Upload, MessageSquare, CheckCircle, X } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
 
@@ -16,6 +16,20 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; 
   };
   const todayStr = getTodayDateString();
+
+  // D-Day 날짜 계산 함수
+  const getDDayFormat = (dueDate) => {
+    if (!dueDate) return { text: '', color: 'text-gray-500' };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+    
+    if (diff > 0) return { text: `${diff}일 남음`, color: 'text-blue-500' };
+    if (diff < 0) return { text: `${Math.abs(diff)}일 지남`, color: 'text-red-500' };
+    return { text: '오늘 마감', color: 'text-orange-500' };
+  };
 
   // -------------------------------------------------------------------------
   // 기능 로직
@@ -80,7 +94,7 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
     <div className="pb-20 w-full">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 auto-rows-fr">
         
-        {/* 1. [위치 변경] 오늘 출결 (맨 앞으로 이동) */}
+        {/* 1. 오늘 출결 */}
         {isHomeroom && (
           <div className="lg:col-span-3 h-80 lg:h-96">
             <WidgetCard title={`오늘 출결 (${todayStr})`} icon={Users} colorClass="text-green-500">
@@ -126,7 +140,9 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
                   <input type="checkbox" checked={todo.done} readOnly className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"/>
                   <div className="flex-1">
                     <p className={`text-sm font-medium ${todo.done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{todo.title}</p>
-                    <span className="text-xs text-red-500 font-medium">{todo.done ? '완료' : 'D-Day'}</span>
+                    <span className={`text-xs font-bold ${todo.done ? 'text-gray-400' : getDDayFormat(todo.dueDate).color}`}>
+                      {todo.done ? '완료' : getDDayFormat(todo.dueDate).text}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -141,7 +157,7 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
             <h4 className="font-bold mb-3 flex items-center gap-2 z-10 text-lg"><BookOpen size={20}/> 오늘의 수업</h4>
             <div className="flex-1 flex items-center justify-center bg-indigo-500/50 rounded-xl overflow-hidden relative border border-indigo-400/30">
               {currentHandbook?.timetableImage ? (
-                <img src={currentHandbook.timetableImage} alt="TimeTable" className="w-full h-full object-cover"/>
+                <img src={currentHandbook.timetableImage} alt="TimeTable" className="w-full h-full object-contain p-1 bg-white dark:bg-gray-800/50"/>
               ) : (
                 <div className="text-center text-indigo-200 text-sm p-4">
                   <p className="font-bold">등록된 시간표가 없습니다.</p>
@@ -156,7 +172,7 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           </div>
         </div>
 
-        {/* 4. [위치 변경] 오늘의 급식 (출결 자리로 이동) */}
+        {/* 4. 오늘의 급식 */}
         <div className="lg:col-span-3 h-80 lg:h-96">
           <LunchWidget schoolInfo={schoolInfo || {}} />
         </div>
@@ -172,7 +188,9 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
                   <div className="grid gap-3">
                     {group.classes.map(cls => (
                       <div key={cls.id} className="flex items-center gap-3 py-2 border-b border-dotted border-gray-200 dark:border-gray-600 last:border-0">
-                        <span className="dark:text-gray-200 w-20 shrink-0 font-bold text-sm bg-white dark:bg-gray-600 px-2 py-1 rounded border border-gray-200 dark:border-gray-500 text-center">{cls.name}</span>
+                        <span className="dark:text-gray-200 w-16 shrink-0 font-bold text-sm bg-white dark:bg-gray-600 px-1 py-1.5 rounded border border-gray-200 dark:border-gray-500 flex flex-col items-center justify-center leading-tight">
+                          {cls.name.split(' ').map((text, i) => <span key={i}>{text}</span>)}
+                        </span>
                         <div className="flex-1 flex flex-wrap gap-1.5">
                           {group.progressItems.slice(0, 20).map((item, idx) => (
                             <button 
