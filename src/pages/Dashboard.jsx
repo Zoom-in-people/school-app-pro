@@ -130,26 +130,30 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           </div>
         )}
 
-        {/* 2. 업무 체크 */}
-        <div className="lg:col-span-3 h-80 lg:h-96">
-          <WidgetCard title="업무 체크" icon={AlertTriangle} colorClass="text-red-500">
-            <div className="p-4 space-y-3">
-              <div className="flex justify-end mb-2"><button onClick={() => setActiveView('tasks')} className="text-xs text-gray-400 hover:text-indigo-500 font-bold">전체보기 &gt;</button></div>
-              {todos.slice(0, 5).map(todo => (
-                <div key={todo.id} className={`flex items-start gap-3 p-2 rounded-lg transition ${todo.done ? 'opacity-50' : ''}`}>
-                  <input type="checkbox" checked={todo.done} readOnly className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"/>
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium ${todo.done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{todo.title}</p>
-                    <span className={`text-xs font-bold ${todo.done ? 'text-gray-400' : getDDayFormat(todo.dueDate).color}`}>
-                      {todo.done ? '완료' : getDDayFormat(todo.dueDate).text}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {todos.length === 0 && <div className="text-center text-gray-400 py-10 text-sm">등록된 업무가 없습니다.</div>}
-            </div>
-          </WidgetCard>
+      
+        {/* 2. 업무 체크 (미완료 업무만 표시) */}
+<div className="lg:col-span-3 h-80 lg:h-96">
+  <WidgetCard title="업무 체크" icon={AlertTriangle} colorClass="text-red-500">
+    <div className="p-4 space-y-3">
+      <div className="flex justify-end mb-2">
+        <button onClick={() => setActiveView('tasks')} className="text-xs text-gray-400 hover:text-indigo-500 font-bold">전체보기 &gt;</button>
+      </div>
+      {/* 🔥 filter를 추가하여 체크 안 된(todo.done === false) 업무만 노출 */}
+      {todos.filter(t => !t.done).slice(0, 5).map(todo => (
+        <div key={todo.id} className="flex items-start gap-3 p-2 rounded-lg transition">
+          <input type="checkbox" checked={todo.done} readOnly className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300"/>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{todo.title}</p>
+            <span className={`text-xs font-bold ${getDDayFormat(todo.dueDate).color}`}>
+              {getDDayFormat(todo.dueDate).text}
+            </span>
+          </div>
         </div>
+      ))}
+      {todos.filter(t => !t.done).length === 0 && <div className="text-center text-gray-400 py-10 text-sm">남은 업무가 없습니다. 🎉</div>}
+    </div>
+  </WidgetCard>
+</div>
 
         {/* 3. 오늘의 수업 */}
         <div className="lg:col-span-3 h-80 lg:h-96">

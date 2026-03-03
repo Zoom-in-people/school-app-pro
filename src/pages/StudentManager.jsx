@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, AlertTriangle, FileText, BookOpen, StickyNote, Image as ImageIcon, Upload, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
-// 🔥 [변경] 구글 드라이브 대신 파이어베이스 스토리지 사용
 import { uploadFileToStorage } from '../utils/storage';
 import EditStudentModal from '../components/modals/EditStudentModal';
 import AiGenModal from '../components/modals/AiGenModal';
@@ -18,7 +17,6 @@ export default function StudentManager({
   const [isBatchAiModalOpen, setIsBatchAiModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   
-  // 통합된 반 필터 (예: "1-1")
   const [activeClassFilter, setActiveClassFilter] = useState(null);
 
   const fileInputRef = useRef(null);
@@ -26,17 +24,14 @@ export default function StudentManager({
 
   const safeStudents = Array.isArray(students) ? students : [];
 
-  // 등록된 반 목록 추출 (예: ["1-1", "1-2", "3-5"])
   const existingClasses = useMemo(() => {
     const classes = new Set(safeStudents.map(s => `${s.grade}-${s.class}`));
     return Array.from(classes).sort();
   }, [safeStudents]);
 
-  // 필터링된 학생 목록
   const filteredStudents = useMemo(() => {
     let result = safeStudents;
 
-    // 1. 검색어 필터
     if (searchTerm) {
       result = result.filter(s => 
         s.name.includes(searchTerm) || 
@@ -45,20 +40,18 @@ export default function StudentManager({
       );
     }
 
-    // 2. 반 필터 (버튼 선택 시)
     if (activeClassFilter) {
       result = result.filter(s => `${s.grade}-${s.class}` === activeClassFilter);
     }
 
-    // 정렬 (학년 > 반 > 번호)
     return result.sort((a, b) => {
       if (a.grade !== b.grade) return a.grade - b.grade;
       if (a.class !== b.class) return a.class - b.class;
-      return a.number - b.number;
+      return Number(a.number) - Number(b.number);
     });
   }, [safeStudents, searchTerm, activeClassFilter]);
 
-  // 엑셀 업로드 처리
+  // 🔥 [중요] 엑셀 업로드 시 중복 체크 및 덮어쓰기 로직
   const handleExcelUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -67,82 +60,79 @@ export default function StudentManager({
     reader.onload = (evt) => {
       const bstr = evt.target.result;
       const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws, { header: 1 }); // 배열의 배열 형태
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
-      // 헤더 제외하고 데이터 매핑
-      const newStudents = data.slice(1).map(row => {
-        // CSV 템플릿 순서에 맞춰 데이터 파싱
-        // 예: 학년,반,번호,성명, ...
-        return {
-          grade: String(row[0] || ""),
-          class: String(row[1] || ""),
-          number: String(row[2] || ""),
-          name: String(row[3] || ""),
-          phone: String(row[4] || ""),
-          parentPhone: String(row[5] || ""),
-          address: String(row[6] || ""),
-          tags: row[7] ? String(row[7]).split(",").map(t=>t.trim()) : [],
-          autoActivity: String(row[8] || ""),
-          uniqueness: String(row[9] || ""),
-          memos: row[10] ? [{ id: Date.now(), date: new Date().toISOString().split('T')[0], content: String(row[10]) }] : []
-        };
-      }).filter(s => s.name); // 이름 없는 행 제외
+      const parsedStudents = data.slice(1).map(row => ({
+        grade: String(row[0] || ""),
+        class: String(row[1] || ""),
+        number: String(row[2] || ""),
+        name: String(row[3] || ""),
+        phone: String(row[4] || ""),
+        parentPhone: String(row[5] || ""),
+        address: String(row[6] || ""),
+        tags: row[7] ? String(row[7]).split(",").map(t=>t.trim()) : [],
+        autoActivity: String(row[8] || ""),
+        uniqueness: String(row[9] || ""),
+        memos: row[10] ? [{ id: Date.now(), date: new Date().toISOString().split('T')[0], content: String(row[10]) }] : []
+      })).filter(s => s.name);
 
-      if (newStudents.length > 0) {
-        if(window.confirm(`${newStudents.length}명의 학생을 추가하시겠습니까?\n(기존 명단에 추가됩니다)`)) {
-          onAddStudents(newStudents);
+      const newStudents = [];
+      const updateTasks = [];
+
+      parsedStudents.forEach(parsed => {
+        // 학년, 반, 번호가 모두 일치하는 학생 찾기
+        const existing = safeStudents.find(s => 
+          String(s.grade) === String(parsed.grade) && 
+          String(s.class) === String(parsed.class) && 
+          String(s.number) === String(parsed.number)
+        );
+
+        if (existing) {
+          // 일치하는 학생이 있으면 업데이트 목록으로
+          updateTasks.push({ id: existing.id, fields: { ...parsed } });
+        } else {
+          // 없으면 신규 추가 목록으로
+          newStudents.push(parsed);
         }
-      } else {
-        alert("데이터를 찾을 수 없습니다. 템플릿 양식을 확인해주세요.");
+      });
+
+      if (window.confirm(`분석 완료: 새 학생 ${newStudents.length}명 추가, 기존 학생 ${updateTasks.length}명 덮어쓰기 하시겠습니까?`)) {
+        if (newStudents.length > 0) onAddStudents(newStudents);
+        if (updateTasks.length > 0) onUpdateStudentsMany(updateTasks);
       }
     };
     reader.readAsBinaryString(file);
-    e.target.value = ''; // 초기화
+    e.target.value = '';
   };
 
-  // 엑셀 템플릿 다운로드
   const handleDownloadTemplate = () => {
     downloadTemplate(safeStudents, isHomeroomView);
   };
 
-  // 🔥 [수정] 사진 명렬표 업로드 (Firebase Storage 사용)
   const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    // 반 정보가 없으면 경고 (어떤 반의 사진인지 알아야 함)
     if (!activeClassFilter) {
-      alert("사진을 등록할 '반'을 먼저 선택해주세요 (필터 버튼 클릭).");
+      alert("사진을 등록할 '반'을 먼저 선택해주세요.");
       e.target.value = '';
       return;
     }
 
-    if (!window.confirm(`${activeClassFilter}반의 사진 명렬표를 업로드하시겠습니까?`)) return;
-
     try {
-      // 1. 스토리지에 업로드
       const uploaded = await uploadFileToStorage(file, 'class_photos');
-      
       const newPhotoData = {
-        id: activeClassFilter, // "1-1" 같은 반 이름을 ID로 사용
+        id: activeClassFilter,
         classId: activeClassFilter,
         url: uploaded.url,
         fileName: uploaded.name,
         fullPath: uploaded.fullPath
       };
-
-      // 2. DB 업데이트 (이미 있으면 덮어쓰기)
       const existing = classPhotos.find(p => p.classId === activeClassFilter);
-      if (existing) {
-        onUpdateClassPhoto(existing.id, newPhotoData);
-      } else {
-        onAddClassPhoto(newPhotoData);
-      }
+      if (existing) onUpdateClassPhoto(existing.id, newPhotoData);
+      else onAddClassPhoto(newPhotoData);
       alert("업로드 완료!");
     } catch (error) {
-      console.error(error);
       alert("업로드 실패: " + error.message);
     }
     e.target.value = '';
@@ -169,14 +159,10 @@ export default function StudentManager({
     }
   };
 
-  // 현재 필터링된 반의 사진 정보 가져오기
-  const currentClassPhoto = activeClassFilter 
-    ? classPhotos.find(p => p.classId === activeClassFilter) 
-    : null;
+  const currentClassPhoto = activeClassFilter ? classPhotos.find(p => p.classId === activeClassFilter) : null;
 
   return (
     <div className="h-full flex flex-col gap-4">
-      {/* 상단 툴바 */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -189,8 +175,6 @@ export default function StudentManager({
               className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm w-64 focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white transition-all"
             />
           </div>
-          
-          {/* 반 필터 버튼들 */}
           <div className="flex gap-1 ml-2 overflow-x-auto scrollbar-hide">
             {existingClasses.map(cls => (
               <button
@@ -212,9 +196,7 @@ export default function StudentManager({
           <button onClick={() => { setEditingStudent(null); setIsModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition flex items-center gap-2 shadow-sm">
             <Plus size={16}/> 학생 추가
           </button>
-          
           <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
-
           <button onClick={handleDownloadTemplate} className="text-gray-500 hover:text-green-600 p-2 rounded-lg transition" title="엑셀 양식 다운로드">
             <FileSpreadsheet size={20}/>
           </button>
@@ -224,8 +206,6 @@ export default function StudentManager({
           <button onClick={() => rosterFileInputRef.current.click()} className="text-gray-500 hover:text-purple-600 p-2 rounded-lg transition" title="사진 명렬표 업로드">
             <ImageIcon size={20}/>
           </button>
-          
-          {/* AI 일괄 생성 버튼 (API 키 있을 때만) */}
           {apiKey && (
             <button onClick={() => setIsBatchAiModalOpen(true)} className="text-gray-500 hover:text-yellow-500 p-2 rounded-lg transition" title="AI 세특 일괄 작성">
               <Sparkles size={20}/>
@@ -238,7 +218,6 @@ export default function StudentManager({
       <input type="file" ref={rosterFileInputRef} onChange={handlePhotoUpload} accept="image/*" className="hidden" />
 
       <div className="flex-1 overflow-y-auto pr-2">
-        {/* 사진 명렬표 뷰 (필터 선택 시 상단에 표시) */}
         {activeClassFilter && currentClassPhoto && (
           <div className="mb-6 animate-in fade-in slide-in-from-top-4">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-indigo-100 dark:border-gray-700 overflow-hidden relative group">
@@ -260,7 +239,6 @@ export default function StudentManager({
           </div>
         )}
 
-        {/* 학생 카드 그리드 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredStudents.length > 0 ? (
             filteredStudents.map(student => (
@@ -277,7 +255,7 @@ export default function StudentManager({
           ) : (
             <div className="col-span-full py-20 text-center text-gray-400 flex flex-col items-center">
               <User size={48} className="mb-4 opacity-20"/>
-              <p className="text-lg">등록된 학생이 없습니다.</p>
+              <p className="text-lg font-bold">등록된 학생이 없습니다.</p>
               <p className="text-sm mt-1">우측 상단 + 버튼이나 엑셀 업로드를 이용해보세요.</p>
             </div>
           )}
@@ -339,7 +317,6 @@ function StudentCard({ student, onEdit, onDelete, isHomeroomView, apiKey, onUpda
         </div>
 
         <div className="px-4 pb-3 flex-1 space-y-2">
-          {/* 태그 영역 */}
           <div className="flex flex-wrap gap-1.5 min-h-[24px]">
             {student.tags && student.tags.length > 0 ? student.tags.slice(0, 3).map((tag, i) => (
               <span key={i} className="text-[10px] px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md font-medium">
@@ -351,7 +328,6 @@ function StudentCard({ student, onEdit, onDelete, isHomeroomView, apiKey, onUpda
             {student.tags && student.tags.length > 3 && <span className="text-[10px] text-gray-400">+{student.tags.length - 3}</span>}
           </div>
 
-          {/* AI 생성 텍스트 미리보기 */}
           {student.aiGeneratedText && (
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg border border-indigo-100 dark:border-indigo-800">
               <p className="text-xs text-indigo-800 dark:text-indigo-300 line-clamp-2">
@@ -393,12 +369,11 @@ function StudentCard({ student, onEdit, onDelete, isHomeroomView, apiKey, onUpda
   );
 }
 
-// 일괄 AI 생성 모달 (간소화)
+// 일괄 AI 생성 모달
 function BatchAiGenModal({ isOpen, onClose, students, apiKey, onUpdateStudentsMany }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   
-  // AI 생성 대상: 태그나 특기사항이 있지만, 아직 AI 세특이 없는 학생
   const targets = students.filter(s => (s.tags?.length > 0 || s.uniqueness) && !s.aiGeneratedText);
 
   const runBatch = async () => {
@@ -407,7 +382,6 @@ function BatchAiGenModal({ isOpen, onClose, students, apiKey, onUpdateStudentsMa
     let completed = 0;
     const updates = [];
 
-    // 순차 처리 (Rate Limit 방지)
     for (const student of targets) {
       try {
         const prompt = `학생(${student.name})의 특징(${student.tags.join(', ')}, ${student.uniqueness})을 바탕으로 학교생활기록부 세부능력 및 특기사항을 3문장으로 작성해줘.`;
@@ -427,7 +401,7 @@ function BatchAiGenModal({ isOpen, onClose, students, apiKey, onUpdateStudentsMa
       }
       completed++;
       setProgress(Math.round((completed / targets.length) * 100));
-      await new Promise(r => setTimeout(r, 1000)); // 1초 딜레이
+      await new Promise(r => setTimeout(r, 1000));
     }
 
     if (updates.length > 0) {
@@ -444,19 +418,16 @@ function BatchAiGenModal({ isOpen, onClose, students, apiKey, onUpdateStudentsMa
     <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6">
         <h3 className="font-bold text-lg mb-4 dark:text-white flex items-center gap-2"><Sparkles className="text-yellow-400"/> AI 일괄 생성</h3>
-        
         {loading ? (
           <div className="text-center py-8">
             <Loader className="animate-spin mx-auto mb-4 text-indigo-600" size={32}/>
             <p className="text-gray-600 dark:text-gray-300 font-bold mb-2">{progress}% 진행중...</p>
-            <p className="text-xs text-gray-400">잠시만 기다려주세요 (약 {targets.length * 1.5}초 소요)</p>
           </div>
         ) : (
           <>
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg mb-6">
               <p className="text-sm text-indigo-800 dark:text-indigo-200">
-                총 <span className="font-bold">{targets.length}명</span>의 학생에 대해 AI 세특을 생성합니다.<br/>
-                <span className="text-xs opacity-70">(기초 자료가 입력된 학생만 대상이 됩니다)</span>
+                총 <span className="font-bold">{targets.length}명</span>의 학생에 대해 AI 세특을 생성합니다.
               </p>
             </div>
             <div className="flex justify-end gap-2">
