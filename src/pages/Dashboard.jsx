@@ -10,14 +10,12 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
   
   const fileInputRef = useRef(null);
 
-  // 날짜
   const getTodayDateString = () => { 
     const d = new Date(); 
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; 
   };
   const todayStr = getTodayDateString();
 
-  // D-Day 날짜 계산 함수
   const getDDayFormat = (dueDate) => {
     if (!dueDate) return { text: '', color: 'text-gray-500' };
     const today = new Date();
@@ -31,9 +29,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
     return { text: '오늘 마감', color: 'text-orange-500' };
   };
 
-  // -------------------------------------------------------------------------
-  // 기능 로직
-  // -------------------------------------------------------------------------
   const openAttPopup = (studentId) => {
     const existing = attendanceLog?.find(l => l.studentId === studentId && l.date === todayStr);
     setAttPopup({ isOpen: true, studentId, note: existing ? (existing.note || "") : "" });
@@ -72,9 +67,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
     onUpdateLessonGroup(groupId, { status: newStatus });
   };
 
-  // -------------------------------------------------------------------------
-  // 위젯 렌더러
-  // -------------------------------------------------------------------------
   const WidgetCard = ({ children, title, icon: Icon, colorClass = "text-gray-900 dark:text-white" }) => (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 h-full flex flex-col overflow-hidden transition hover:shadow-md">
       {title && (
@@ -108,13 +100,17 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
                     {students.sort((a,b)=>Number(a.number)-Number(b.number)).map((student) => {
                       const log = attendanceLog?.find(l => l.studentId === student.id && l.date === todayStr);
                       let statusText = "-"; let statusClass = "bg-gray-100 text-gray-500 hover:bg-gray-200"; let hasNote = false;
+                      
+                      // 🔥 4번 요청: 출결 텍스트 색상 및 출력 이름 처리 확장
                       if (log) {
                         hasNote = !!log.note;
-                        if (log.type.includes('결')) { statusText = "병결"; statusClass = "bg-red-100 text-red-700"; }
-                        else if (log.type.includes('지')) { statusText = "지각"; statusClass = "bg-yellow-100 text-yellow-700"; }
-                        else if (log.type.includes('조')) { statusText = "조퇴"; statusClass = "bg-blue-100 text-blue-700"; }
+                        if (log.type.includes('결석')) { statusText = log.type.replace('결석', '결'); statusClass = "bg-red-100 text-red-700"; }
+                        else if (log.type.includes('지각')) { statusText = log.type.replace('지각', '지'); statusClass = "bg-yellow-100 text-yellow-700"; }
+                        else if (log.type.includes('조퇴')) { statusText = log.type.replace('조퇴', '조'); statusClass = "bg-blue-100 text-blue-700"; }
+                        else if (log.type.includes('결과')) { statusText = log.type.replace('결과', '과'); statusClass = "bg-orange-100 text-orange-700"; }
                         else { statusText = log.type; statusClass = "bg-purple-100 text-purple-700"; }
                       }
+
                       return (
                         <tr key={student.id} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0">
                           <td className="px-3 py-3 font-bold dark:text-gray-200"><span className="text-gray-400 text-xs mr-1">{student.number}</span>{student.name}</td>
@@ -130,30 +126,28 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           </div>
         )}
 
-      
-        {/* 2. 업무 체크 (미완료 업무만 표시) */}
-<div className="lg:col-span-3 h-80 lg:h-96">
-  <WidgetCard title="업무 체크" icon={AlertTriangle} colorClass="text-red-500">
-    <div className="p-4 space-y-3">
-      <div className="flex justify-end mb-2">
-        <button onClick={() => setActiveView('tasks')} className="text-xs text-gray-400 hover:text-indigo-500 font-bold">전체보기 &gt;</button>
-      </div>
-      {/* 🔥 filter를 추가하여 체크 안 된(todo.done === false) 업무만 노출 */}
-      {todos.filter(t => !t.done).slice(0, 5).map(todo => (
-        <div key={todo.id} className="flex items-start gap-3 p-2 rounded-lg transition">
-          <input type="checkbox" checked={todo.done} readOnly className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300"/>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{todo.title}</p>
-            <span className={`text-xs font-bold ${getDDayFormat(todo.dueDate).color}`}>
-              {getDDayFormat(todo.dueDate).text}
-            </span>
-          </div>
+        {/* 2. 업무 체크 */}
+        <div className="lg:col-span-3 h-80 lg:h-96">
+          <WidgetCard title="업무 체크" icon={AlertTriangle} colorClass="text-red-500">
+            <div className="p-4 space-y-3">
+              <div className="flex justify-end mb-2">
+                <button onClick={() => setActiveView('tasks')} className="text-xs text-gray-400 hover:text-indigo-500 font-bold">전체보기 &gt;</button>
+              </div>
+              {todos.filter(t => !t.done).slice(0, 5).map(todo => (
+                <div key={todo.id} className="flex items-start gap-3 p-2 rounded-lg transition">
+                  <input type="checkbox" checked={todo.done} readOnly className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300"/>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{todo.title}</p>
+                    <span className={`text-xs font-bold ${getDDayFormat(todo.dueDate).color}`}>
+                      {getDDayFormat(todo.dueDate).text}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {todos.filter(t => !t.done).length === 0 && <div className="text-center text-gray-400 py-10 text-sm">남은 업무가 없습니다. 🎉</div>}
+            </div>
+          </WidgetCard>
         </div>
-      ))}
-      {todos.filter(t => !t.done).length === 0 && <div className="text-center text-gray-400 py-10 text-sm">남은 업무가 없습니다. 🎉</div>}
-    </div>
-  </WidgetCard>
-</div>
 
         {/* 3. 오늘의 수업 */}
         <div className="lg:col-span-3 h-80 lg:h-96">
@@ -241,19 +235,31 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
 
             <div className="space-y-3">
               <button onClick={() => saveAttendance('reset')} className="w-full p-3 bg-white border-2 border-gray-100 hover:border-gray-300 rounded-xl text-gray-600 font-bold transition">출석 (초기화)</button>
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <div className="col-span-3 text-xs font-bold text-gray-400 mt-2 mb-1 pl-1">결석</div>
-                <button onClick={() => saveAttendance('병결')} className="p-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-lg transition">병결</button>
-                <button onClick={() => saveAttendance('미결')} className="p-2.5 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded-lg transition">미인정</button>
-                <button onClick={() => saveAttendance('인결')} className="p-2.5 bg-green-50 hover:bg-green-100 text-green-600 font-bold rounded-lg transition">인정</button>
-                
-                <div className="col-span-3 text-xs font-bold text-gray-400 mt-2 mb-1 pl-1">지각 / 조퇴 / 결과</div>
-                <button onClick={() => saveAttendance('병지')} className="p-2.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-bold rounded-lg transition">질병</button>
-                <button onClick={() => saveAttendance('미지')} className="p-2.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-bold rounded-lg transition">미인정</button>
-                <button onClick={() => saveAttendance('인지')} className="p-2.5 bg-green-50 hover:bg-green-100 text-green-700 font-bold rounded-lg transition">인정</button>
-                
-                <div className="col-span-3 text-xs font-bold text-gray-400 mt-2 mb-1 pl-1">기타</div>
-                <button onClick={() => saveAttendance('기타')} className="p-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg col-span-3 transition">기타 사유</button>
+              
+              {/* 🔥 4번 요청: 월별 행사/일정 양식에 맞게 모든 옵션 제공 */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-3 text-xs font-bold text-gray-400 mt-1 pl-1">결석</div>
+                <button onClick={() => saveAttendance('질병결석')} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold rounded-lg text-xs">질병</button>
+                <button onClick={() => saveAttendance('미인정결석')} className="p-2 bg-red-100 text-red-700 hover:bg-red-200 font-bold rounded-lg text-xs">미인정</button>
+                <button onClick={() => saveAttendance('인정결석')} className="p-2 bg-green-50 text-green-600 hover:bg-green-100 font-bold rounded-lg text-xs">인정</button>
+
+                <div className="col-span-3 text-xs font-bold text-gray-400 mt-1 pl-1">지각</div>
+                <button onClick={() => saveAttendance('질병지각')} className="p-2 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 font-bold rounded-lg text-xs">질병</button>
+                <button onClick={() => saveAttendance('미인정지각')} className="p-2 bg-yellow-100 text-yellow-800 hover:bg-yellow-200 font-bold rounded-lg text-xs">미인정</button>
+                <button onClick={() => saveAttendance('인정지각')} className="p-2 bg-green-50 text-green-700 hover:bg-green-100 font-bold rounded-lg text-xs">인정</button>
+
+                <div className="col-span-3 text-xs font-bold text-gray-400 mt-1 pl-1">조퇴</div>
+                <button onClick={() => saveAttendance('질병조퇴')} className="p-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold rounded-lg text-xs">질병</button>
+                <button onClick={() => saveAttendance('미인정조퇴')} className="p-2 bg-blue-100 text-blue-800 hover:bg-blue-200 font-bold rounded-lg text-xs">미인정</button>
+                <button onClick={() => saveAttendance('인정조퇴')} className="p-2 bg-green-50 text-green-700 hover:bg-green-100 font-bold rounded-lg text-xs">인정</button>
+
+                <div className="col-span-3 text-xs font-bold text-gray-400 mt-1 pl-1">결과</div>
+                <button onClick={() => saveAttendance('질병결과')} className="p-2 bg-orange-50 text-orange-700 hover:bg-orange-100 font-bold rounded-lg text-xs">질병</button>
+                <button onClick={() => saveAttendance('미인정결과')} className="p-2 bg-orange-100 text-orange-800 hover:bg-orange-200 font-bold rounded-lg text-xs">미인정</button>
+                <button onClick={() => saveAttendance('인정결과')} className="p-2 bg-green-50 text-green-700 hover:bg-green-100 font-bold rounded-lg text-xs">인정</button>
+
+                <div className="col-span-3 text-xs font-bold text-gray-400 mt-1 pl-1">기타</div>
+                <button onClick={() => saveAttendance('기타')} className="p-2 bg-purple-50 text-purple-700 hover:bg-purple-100 font-bold rounded-lg text-xs col-span-3">기타 사유</button>
               </div>
             </div>
           </div>

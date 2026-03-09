@@ -1,14 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Calendar, User, MessageSquare, Tag, Trash2, X, Save, Filter, ChevronRight } from 'lucide-react';
+import { Search, Plus, Calendar, User, MessageSquare, Tag, Trash2, Edit2, X, Save, Filter, ChevronRight } from 'lucide-react';
 
-export default function ConsultationLog({ students = [], consultations = [], onAddConsultation, onDeleteConsultation }) {
+export default function ConsultationLog({ students = [], consultations = [], onAddConsultation, onUpdateConsultation, onDeleteConsultation }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  // 🔥 [추가] 특정 학생 상담 기록만 보기 위한 필터링 상태
   const [filterStudentId, setFilterStudentId] = useState('all');
 
-  // 🔥 [추가] 상담 등록용 상태
+  // 🔥 2번 요청: 수정 모드를 위한 상태 추가
+  const [editingLogId, setEditingLogId] = useState(null);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [formData, setFormData] = useState({ 
     date: new Date().toISOString().split('T')[0], 
@@ -17,7 +16,6 @@ export default function ConsultationLog({ students = [], consultations = [], onA
     category: '생활' 
   });
 
-  // 🔥 [수정] 번호순으로 정렬된 학생 목록 (드롭다운용)
   const sortedStudents = useMemo(() => {
     return [...students].sort((a, b) => {
       if (Number(a.grade) !== Number(b.grade)) return Number(a.grade) - Number(b.grade);
@@ -26,16 +24,11 @@ export default function ConsultationLog({ students = [], consultations = [], onA
     });
   }, [students]);
 
-  // 🔥 [수정] 필터링 로직 (검색어 + 학생별 필터)
   const filteredLogs = useMemo(() => {
     let result = consultations;
-
-    // 1. 특정 학생 필터링
     if (filterStudentId !== 'all') {
       result = result.filter(log => log.studentId === filterStudentId);
     }
-
-    // 2. 검색어 필터링
     if (searchTerm) {
       result = result.filter(log => {
         const student = students.find(s => s.id === log.studentId);
@@ -43,18 +36,37 @@ export default function ConsultationLog({ students = [], consultations = [], onA
         return name.includes(searchTerm) || log.content.includes(searchTerm);
       });
     }
-
     return result.sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [consultations, filterStudentId, searchTerm, students]);
 
+  // 상담 등록/수정 저장 함수
   const handleSave = () => {
     if (!selectedStudentId) return alert("학생을 선택해주세요.");
     if (!formData.content) return alert("내용을 입력해주세요.");
     
-    onAddConsultation({ studentId: selectedStudentId, ...formData });
+    if (editingLogId) {
+      onUpdateConsultation(editingLogId, { studentId: selectedStudentId, ...formData });
+    } else {
+      onAddConsultation({ studentId: selectedStudentId, ...formData });
+    }
+    
+    closeModal();
+  };
+
+  // 모달 닫기 초기화
+  const closeModal = () => {
     setIsModalOpen(false);
-    setFormData({ date: new Date().toISOString().split('T')[0], type: 'student', content: '', category: '생활' });
+    setEditingLogId(null);
     setSelectedStudentId('');
+    setFormData({ date: new Date().toISOString().split('T')[0], type: 'student', content: '', category: '생활' });
+  };
+
+  // 수정 버튼 클릭
+  const handleEdit = (log) => {
+    setSelectedStudentId(log.studentId);
+    setFormData({ date: log.date, type: log.type, content: log.content, category: log.category });
+    setEditingLogId(log.id);
+    setIsModalOpen(true);
   };
 
   return (
@@ -72,7 +84,6 @@ export default function ConsultationLog({ students = [], consultations = [], onA
             />
           </div>
 
-          {/* 🔥 [추가] 학생별 모아보기 필터 드롭다운 */}
           <select 
             value={filterStudentId}
             onChange={(e) => setFilterStudentId(e.target.value)}
@@ -86,7 +97,7 @@ export default function ConsultationLog({ students = [], consultations = [], onA
         </div>
 
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => { closeModal(); setIsModalOpen(true); }}
           className="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition flex items-center gap-2"
         >
           <Plus size={18}/> 새 상담 등록
@@ -113,9 +124,15 @@ export default function ConsultationLog({ students = [], consultations = [], onA
                     <p className="text-xs text-gray-400 flex items-center gap-1"><Calendar size={12}/> {log.date} · <Tag size={12}/> {log.category}</p>
                   </div>
                 </div>
-                <button onClick={() => { if(window.confirm("삭제하시겠습니까?")) onDeleteConsultation(log.id); }} className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 transition">
-                  <Trash2 size={18}/>
-                </button>
+                {/* 🔥 2번 요청: 수정 버튼(Edit2) 추가 */}
+                <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition">
+                  <button onClick={() => handleEdit(log)} className="p-2 text-gray-400 hover:text-indigo-500 rounded-lg">
+                    <Edit2 size={18}/>
+                  </button>
+                  <button onClick={() => { if(window.confirm("삭제하시겠습니까?")) onDeleteConsultation(log.id); }} className="p-2 text-gray-400 hover:text-red-500 rounded-lg">
+                    <Trash2 size={18}/>
+                  </button>
+                </div>
               </div>
               <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
                 {log.content}
@@ -127,19 +144,19 @@ export default function ConsultationLog({ students = [], consultations = [], onA
         )}
       </div>
 
-      {/* 새 상담 등록 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center bg-indigo-600 text-white">
-              <h3 className="font-bold text-lg flex items-center gap-2"><Plus size={20}/> 새 상담 기록</h3>
-              <button onClick={() => setIsModalOpen(false)} className="hover:bg-white/20 p-1 rounded-full"><X size={24}/></button>
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                {editingLogId ? <><Edit2 size={20}/> 상담 기록 수정</> : <><Plus size={20}/> 새 상담 기록</>}
+              </h3>
+              <button onClick={closeModal} className="hover:bg-white/20 p-1 rounded-full"><X size={24}/></button>
             </div>
             <div className="p-6 space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1">상담 대상 선택</label>
-                  {/* 🔥 [수정] 번호순 드롭다운 선택 방식 */}
                   <select 
                     value={selectedStudentId} 
                     onChange={e => setSelectedStudentId(e.target.value)}
@@ -185,8 +202,8 @@ export default function ConsultationLog({ students = [], consultations = [], onA
               </div>
 
               <div className="flex gap-3">
-                <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl">취소</button>
-                <button onClick={handleSave} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl flex items-center justify-center gap-2"><Save size={18}/> 상담 저장</button>
+                <button onClick={closeModal} className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200">취소</button>
+                <button onClick={handleSave} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 flex items-center justify-center gap-2"><Save size={18}/> {editingLogId ? '상담 수정' : '상담 저장'}</button>
               </div>
             </div>
           </div>

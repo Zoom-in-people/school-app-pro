@@ -1,28 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
-export default function TodoModal({ isOpen, onClose, initialData, onSave, categories = ["행정", "수업", "상담", "행사"] }) {
-  // 기본값 정의
+export default function TodoModal({ isOpen, onClose, todo, onSave, categories = ["행정", "수업", "상담", "행사"] }) {
+  // 오늘 날짜 구하는 함수 (한국 시간 기준 안전하게 처리)
+  const getTodayDateString = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  // 🔥 3번 요청: 분류(category) 기본값을 비우고, 마감일(dueDate)을 오늘로 설정
   const defaultData = { 
     title: "", 
-    category: "행정", 
-    dueDate: new Date().toISOString().split('T')[0], 
+    category: "", 
+    dueDate: getTodayDateString(), 
     priority: "medium", 
     done: false 
   };
 
   const [formData, setFormData] = useState(defaultData);
 
-  // 🔥 핵심 수정: 모달이 열릴 때마다 데이터 초기화 (이게 없으면 이전 상태가 남거나 비어있어서 오류남)
+  // 🔥 1번 요청 해결: TaskList에서 전달한 'todo' 값을 인식하도록 수정
   useEffect(() => {
     if (isOpen) {
-      if (initialData && initialData.id) {
-        setFormData(initialData); // 수정 모드
+      if (todo && todo.id) {
+        setFormData(todo); // 수정 모드
       } else {
-        setFormData(defaultData); // 추가 모드 (초기화)
+        setFormData({ ...defaultData, dueDate: getTodayDateString() }); // 추가 모드 초기화
       }
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, todo]);
 
   if (!isOpen) return null;
 
@@ -37,7 +43,7 @@ export default function TodoModal({ isOpen, onClose, initialData, onSave, catego
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm p-6">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-bold dark:text-white">
-            {initialData && initialData.id ? "업무 수정" : "새 업무 등록"}
+            {todo && todo.id ? "업무 수정" : "새 업무 등록"}
           </h3>
           <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-gray-600 dark:hover:text-white"/></button>
         </div>
