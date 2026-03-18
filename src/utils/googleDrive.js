@@ -49,6 +49,7 @@ export const uploadImageToDrive = async (file) => {
   formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
   formData.append('file', file);
 
+  // 1. 파일 업로드
   const uploadRes = await fetch(G_UPLOAD_API_URL + '&fields=id', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
@@ -56,17 +57,31 @@ export const uploadImageToDrive = async (file) => {
   });
   const uploadData = await uploadRes.json();
 
+  // 2. 권한을 누구나 볼 수 있도록 허용
   await fetch(`${G_DRIVE_API_URL}/${uploadData.id}/permissions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ role: 'reader', type: 'anyone' })
   });
 
-  const directUrl = `https://drive.google.com/uc?export=view&id=${uploadData.id}`;
+  // 🔥 3. 구글 드라이브 정책 우회: 안전한 이미지 전용 CDN 링크(thumbnailLink) 가져오기
+  const metaRes = await fetch(`${G_DRIVE_API_URL}/${uploadData.id}?fields=thumbnailLink`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const metaData = await metaRes.json();
+
+  // thumbnailLink 끝에 붙은 해상도 제한 파라미터(=s220 등)를 잘라내어 원본 크기로 만듭니다.
+  let directUrl = metaData.thumbnailLink;
+  if (directUrl && directUrl.includes('=')) {
+    directUrl = directUrl.split('=')[0]; 
+  } else {
+    // 만약 못 가져왔을 경우를 대비한 최후의 기본 주소
+    directUrl = `https://drive.google.com/uc?export=view&id=${uploadData.id}`;
+  }
+
   return { url: directUrl, name: file.name, fullPath: uploadData.id };
 };
 
-// 🔥 [추가된 부분] 구글 드라이브 파일 삭제 기능
 export const deleteFileFromDrive = async (fileId) => {
   const token = getToken();
   if (!token || !fileId) return;
