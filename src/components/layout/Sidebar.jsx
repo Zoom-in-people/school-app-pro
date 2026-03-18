@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, BookOpen, CheckSquare, 
-  MessageSquare, FileText, Settings, LogOut, ChevronDown, Plus, FolderOpen, ClipboardList, Clock, Grid 
+  MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Grid 
 } from 'lucide-react';
 
 export default function Sidebar({ 
@@ -43,7 +43,7 @@ export default function Sidebar({
       title: "메인",
       items: [
         { id: 'dashboard', label: '대시보드', icon: LayoutDashboard },
-        { id: 'monthly', label: '월별행사/출결', icon: Calendar }, // 🔥 6번 요청: 이름 변경
+        { id: 'monthly', label: '월별행사/출결', icon: Calendar },
       ]
     },
     {
@@ -66,9 +66,7 @@ export default function Sidebar({
       items: [
         { id: 'tasks', label: '업무 체크리스트', icon: CheckSquare },
         { id: 'meeting_logs', label: '회의록', icon: ClipboardList }, 
-        { id: 'schedule', label: '학사일정', icon: Calendar },
-        { id: 'edu_plan', label: '교육계획서 분석', icon: FileText },
-        { id: 'materials', label: '자료함 (드라이브)', icon: FolderOpen },
+        // 🔥 2번 요청 해결: 불필요한 메뉴 3가지(학사일정, 계획서 분석, 자료함) 삭제 완료
         { id: 'apps', label: '다른 교사용 앱', icon: Grid },
       ]
     },
