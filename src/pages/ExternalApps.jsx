@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, Link, FileText, Share2, Grid } from 'lucide-react';
+import { ExternalLink, Link, FileText, Share2, Grid, MessageSquare } from 'lucide-react';
 
 export default function ExternalApps() {
   const apps = [
@@ -27,6 +27,15 @@ export default function ExternalApps() {
       desc: '강원교육과학정보원에서 제공하는 설문조사 도구입니다.',
       color: 'hover:border-green-500'
     },
+    // 🔥 3번 요청 해결: '익명 학급회의' 앱 추가
+    {
+      id: 4,
+      title: '익명 학급회의',
+      url: 'https://gw1.kr/학급회의사이트',
+      icon: <MessageSquare className="text-purple-500" size={40}/>,
+      desc: '학생들과 자유롭게 의견을 나눌 수 있는 익명 학급회의 공간입니다.',
+      color: 'hover:border-purple-500'
+    }
   ];
 
   return (
