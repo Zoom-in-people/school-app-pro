@@ -20,11 +20,9 @@ import MonthlyEvents from './pages/MonthlyEvents';
 import MeetingLogs from './pages/MeetingLogs';
 import MyTimetable from './pages/MyTimetable';
 import ExternalApps from './pages/ExternalApps';
-import DataMigration from './pages/DataMigration'; // 👈 1. 추가: 방금 만든 파일 불러오기
 
 export default function App() {
   const { user, loading, login, logout } = useAuth();
-  const [showMigration, setShowMigration] = useState(true); // 👈 2. 추가: 팝업 띄우기 상태
   
   const [activeView, setActiveView] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -163,7 +161,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-      {showMigration && <DataMigration onClose={() => setShowMigration(false)} />}
+    
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
       )}
