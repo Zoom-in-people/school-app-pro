@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, BookOpen, CheckSquare, 
-  MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Grid 
+  MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Grid, Info 
 } from 'lucide-react';
 
 export default function Sidebar({ 
@@ -11,26 +11,21 @@ export default function Sidebar({
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
+  const [showUpdateHistory, setShowUpdateHistory] = useState(false); // 🔥 7번 요청: 업데이트 팝업 상태
   const dropdownRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setIsDropdownOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [dropdownRef]);
 
   useEffect(() => {
     const handleSaveStatus = (e) => {
       setSaveStatus(e.detail);
-      if (e.detail === 'saved' || e.detail === 'loaded') {
-        setTimeout(() => setSaveStatus('idle'), 2000);
-      }
+      if (e.detail === 'saved' || e.detail === 'loaded') setTimeout(() => setSaveStatus('idle'), 2000);
     };
     window.addEventListener('db-save-status', handleSaveStatus);
     return () => window.removeEventListener('db-save-status', handleSaveStatus);
@@ -66,7 +61,6 @@ export default function Sidebar({
       items: [
         { id: 'tasks', label: '업무 체크리스트', icon: CheckSquare },
         { id: 'meeting_logs', label: '회의록', icon: ClipboardList }, 
-        // 🔥 2번 요청 해결: 불필요한 메뉴 3가지(학사일정, 계획서 분석, 자료함) 삭제 완료
         { id: 'apps', label: '다른 교사용 앱', icon: Grid },
       ]
     },
@@ -74,12 +68,14 @@ export default function Sidebar({
       title: "설정",
       items: [
         { id: 'handbook_settings', label: '교무수첩 설정', icon: Settings },
+        { id: 'update_history', label: '업데이트 내역', icon: Info }, // 🔥 7번 요청 메뉴
       ]
     }
   ];
 
   const handleMenuClick = (itemId) => {
     if (itemId === 'handbook_settings') onOpenHandbookSettings(); 
+    else if (itemId === 'update_history') setShowUpdateHistory(true);
     else setActiveView(itemId); 
   };
 
@@ -97,20 +93,12 @@ export default function Sidebar({
           <p className="font-bold text-gray-900 dark:text-white truncate text-sm">{user?.displayName || '선생님'}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
         </div>
-        <button onClick={onOpenSettings} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
-          <Settings size={16} />
-        </button>
       </div>
 
       <div className="p-3">
         <div className="relative" ref={dropdownRef}>
-          <button 
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className={`w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border rounded-lg px-2 py-1.5 text-left transition shadow-sm ${isDropdownOpen ? 'border-indigo-500 ring-1 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200 dark:border-gray-600 hover:border-indigo-500'}`}
-          >
-            <span className="font-bold text-xs text-gray-700 dark:text-gray-200 truncate">
-              {currentHandbook ? currentHandbook.title : '교무수첩 선택'}
-            </span>
+          <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className={`w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border rounded-lg px-2 py-1.5 text-left transition shadow-sm ${isDropdownOpen ? 'border-indigo-500 ring-1 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200 dark:border-gray-600 hover:border-indigo-500'}`}>
+            <span className="font-bold text-xs text-gray-700 dark:text-gray-200 truncate">{currentHandbook ? currentHandbook.title : '교무수첩 선택'}</span>
             <ChevronDown size={14} className={`text-gray-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
           
@@ -134,13 +122,9 @@ export default function Sidebar({
         </div>
 
         <div className="h-6 mt-1 flex flex-col justify-center">
-          {saveStatus === 'loading' && (
-            <div className="w-full animate-in fade-in duration-300"><div className="flex justify-between items-center text-[10px] text-gray-500 font-bold mb-0.5 px-1"><span>데이터 로딩중...</span></div><div className="h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"><div className="h-full bg-gray-400 dark:bg-gray-500 animate-pulse w-full origin-left scale-x-50"></div></div></div>
-          )}
+          {saveStatus === 'loading' && (<div className="w-full animate-in fade-in duration-300"><div className="flex justify-between items-center text-[10px] text-gray-500 font-bold mb-0.5 px-1"><span>데이터 로딩중...</span></div><div className="h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"><div className="h-full bg-gray-400 dark:bg-gray-500 animate-pulse w-full origin-left scale-x-50"></div></div></div>)}
           {saveStatus === 'loaded' && (<div className="px-1 text-[10px] text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-300"><span>✓ 데이터 로딩 완료!</span></div>)}
-          {saveStatus === 'saving' && (
-            <div className="w-full animate-in fade-in duration-300"><div className="flex justify-between items-center text-[10px] text-indigo-500 font-bold mb-0.5 px-1"><span>저장중...</span></div><div className="h-0.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 animate-pulse w-full origin-left scale-x-50"></div></div></div>
-          )}
+          {saveStatus === 'saving' && (<div className="w-full animate-in fade-in duration-300"><div className="flex justify-between items-center text-[10px] text-indigo-500 font-bold mb-0.5 px-1"><span>저장중...</span></div><div className="h-0.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 animate-pulse w-full origin-left scale-x-50"></div></div></div>)}
           {saveStatus === 'saved' && (<div className="px-1 text-[10px] text-green-600 dark:text-green-400 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-300"><span>✓ 저장 완료</span></div>)}
         </div>
       </div>
@@ -152,8 +136,7 @@ export default function Sidebar({
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const isActive = activeView === item.id;
-                const isSettings = item.id === 'handbook_settings';
-                const highlight = !isSettings && isActive;
+                const highlight = isActive && item.id !== 'handbook_settings' && item.id !== 'update_history';
                 return (
                   <button key={item.id} onClick={() => handleMenuClick(item.id)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 font-medium text-sm ${highlight ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'}`}>
                     <item.icon size={18} className={highlight ? 'text-white' : 'text-gray-500 dark:text-gray-400'} />{item.label}
@@ -168,6 +151,35 @@ export default function Sidebar({
       <div className="p-3 border-t border-gray-200 dark:border-gray-700">
         <button onClick={logout} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition text-sm"><LogOut size={16} />로그아웃</button>
       </div>
+
+      {/* 🔥 7번 요청 해결: 업데이트 내역 모달 */}
+      {showUpdateHistory && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95">
+            <h3 className="font-bold text-xl mb-4 dark:text-white flex items-center gap-2">🚀 업데이트 내역</h3>
+            <div className="space-y-4 max-h-64 overflow-y-auto custom-scrollbar text-sm text-gray-600 dark:text-gray-300 pr-2">
+              <div className="bg-indigo-50 dark:bg-gray-700 p-4 rounded-xl">
+                <p className="font-bold text-indigo-600 dark:text-indigo-400 text-base mb-2">v1.2.0 (최신)</p>
+                <ul className="list-disc pl-5 space-y-1.5 font-medium">
+                  <li>상담 일지 내 학생 명단 번호순 가로 배치 적용</li>
+                  <li>나의 시간표 사진 구글 드라이브 업로드 및 즉각 삭제 기능 탑재</li>
+                  <li>업무 체크리스트 UI(가로 정렬 및 글림 방지) 완벽 최적화</li>
+                  <li>업무 분류(태그) 편집 및 저장 기능 추가</li>
+                  <li>회의록 조회 높이 축소 (스크롤 도입)</li>
+                </ul>
+              </div>
+              <div className="p-4">
+                <p className="font-bold text-gray-500 dark:text-gray-400 text-base mb-2">v1.1.0</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>비용 절감을 위한 Firebase → 구글 드라이브 백그라운드 동기화 전환</li>
+                  <li>로컬 스토리지 기반 0.1초 딜레이 초고속 UI 적용</li>
+                </ul>
+              </div>
+            </div>
+            <button onClick={() => setShowUpdateHistory(false)} className="mt-6 w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition shadow-sm">확인했습니다</button>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

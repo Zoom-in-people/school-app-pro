@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, LogIn, Plus } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
-import { useGoogleDriveDB as useFirestore } from './hooks/useGoogleDriveDB';
+import { useGoogleDriveDB as useFirestore } from './hooks/useGoogleDriveDB'; 
 import { useLocalStorage } from './utils/useLocalStorage';
 import { INITIAL_WIDGETS } from './constants/data';
 import Sidebar from './components/layout/Sidebar';
@@ -46,8 +46,9 @@ export default function App() {
   }, [user, apiKey]);
 
   useEffect(() => {
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
+    const root = document.documentElement;
+    if (theme === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
   }, [theme]);
 
   useEffect(() => {
@@ -135,10 +136,6 @@ export default function App() {
     setIsSidebarOpen(false);
   };
 
-  // 대시보드 위젯 제어 (CSS Grid 사용시 좌표저장 불필요하므로 제거 또는 단순화)
-  const onLayoutChange = (newLayout) => { /* CSS Grid 사용시 불필요하지만 에러 방지용 */ };
-  const resetLayout = () => { /* CSS Grid는 초기화가 필요 없음 */ };
-
   const handleUpdateAttendance = (id, data) => { if (id && !data) removeAttendance(id); else if (id && data) updateAttendance(id, data); else addAttendance(data); };
   const handleUpdateEvent = (id, data) => { if (id && !data) removeEvent(id); else if (id && data) updateEvent(id, data); else addEvent(data); };
 
@@ -161,10 +158,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-    
-      {isSidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
-      )}
+      {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
 
       <div className={`
         fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-2xl md:shadow-none
@@ -195,12 +189,14 @@ export default function App() {
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (
               <>
-                {activeView === 'dashboard' && <Dashboard students={homeroomStudents} todos={todos} setActiveView={setActiveView} isHomeroom={currentHandbook.isHomeroom} schoolInfo={currentHandbook.schoolInfo || {}} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => updateHomeroomStudent(id, data)} lessonGroups={lessonGroups} onUpdateLessonGroup={updateLessonGroup} currentHandbook={currentHandbook} onUpdateHandbook={handleUpdateHandbook} />}
+                {/* 🔥 2번 요청 연결: Dashboard에 myTimetable 넘겨주기 */}
+                {activeView === 'dashboard' && <Dashboard students={homeroomStudents} todos={todos} setActiveView={setActiveView} isHomeroom={currentHandbook.isHomeroom} schoolInfo={currentHandbook.schoolInfo || {}} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => updateHomeroomStudent(id, data)} lessonGroups={lessonGroups} onUpdateLessonGroup={updateLessonGroup} currentHandbook={currentHandbook} onUpdateHandbook={handleUpdateHandbook} myTimetable={myTimetable} />}
+                
                 {activeView === 'monthly' && <MonthlyEvents handbook={currentHandbook} isHomeroom={currentHandbook.isHomeroom} students={homeroomStudents} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} events={events} onUpdateEvent={handleUpdateEvent} />}
                 {activeView === 'students_homeroom' && <StudentManager key="homeroom-manager" students={homeroomStudents} onAddStudent={addHomeroomStudent} onAddStudents={addManyHomeroomStudents} onUpdateStudent={updateHomeroomStudent} onDeleteStudent={removeHomeroomStudent} onUpdateStudentsMany={updateManyHomeroomStudents} onSetAllStudents={setAllHomeroomStudents} apiKey={apiKey} isHomeroomView={true} />}
                 {activeView === 'students_subject' && <StudentManager key="subject-manager" students={subjectStudents} onAddStudent={addSubjectStudent} onAddStudents={addManySubjectStudents} onUpdateStudent={updateSubjectStudent} onDeleteStudent={removeSubjectStudent} onUpdateStudentsMany={updateManySubjectStudents} onSetAllStudents={setAllSubjectStudents} apiKey={apiKey} isHomeroomView={false} classPhotos={classPhotos} onAddClassPhoto={addClassPhoto} onUpdateClassPhoto={updateClassPhoto} onDeleteClassPhoto={removeClassPhoto} />}
                 {activeView === 'lessons' && <LessonManager lessonGroups={lessonGroups} onAddGroup={addLessonGroup} onUpdateGroup={updateLessonGroup} onDeleteGroup={removeLessonGroup} />}
-                {activeView === 'consultation' && <ConsultationLog students={homeroomStudents} consultations={consultations} onAddConsultation={addConsultation} onDeleteConsultation={removeConsultation} />}
+                {activeView === 'consultation' && <ConsultationLog students={homeroomStudents} consultations={consultations} onAddConsultation={addConsultation} onDeleteConsultation={removeConsultation} onUpdateConsultation={updateConsultation} />}
                 {activeView === 'tasks' && <TaskList todos={todos} onAddTodo={addTodo} onUpdateTodo={updateTodo} onDeleteTodo={removeTodo} />}
                 {activeView === 'schedule' && <AcademicSchedule apiKey={apiKey} scheduleData={academicSchedule} onUpdateSchedule={updateSchedule} onAddSchedule={addSchedule} onDeleteSchedule={removeSchedule} />}
                 {activeView === 'edu_plan' && <EducationPlan apiKey={apiKey} planData={educationPlans} onSavePlan={addEducationPlan} onUpdatePlan={updateEducationPlan} onDeletePlan={removeEducationPlan} />}

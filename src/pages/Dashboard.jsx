@@ -1,14 +1,16 @@
-import React, { useState, useRef } from 'react';
-import { Users, AlertTriangle, BookOpen, ClipboardList, Upload, MessageSquare, CheckCircle, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Users, AlertTriangle, BookOpen, ClipboardList, MessageSquare, CheckCircle, X, Clock } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
 
-export default function Dashboard({ students, todos, setActiveView, schoolInfo, isHomeroom, attendanceLog, onUpdateAttendance, onUpdateStudent, lessonGroups, onUpdateLessonGroup, currentHandbook, onUpdateHandbook }) {
+// 🔥 2번 요청 연결: myTimetable 프롭스 받기
+export default function Dashboard({ students, todos, setActiveView, schoolInfo, isHomeroom, attendanceLog, onUpdateAttendance, onUpdateStudent, lessonGroups, onUpdateLessonGroup, myTimetable }) {
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [targetStudent, setTargetStudent] = useState(null);
   const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, note: "" });
   
-  const fileInputRef = useRef(null);
+  // 첫 번째 시간표 데이터 가져오기
+  const timetable = myTimetable && myTimetable.length > 0 ? myTimetable[0] : null;
 
   const getTodayDateString = () => { 
     const d = new Date(); 
@@ -18,10 +20,8 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
 
   const getDDayFormat = (dueDate) => {
     if (!dueDate) return { text: '', color: 'text-gray-500' };
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = new Date(dueDate);
-    due.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate); due.setHours(0, 0, 0, 0);
     const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
     
     if (diff > 0) return { text: `${diff}일 남음`, color: 'text-blue-500' };
@@ -49,15 +49,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
 
   const handleMemoClick = (student) => { setTargetStudent(student); setMemoModalOpen(true); };
   const handleMemoSave = (studentId, updatedFields) => { onUpdateStudent(studentId, updatedFields); setTargetStudent(prev => ({...prev, ...updatedFields})); };
-  
-  const handleTimetableUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => { onUpdateHandbook(currentHandbook.id, { timetableImage: reader.result }); };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleToggleProgress = (groupId, classId, itemName) => {
     const group = lessonGroups.find(g => g.id === groupId);
@@ -100,7 +91,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
                       const log = attendanceLog?.find(l => l.studentId === student.id && l.date === todayStr);
                       let statusText = "-"; let statusClass = "bg-gray-100 text-gray-500 hover:bg-gray-200"; let hasNote = false;
                       
-                      // 🔥 4번 요청 해결: 대시보드 화면 축약어 통일 (질결, 미결 등 2글자)
                       if (log) {
                         hasNote = !!log.note;
                         statusText = log.type.replace('결석','결').replace('지각','지').replace('조퇴','조').replace('결과','과').replace('질병','질').replace('미인정','미').replace('인정','인');
@@ -150,20 +140,20 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
 
         <div className="lg:col-span-3 h-80 lg:h-96">
           <div className="bg-indigo-600 rounded-2xl shadow-lg p-5 text-white h-full flex flex-col overflow-hidden relative group">
-            <h4 className="font-bold mb-3 flex items-center gap-2 z-10 text-lg"><BookOpen size={20}/> 오늘의 수업</h4>
-            <div className="flex-1 flex items-center justify-center bg-indigo-500/50 rounded-xl overflow-hidden relative border border-indigo-400/30">
-              {currentHandbook?.timetableImage ? (
-                <img src={currentHandbook.timetableImage} alt="TimeTable" className="w-full h-full object-contain p-1 bg-white dark:bg-gray-800/50"/>
+            <div className="flex justify-between items-center mb-3 z-10">
+              <h4 className="font-bold flex items-center gap-2 text-lg"><Clock size={20}/> 오늘의 수업</h4>
+              <button onClick={() => setActiveView('my_timetable')} className="text-xs font-bold text-indigo-200 hover:text-white transition bg-white/10 px-2 py-1 rounded">수정하기</button>
+            </div>
+            
+            <div className="flex-1 flex items-center justify-center bg-indigo-500/50 rounded-xl overflow-hidden border border-indigo-400/30">
+              {timetable?.url ? (
+                <img src={timetable.url} alt="TimeTable" className="w-full h-full object-contain bg-white dark:bg-gray-800/50"/>
               ) : (
                 <div className="text-center text-indigo-200 text-sm p-4">
-                  <p className="font-bold">등록된 시간표가 없습니다.</p>
-                  <p className="text-xs mt-1 opacity-70">클릭하여 이미지를 업로드하세요</p>
+                  <p className="font-bold mb-1">시간표가 없습니다.</p>
+                  <p className="text-xs opacity-70">'나의 시간표' 메뉴에서 <br/>이미지를 업로드하세요.</p>
                 </div>
               )}
-              <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer" onClick={() => fileInputRef.current.click()}>
-                <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm"><Upload className="text-white" size={24}/></div>
-              </div>
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleTimetableUpload}/>
             </div>
           </div>
         </div>
@@ -188,12 +178,9 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
                         <div className="flex-1 flex flex-wrap gap-1.5">
                           {group.progressItems.slice(0, 20).map((item, idx) => (
                             <button 
-                              key={idx} 
-                              onClick={() => handleToggleProgress(group.id, cls.id, item)} 
+                              key={idx} onClick={() => handleToggleProgress(group.id, cls.id, item)} 
                               className={`px-2.5 py-1 rounded text-xs font-medium border transition-all ${
-                                group.status[`${cls.id}_${item}`] 
-                                  ? 'bg-green-500 text-white border-green-500 shadow-sm' 
-                                  : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-300 dark:border-gray-600 hover:border-indigo-400'
+                                group.status[`${cls.id}_${item}`] ? 'bg-green-500 text-white border-green-500 shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-300 dark:border-gray-600 hover:border-indigo-400'
                               }`}
                             >
                               {item}
@@ -225,7 +212,7 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
             
             <div className="mb-4 bg-gray-50 dark:bg-gray-700 p-3 rounded-xl">
               <div className="flex items-center gap-1.5 mb-2 text-xs font-bold text-gray-500 dark:text-gray-300"><MessageSquare size={14}/> 사유 (선택)</div>
-              <input type="text" value={attPopup.note} onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} placeholder="예: 감기몸살, 체험학습" className="w-full p-2.5 border border-gray-200 rounded-lg text-sm bg-white dark:bg-gray-600 dark:text-white dark:border-gray-500 focus:ring-2 focus:ring-indigo-500 outline-none" />
+              <input type="text" value={attPopup.note} onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} placeholder="예: 독감, 체험학습" className="w-full p-2.5 border border-gray-200 rounded-lg text-sm bg-white dark:bg-gray-600 dark:text-white dark:border-gray-500 focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
 
             <div className="space-y-3">
@@ -233,24 +220,19 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
               
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-3 text-xs font-bold text-gray-400 mt-1 pl-1">결석</div>
-                <button onClick={() => saveAttendance('질병결석')} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold rounded-lg text-xs">질병</button>
-                <button onClick={() => saveAttendance('미인정결석')} className="p-2 bg-red-100 text-red-700 hover:bg-red-200 font-bold rounded-lg text-xs">미인정</button>
-                <button onClick={() => saveAttendance('인정결석')} className="p-2 bg-green-50 text-green-600 hover:bg-green-100 font-bold rounded-lg text-xs">인정</button>
+                <button onClick={() => saveAttendance('병결')} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold rounded-lg text-xs">병결</button>
+                <button onClick={() => saveAttendance('미결')} className="p-2 bg-red-100 text-red-700 hover:bg-red-200 font-bold rounded-lg text-xs">미인정</button>
+                <button onClick={() => saveAttendance('인결')} className="p-2 bg-green-50 text-green-600 hover:bg-green-100 font-bold rounded-lg text-xs">인정</button>
 
                 <div className="col-span-3 text-xs font-bold text-gray-400 mt-1 pl-1">지각</div>
-                <button onClick={() => saveAttendance('질병지각')} className="p-2 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 font-bold rounded-lg text-xs">질병</button>
-                <button onClick={() => saveAttendance('미인정지각')} className="p-2 bg-yellow-100 text-yellow-800 hover:bg-yellow-200 font-bold rounded-lg text-xs">미인정</button>
-                <button onClick={() => saveAttendance('인정지각')} className="p-2 bg-green-50 text-green-700 hover:bg-green-100 font-bold rounded-lg text-xs">인정</button>
+                <button onClick={() => saveAttendance('병지')} className="p-2 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 font-bold rounded-lg text-xs">병지</button>
+                <button onClick={() => saveAttendance('미지')} className="p-2 bg-yellow-100 text-yellow-800 hover:bg-yellow-200 font-bold rounded-lg text-xs">미인정</button>
+                <button onClick={() => saveAttendance('인지')} className="p-2 bg-green-50 text-green-700 hover:bg-green-100 font-bold rounded-lg text-xs">인정</button>
 
                 <div className="col-span-3 text-xs font-bold text-gray-400 mt-1 pl-1">조퇴</div>
-                <button onClick={() => saveAttendance('질병조퇴')} className="p-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold rounded-lg text-xs">질병</button>
-                <button onClick={() => saveAttendance('미인정조퇴')} className="p-2 bg-blue-100 text-blue-800 hover:bg-blue-200 font-bold rounded-lg text-xs">미인정</button>
-                <button onClick={() => saveAttendance('인정조퇴')} className="p-2 bg-green-50 text-green-700 hover:bg-green-100 font-bold rounded-lg text-xs">인정</button>
-
-                <div className="col-span-3 text-xs font-bold text-gray-400 mt-1 pl-1">결과</div>
-                <button onClick={() => saveAttendance('질병결과')} className="p-2 bg-orange-50 text-orange-700 hover:bg-orange-100 font-bold rounded-lg text-xs">질병</button>
-                <button onClick={() => saveAttendance('미인정결과')} className="p-2 bg-orange-100 text-orange-800 hover:bg-orange-200 font-bold rounded-lg text-xs">미인정</button>
-                <button onClick={() => saveAttendance('인정결과')} className="p-2 bg-green-50 text-green-700 hover:bg-green-100 font-bold rounded-lg text-xs">인정</button>
+                <button onClick={() => saveAttendance('병조')} className="p-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold rounded-lg text-xs">병조</button>
+                <button onClick={() => saveAttendance('미조')} className="p-2 bg-blue-100 text-blue-800 hover:bg-blue-200 font-bold rounded-lg text-xs">미인정</button>
+                <button onClick={() => saveAttendance('인조')} className="p-2 bg-green-50 text-green-700 hover:bg-green-100 font-bold rounded-lg text-xs">인정</button>
 
                 <div className="col-span-3 text-xs font-bold text-gray-400 mt-1 pl-1">기타</div>
                 <button onClick={() => saveAttendance('기타')} className="p-2 bg-purple-50 text-purple-700 hover:bg-purple-100 font-bold rounded-lg text-xs col-span-3">기타 사유</button>
