@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, LogIn, Plus } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
-import { useFirestore } from './hooks/useFirestore'; 
+import { useGoogleDriveDB as useFirestore } from './hooks/useGoogleDriveDB';
 import { useLocalStorage } from './utils/useLocalStorage';
 import { INITIAL_WIDGETS } from './constants/data';
 import Sidebar from './components/layout/Sidebar';
