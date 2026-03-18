@@ -11,7 +11,6 @@ export default function Sidebar({
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
-  const [showUpdateHistory, setShowUpdateHistory] = useState(false); 
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -75,112 +74,81 @@ export default function Sidebar({
 
   const handleMenuClick = (itemId) => {
     if (itemId === 'handbook_settings') onOpenHandbookSettings(); 
-    else if (itemId === 'update_history') setShowUpdateHistory(true);
-    else setActiveView(itemId); 
+    else setActiveView(itemId); // 페이지 이동으로 원상복구!
   };
 
-  // 🔥 1번 요청 해결: Fragment(<>)를 사용하여 모달을 aside 바깥으로 분리
   return (
-    <>
-      <aside className="w-64 bg-white dark:bg-gray-800 h-full flex flex-col border-r border-gray-200 dark:border-gray-700 transition-colors duration-300">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
-          {user?.photoURL ? (
-            <img src={user.photoURL} alt="Profile" className="w-9 h-9 rounded-full border border-gray-300 dark:border-gray-600" />
-          ) : (
-            <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-300 font-bold text-sm">
-              {user?.email?.[0].toUpperCase()}
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="font-bold text-gray-900 dark:text-white truncate text-sm">{user?.displayName || '선생님'}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
+    <aside className="w-64 bg-white dark:bg-gray-800 h-full flex flex-col border-r border-gray-200 dark:border-gray-700 transition-colors duration-300">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+        {user?.photoURL ? (
+          <img src={user.photoURL} alt="Profile" className="w-9 h-9 rounded-full border border-gray-300 dark:border-gray-600" />
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-300 font-bold text-sm">
+            {user?.email?.[0].toUpperCase()}
           </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-gray-900 dark:text-white truncate text-sm">{user?.displayName || '선생님'}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
         </div>
+      </div>
 
-        <div className="p-3">
-          <div className="relative" ref={dropdownRef}>
-            <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className={`w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border rounded-lg px-2 py-1.5 text-left transition shadow-sm ${isDropdownOpen ? 'border-indigo-500 ring-1 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200 dark:border-gray-600 hover:border-indigo-500'}`}>
-              <span className="font-bold text-xs text-gray-700 dark:text-gray-200 truncate">{currentHandbook ? currentHandbook.title : '교무수첩 선택'}</span>
-              <ChevronDown size={14} className={`text-gray-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {isDropdownOpen && (
-              <div className="absolute top-full left-0 w-full pt-1 z-20">
-                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl animate-in fade-in slide-in-from-top-2 overflow-hidden">
-                  <div className="max-h-60 overflow-y-auto py-1">
-                    {sortedHandbooks.map((handbook) => (
-                      <button key={handbook.id} onClick={() => { onSelectHandbook(handbook); setIsDropdownOpen(false); }} className={`w-full text-left px-2 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition ${currentHandbook?.id === handbook.id ? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/20' : 'text-gray-700 dark:text-gray-300'}`}>
-                        {handbook.title}
-                      </button>
-                    ))}
-                    <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-                    <button onClick={() => { onOpenAddHandbook(); setIsDropdownOpen(false); }} className="w-full text-left px-2 py-2 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-bold flex items-center gap-2">
-                      <Plus size={12}/> 새 교무수첩 만들기
+      <div className="p-3">
+        <div className="relative" ref={dropdownRef}>
+          <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className={`w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border rounded-lg px-2 py-1.5 text-left transition shadow-sm ${isDropdownOpen ? 'border-indigo-500 ring-1 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200 dark:border-gray-600 hover:border-indigo-500'}`}>
+            <span className="font-bold text-xs text-gray-700 dark:text-gray-200 truncate">{currentHandbook ? currentHandbook.title : '교무수첩 선택'}</span>
+            <ChevronDown size={14} className={`text-gray-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {isDropdownOpen && (
+            <div className="absolute top-full left-0 w-full pt-1 z-20">
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl animate-in fade-in slide-in-from-top-2 overflow-hidden">
+                <div className="max-h-60 overflow-y-auto py-1">
+                  {sortedHandbooks.map((handbook) => (
+                    <button key={handbook.id} onClick={() => { onSelectHandbook(handbook); setIsDropdownOpen(false); }} className={`w-full text-left px-2 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition ${currentHandbook?.id === handbook.id ? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/20' : 'text-gray-700 dark:text-gray-300'}`}>
+                      {handbook.title}
                     </button>
-                  </div>
+                  ))}
+                  <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+                  <button onClick={() => { onOpenAddHandbook(); setIsDropdownOpen(false); }} className="w-full text-left px-2 py-2 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-bold flex items-center gap-2">
+                    <Plus size={12}/> 새 교무수첩 만들기
+                  </button>
                 </div>
               </div>
-            )}
-          </div>
-
-          <div className="h-6 mt-1 flex flex-col justify-center">
-            {saveStatus === 'loading' && (<div className="w-full animate-in fade-in duration-300"><div className="flex justify-between items-center text-[10px] text-gray-500 font-bold mb-0.5 px-1"><span>데이터 로딩중...</span></div><div className="h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"><div className="h-full bg-gray-400 dark:bg-gray-500 animate-pulse w-full origin-left scale-x-50"></div></div></div>)}
-            {saveStatus === 'loaded' && (<div className="px-1 text-[10px] text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-300"><span>✓ 데이터 로딩 완료!</span></div>)}
-            {saveStatus === 'saving' && (<div className="w-full animate-in fade-in duration-300"><div className="flex justify-between items-center text-[10px] text-indigo-500 font-bold mb-0.5 px-1"><span>저장중...</span></div><div className="h-0.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 animate-pulse w-full origin-left scale-x-50"></div></div></div>)}
-            {saveStatus === 'saved' && (<div className="px-1 text-[10px] text-green-600 dark:text-green-400 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-300"><span>✓ 저장 완료</span></div>)}
-          </div>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6">
-          {menuGroups.map((group, index) => (
-            <div key={index}>
-              <h3 className="px-3 text-[10px] font-extrabold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{group.title}</h3>
-              <div className="space-y-0.5">
-                {group.items.map((item) => {
-                  const isActive = activeView === item.id;
-                  const highlight = isActive && item.id !== 'handbook_settings' && item.id !== 'update_history';
-                  return (
-                    <button key={item.id} onClick={() => handleMenuClick(item.id)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 font-medium text-sm ${highlight ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'}`}>
-                      <item.icon size={18} className={highlight ? 'text-white' : 'text-gray-500 dark:text-gray-400'} />{item.label}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
-          ))}
-        </nav>
-
-        <div className="p-3 border-t border-gray-200 dark:border-gray-700">
-          <button onClick={logout} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition text-sm"><LogOut size={16} />로그아웃</button>
+          )}
         </div>
-      </aside>
 
-      {/* 🔥 1번 요청 해결: 팝업을 aside 태그 바깥으로 꺼내어 화면 전체를 덮도록 수정 */}
-      {showUpdateHistory && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95">
-            <h3 className="font-bold text-xl mb-4 dark:text-white flex items-center gap-2">🚀 업데이트 내역</h3>
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar text-sm text-gray-600 dark:text-gray-300 pr-2">
-              <div className="bg-indigo-50 dark:bg-gray-700 p-4 rounded-xl">
-                <p className="font-bold text-indigo-600 dark:text-indigo-400 text-base mb-2">v1.2.1 (최신)</p>
-                <ul className="list-disc pl-5 space-y-1.5 font-medium">
-                  <li>상담일지 학생 선택 버튼 자동 줄바꿈(가로 스크롤 제거) 적용</li>
-                  <li>상담일지 및 회의록 2단(두 줄) 그리드 뷰 적용</li>
-                  <li>업데이트 내역 팝업 위치 화면 중앙으로 수정</li>
-                </ul>
-              </div>
-              <div className="p-4">
-                <p className="font-bold text-gray-500 dark:text-gray-400 text-base mb-2">v1.2.0</p>
-                <ul className="list-disc pl-5 space-y-1.5">
-                  <li>나의 시간표 구글 드라이브 연동 및 즉각 삭제 추가</li>
-                  <li>업무 체크리스트 UI 최적화 및 분류 커스텀 기능</li>
-                </ul>
-              </div>
+        <div className="h-6 mt-1 flex flex-col justify-center">
+          {saveStatus === 'loading' && (<div className="w-full animate-in fade-in duration-300"><div className="flex justify-between items-center text-[10px] text-gray-500 font-bold mb-0.5 px-1"><span>데이터 로딩중...</span></div><div className="h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"><div className="h-full bg-gray-400 dark:bg-gray-500 animate-pulse w-full origin-left scale-x-50"></div></div></div>)}
+          {saveStatus === 'loaded' && (<div className="px-1 text-[10px] text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-300"><span>✓ 데이터 로딩 완료!</span></div>)}
+          {saveStatus === 'saving' && (<div className="w-full animate-in fade-in duration-300"><div className="flex justify-between items-center text-[10px] text-indigo-500 font-bold mb-0.5 px-1"><span>저장중...</span></div><div className="h-0.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 animate-pulse w-full origin-left scale-x-50"></div></div></div>)}
+          {saveStatus === 'saved' && (<div className="px-1 text-[10px] text-green-600 dark:text-green-400 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-300"><span>✓ 저장 완료</span></div>)}
+        </div>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6">
+        {menuGroups.map((group, index) => (
+          <div key={index}>
+            <h3 className="px-3 text-[10px] font-extrabold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{group.title}</h3>
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const isActive = activeView === item.id;
+                const highlight = isActive && item.id !== 'handbook_settings';
+                return (
+                  <button key={item.id} onClick={() => handleMenuClick(item.id)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 font-medium text-sm ${highlight ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'}`}>
+                    <item.icon size={18} className={highlight ? 'text-white' : 'text-gray-500 dark:text-gray-400'} />{item.label}
+                  </button>
+                );
+              })}
             </div>
-            <button onClick={() => setShowUpdateHistory(false)} className="mt-6 w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition shadow-sm">확인했습니다</button>
           </div>
-        </div>
-      )}
-    </>
+        ))}
+      </nav>
+
+      <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+        <button onClick={logout} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition text-sm"><LogOut size={16} />로그아웃</button>
+      </div>
+    </aside>
   );
 }
