@@ -20,10 +20,7 @@ const SettingsModal = ({ group, onClose, onSave }) => {
   };
   const removeClass = (clsId) => { setLocalGroup(prev => ({...prev, classes: prev.classes.filter(c => c.id !== clsId)})); };
 
-  const handleSave = () => {
-    onSave(localGroup.id, localGroup);
-    onClose();
-  };
+  const handleSave = () => { onSave(localGroup.id, localGroup); onClose(); };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
@@ -31,7 +28,7 @@ const SettingsModal = ({ group, onClose, onSave }) => {
         <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-xl dark:text-white flex items-center gap-2"><Settings/> 수업 설정</h3><button onClick={onClose}><X/></button></div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
-            <h4 className="font-bold mb-3 dark:text-white">🏫 교실 관리</h4>
+            <h4 className="font-bold mb-3 dark:text-white">🏫 교실 관리 (가로에 배치됨)</h4>
             <div className="flex gap-2 mb-4 bg-white dark:bg-gray-800 p-1 rounded-lg border dark:border-gray-600">
               <button onClick={() => setClassMode('standard')} className={`flex-1 py-1 text-sm rounded ${classMode === 'standard' ? 'bg-indigo-100 text-indigo-700 font-bold' : 'text-gray-500'}`}>학년/반</button>
               <button onClick={() => setClassMode('custom')} className={`flex-1 py-1 text-sm rounded ${classMode === 'custom' ? 'bg-indigo-100 text-indigo-700 font-bold' : 'text-gray-500'}`}>자유입력</button>
@@ -43,7 +40,7 @@ const SettingsModal = ({ group, onClose, onSave }) => {
             <div className="space-y-2 max-h-40 overflow-y-auto">{localGroup.classes.map(c => (<div key={c.id} className="flex justify-between items-center bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-600"><span className="text-sm font-medium dark:text-white">{c.name}</span><button onClick={() => removeClass(c.id)} className="text-red-500"><Trash2 size={14}/></button></div>))}</div>
           </div>
           <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
-            <h4 className="font-bold mb-3 dark:text-white">📝 진도 단계 관리</h4>
+            <h4 className="font-bold mb-3 dark:text-white">📝 진도 단계 관리 (세로로 배치됨)</h4>
             <div className="flex gap-2 mb-4"><input type="text" value={newItem} onChange={e=>setNewItem(e.target.value)} placeholder="예: 1단원" className="flex-1 p-2 border rounded dark:bg-gray-700 dark:text-white"/><button onClick={addProgressItem} className="bg-indigo-600 text-white px-3 rounded font-bold text-sm">추가</button></div>
             <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">{localGroup.progressItems.map((item, idx) => (<span key={idx} className="bg-white dark:bg-gray-800 border dark:border-gray-600 px-2 py-1 rounded text-sm flex items-center gap-1 dark:text-white">{item} <button onClick={() => removeProgressItem(idx)} className="text-red-500 hover:bg-red-50 rounded-full"><X size={12}/></button></span>))}</div>
           </div>
@@ -118,25 +115,35 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
             <table className="w-full text-sm text-center border-collapse">
               <thead className="bg-indigo-50 dark:bg-gray-700 text-indigo-900 dark:text-gray-200 font-bold">
                 <tr>
-                  <th className="p-3 border border-indigo-100 dark:border-gray-600 min-w-[120px] sticky left-0 bg-indigo-50 dark:bg-gray-700 z-10">수업 교실</th>
-                  {activeGroup.progressItems.map((item, idx) => (<th key={idx} className="p-3 border border-indigo-100 dark:border-gray-600 min-w-[100px]">{item}</th>))}
+                  {/* 🔥 2번 요청: 표 세로/가로 전환 (세로가 진도, 가로가 반) */}
+                  <th className="p-3 border border-indigo-100 dark:border-gray-600 min-w-[150px] sticky left-0 bg-indigo-50 dark:bg-gray-700 z-10 shadow-sm">진도 단계</th>
+                  {activeGroup.classes.map(cls => (
+                    <th key={cls.id} className="p-3 border border-indigo-100 dark:border-gray-600 min-w-[100px]">{cls.name}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {activeGroup.classes.length > 0 ? activeGroup.classes.map(cls => (
-                  <tr key={cls.id} className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="p-3 border border-gray-100 dark:border-gray-700 font-bold sticky left-0 bg-white dark:bg-gray-800 z-10">{cls.name}</td>
-                    {activeGroup.progressItems.map((item, idx) => {
+                {activeGroup.progressItems.length > 0 ? activeGroup.progressItems.map((item, idx) => (
+                  <tr key={idx} className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                    <td className="p-3 border border-gray-100 dark:border-gray-700 font-bold sticky left-0 bg-white dark:bg-gray-800 z-10 shadow-sm text-left">{item}</td>
+                    {activeGroup.classes.map(cls => {
                       const statusDate = activeGroup.status[`${cls.id}_${item}`];
                       const displayDate = (typeof statusDate === 'string' && statusDate.length >= 5) ? statusDate.slice(5) : "";
                       return (
-                        <td key={idx} className="p-3 border border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-indigo-50 dark:hover:bg-gray-600 transition" onClick={() => setDatePopup({ isOpen: true, classId: cls.id, itemName: item, currentDate: (typeof statusDate === 'string' ? statusDate : new Date().toISOString().split('T')[0]) })}>
-                          {statusDate ? (<div className="flex flex-col items-center"><CheckCircle className="text-green-500 mb-1" size={20} fill="currentColor" color="white"/><span className="text-[10px] text-gray-500">{displayDate}</span></div>) : (<div className="w-6 h-6 rounded-full border-2 border-gray-300 mx-auto"></div>)}
+                        <td key={cls.id} className="p-3 border border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-indigo-50 dark:hover:bg-gray-600 transition" onClick={() => setDatePopup({ isOpen: true, classId: cls.id, itemName: item, currentDate: (typeof statusDate === 'string' ? statusDate : new Date().toISOString().split('T')[0]) })}>
+                          {statusDate ? (
+                            <div className="flex flex-col items-center">
+                              <CheckCircle className="text-green-500 mb-1" size={20} fill="currentColor" color="white"/>
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400">{displayDate}</span>
+                            </div>
+                          ) : (
+                            <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-gray-600 mx-auto"></div>
+                          )}
                         </td>
                       );
                     })}
                   </tr>
-                )) : <tr><td colSpan={activeGroup.progressItems.length + 1} className="p-10 text-gray-400">등록된 교실이 없습니다.</td></tr>}
+                )) : <tr><td colSpan={activeGroup.classes.length + 1} className="p-10 text-gray-400">등록된 진도 단계가 없습니다.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -160,9 +167,8 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
           <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl max-w-md">
             <h3 className="font-bold text-xl mb-4 flex items-center gap-2 dark:text-white"><HelpCircle/> 사용 가이드</h3>
             <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
-              <div><p className="font-bold text-indigo-600">1. 수업 그룹</p><p>과목/동아리별 탭을 만듭니다.</p></div>
-              <div><p className="font-bold text-indigo-600">2. 수업 교실 & 진도</p><p>[수업 설정] 버튼을 눌러 반과 단원을 추가하세요.</p></div>
-              <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg"><p className="font-bold">💡 팁</p><p>표의 칸을 클릭하면 날짜를 지정할 수 있습니다.</p></div>
+              <div><p className="font-bold text-indigo-600">1. 표 행/열 전환 안내</p><p>교실은 우측으로 길게 추가되고, 진도 항목은 아래쪽으로 추가됩니다.</p></div>
+              <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg"><p className="font-bold">💡 팁</p><p>완료 여부를 체크하고 싶은 빈 동그라미 칸을 클릭하세요.</p></div>
             </div>
             <button onClick={() => setIsHelpOpen(false)} className="w-full mt-6 bg-gray-200 dark:bg-gray-700 py-2 rounded-lg font-bold">닫기</button>
           </div>

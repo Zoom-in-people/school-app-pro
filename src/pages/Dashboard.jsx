@@ -86,7 +86,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
     <div className="pb-20 w-full">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 auto-rows-fr">
         
-        {/* 1. 오늘 출결 */}
         {isHomeroom && (
           <div className="lg:col-span-3 h-80 lg:h-96">
             <WidgetCard title={`오늘 출결 (${todayStr})`} icon={Users} colorClass="text-green-500">
@@ -101,20 +100,21 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
                       const log = attendanceLog?.find(l => l.studentId === student.id && l.date === todayStr);
                       let statusText = "-"; let statusClass = "bg-gray-100 text-gray-500 hover:bg-gray-200"; let hasNote = false;
                       
-                      // 🔥 4번 요청: 출결 텍스트 색상 및 출력 이름 처리 확장
+                      // 🔥 4번 요청 해결: 대시보드 화면 축약어 통일 (질결, 미결 등 2글자)
                       if (log) {
                         hasNote = !!log.note;
-                        if (log.type.includes('결석')) { statusText = log.type.replace('결석', '결'); statusClass = "bg-red-100 text-red-700"; }
-                        else if (log.type.includes('지각')) { statusText = log.type.replace('지각', '지'); statusClass = "bg-yellow-100 text-yellow-700"; }
-                        else if (log.type.includes('조퇴')) { statusText = log.type.replace('조퇴', '조'); statusClass = "bg-blue-100 text-blue-700"; }
-                        else if (log.type.includes('결과')) { statusText = log.type.replace('결과', '과'); statusClass = "bg-orange-100 text-orange-700"; }
-                        else { statusText = log.type; statusClass = "bg-purple-100 text-purple-700"; }
+                        statusText = log.type.replace('결석','결').replace('지각','지').replace('조퇴','조').replace('결과','과').replace('질병','질').replace('미인정','미').replace('인정','인');
+                        if (log.type.includes('결석')) statusClass = "bg-red-100 text-red-700";
+                        else if (log.type.includes('지각')) statusClass = "bg-yellow-100 text-yellow-700";
+                        else if (log.type.includes('조퇴')) statusClass = "bg-blue-100 text-blue-700";
+                        else if (log.type.includes('결과')) statusClass = "bg-orange-100 text-orange-700";
+                        else statusClass = "bg-purple-100 text-purple-700";
                       }
 
                       return (
                         <tr key={student.id} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0">
                           <td className="px-3 py-3 font-bold dark:text-gray-200"><span className="text-gray-400 text-xs mr-1">{student.number}</span>{student.name}</td>
-                          <td className="px-3 py-3 text-center"><button onClick={() => openAttPopup(student.id)} className={`px-2 py-1 rounded text-xs font-bold w-14 ${statusClass} relative`}>{statusText}{hasNote && <div className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full border border-white"></div>}</button></td>
+                          <td className="px-3 py-3 text-center"><button onClick={() => openAttPopup(student.id)} className={`px-2 py-1 rounded text-xs font-bold w-14 ${statusClass} relative shadow-sm`}>{statusText}{hasNote && <div className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full border border-white"></div>}</button></td>
                           <td className="px-3 py-3 text-right"><button onClick={() => handleMemoClick(student)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-indigo-500 transition"><ClipboardList size={16}/></button></td>
                         </tr>
                       );
@@ -126,7 +126,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           </div>
         )}
 
-        {/* 2. 업무 체크 */}
         <div className="lg:col-span-3 h-80 lg:h-96">
           <WidgetCard title="업무 체크" icon={AlertTriangle} colorClass="text-red-500">
             <div className="p-4 space-y-3">
@@ -149,7 +148,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           </WidgetCard>
         </div>
 
-        {/* 3. 오늘의 수업 */}
         <div className="lg:col-span-3 h-80 lg:h-96">
           <div className="bg-indigo-600 rounded-2xl shadow-lg p-5 text-white h-full flex flex-col overflow-hidden relative group">
             <h4 className="font-bold mb-3 flex items-center gap-2 z-10 text-lg"><BookOpen size={20}/> 오늘의 수업</h4>
@@ -170,12 +168,10 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           </div>
         </div>
 
-        {/* 4. 오늘의 급식 */}
         <div className="lg:col-span-3 h-80 lg:h-96">
           <LunchWidget schoolInfo={schoolInfo || {}} />
         </div>
 
-        {/* 5. 수업 진도 */}
         <div className="lg:col-span-12 h-96">
           <WidgetCard title="수업 진도 현황" icon={BookOpen} colorClass="text-purple-500">
             <div className="flex justify-end px-4 pt-2"><button onClick={() => setActiveView('lessons')} className="text-xs text-indigo-600 hover:underline font-bold">관리 &gt;</button></div>
@@ -220,7 +216,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
 
       </div>
 
-      {/* 모달들 */}
       {memoModalOpen && targetStudent && <MemoLogModal isOpen={memoModalOpen} onClose={() => setMemoModalOpen(false)} student={targetStudent} onSave={handleMemoSave} />}
       
       {attPopup.isOpen && (
@@ -236,7 +231,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
             <div className="space-y-3">
               <button onClick={() => saveAttendance('reset')} className="w-full p-3 bg-white border-2 border-gray-100 hover:border-gray-300 rounded-xl text-gray-600 font-bold transition">출석 (초기화)</button>
               
-              {/* 🔥 4번 요청: 월별 행사/일정 양식에 맞게 모든 옵션 제공 */}
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-3 text-xs font-bold text-gray-400 mt-1 pl-1">결석</div>
                 <button onClick={() => saveAttendance('질병결석')} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold rounded-lg text-xs">질병</button>
