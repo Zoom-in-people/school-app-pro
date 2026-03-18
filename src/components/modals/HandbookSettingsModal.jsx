@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, GraduationCap } from 'lucide-react';
+import { X, Save, Trash2, GraduationCap, Search } from 'lucide-react';
+import { NEIS_API_KEY, OFFICE_CODES } from '../../constants/data';
 
 export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpdate, onDelete }) {
   const [formData, setFormData] = useState({ 
     title: '', 
     isHomeroom: true,
-    schoolInfo: { name: '', grade: '1', class: '1' } 
+    schoolInfo: { name: '', code: '', officeCode: '', grade: '1', class: '1' } 
   });
+
+  // 🔥 학교 검색을 위한 상태 추가
+  const [schoolSearchName, setSchoolSearchName] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     if (handbook) {
@@ -15,13 +21,70 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
         isHomeroom: handbook.isHomeroom ?? true,
         schoolInfo: {
             name: handbook.schoolInfo?.name || '',
-            // 값을 확실하게 문자로 변환하여 드롭다운 매칭 오류 방지
+            code: handbook.schoolInfo?.code || '',
+            officeCode: handbook.schoolInfo?.officeCode || '',
             grade: String(handbook.schoolInfo?.grade || '1'),
             class: String(handbook.schoolInfo?.class || '1')
         }
       });
+      setSchoolSearchName(handbook.schoolInfo?.name || '');
+      setSearchResults([]); // 모달이 열릴 때 검색 결과 초기화
     }
   }, [handbook, isOpen]);
+
+  // 🔥 학교 검색 함수
+  const searchSchool = async () => {
+    if (schoolSearchName.length < 2) return alert("학교명을 2글자 이상 입력하세요.");
+    setIsSearching(true);
+    try {
+      let allResults = [];
+      const officeCodeList = Object.values(OFFICE_CODES);
+      
+      const promises = officeCodeList.map(async (officeCode) => {
+        try {
+          const url = `https://open.neis.go.kr/hub/schoolInfo?KEY=${NEIS_API_KEY}&Type=json&ATPT_OFCDC_SC_CODE=${officeCode}&SCHUL_NM=${encodeURIComponent(schoolSearchName)}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data.schoolInfo) {
+            return data.schoolInfo[1].row.map(s => ({
+              name: s.SCHUL_NM,
+              code: s.SD_SCHUL_CODE,
+              officeCode: s.ATPT_OFCDC_SC_CODE,
+              address: s.ORG_RDNMA
+            }));
+          }
+        } catch (e) { return []; }
+        return [];
+      });
+
+      const results = await Promise.all(promises);
+      allResults = results.flat();
+      
+      setSearchResults(allResults);
+      if (allResults.length === 0) alert("검색 결과가 없습니다.");
+
+    } catch (e) {
+      console.error(e);
+      alert("검색 중 오류가 발생했습니다.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // 🔥 검색된 학교 선택
+  const handleSelectSchool = (school) => {
+    setFormData(prev => ({
+      ...prev,
+      schoolInfo: {
+        ...prev.schoolInfo,
+        name: school.name,
+        code: school.code,
+        officeCode: school.officeCode
+      }
+    }));
+    setSchoolSearchName(school.name);
+    setSearchResults([]); // 선택 후 결과창 닫기
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -43,10 +106,10 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
         
         {/* 헤더 */}
-        <div className="bg-indigo-600 p-6 flex justify-between items-center">
+        <div className="bg-indigo-600 p-6 flex justify-between items-center shrink-0">
            <h2 className="text-xl font-bold text-white flex items-center gap-2">
              교무수첩 설정
            </h2>
@@ -55,7 +118,7 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
            </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
           <form onSubmit={handleSubmit} className="space-y-6">
             
             {/* 1. 교무수첩 이름 */}
@@ -93,20 +156,57 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
               </label>
             </div>
 
-            {/* 3. 학교 정보 */}
+            {/* 3. 학교 정보 및 검색 */}
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">학교명</label>
-                <input 
-                  type="text" 
-                  value={formData.schoolInfo.name} 
-                  onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, name: e.target.value}})} 
-                  placeholder="학교 이름을 입력하세요"
-                  className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
-                />
+              <div className="relative">
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">학교 설정 (급식 연동용)</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={schoolSearchName} 
+                    onChange={(e) => setSchoolSearchName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        searchSchool();
+                      }
+                    }}
+                    placeholder="학교명 검색 (예: 서울초)"
+                    className="flex-1 p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={searchSchool} 
+                    disabled={isSearching}
+                    className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 transition disabled:opacity-50"
+                  >
+                    <Search size={20}/>
+                  </button>
+                </div>
+                
+                {/* 검색 결과 드롭다운 */}
+                {searchResults.length > 0 && (
+                  <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 absolute z-50 w-[calc(100%-3.5rem)] shadow-xl custom-scrollbar">
+                    {searchResults.map((s, idx) => (
+                      <div 
+                        key={idx} 
+                        onClick={() => handleSelectSchool(s)} 
+                        className="p-3 hover:bg-indigo-50 dark:hover:bg-gray-600 cursor-pointer text-sm border-b border-gray-100 dark:border-gray-600 last:border-none transition"
+                      >
+                        <p className="font-bold dark:text-white">{s.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{s.address}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {formData.schoolInfo.code && (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 font-bold">
+                    ✅ 선택됨: {formData.schoolInfo.name}
+                  </p>
+                )}
               </div>
 
-              {/* 담임일 경우 학년/반 입력 (드롭다운) */}
+              {/* 담임일 경우 학년/반 입력 */}
               {formData.isHomeroom && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -143,7 +243,7 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
           </form>
 
           {/* 삭제 영역 */}
-          <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
+          <div className="pt-6 border-t border-gray-100 dark:border-gray-700 mt-6 shrink-0">
             <button 
               type="button"
               onClick={handleDelete}
