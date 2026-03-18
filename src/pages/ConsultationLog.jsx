@@ -15,7 +15,6 @@ export default function ConsultationLog({ students = [], consultations = [], onA
     category: '생활' 
   });
 
-  // 🔥 1번 요청 해결: 학생들을 학년-반-번호 순으로 정확히 정렬
   const sortedStudents = useMemo(() => {
     return [...students].sort((a, b) => {
       if (Number(a.grade) !== Number(b.grade)) return Number(a.grade) - Number(b.grade);
@@ -62,7 +61,6 @@ export default function ConsultationLog({ students = [], consultations = [], onA
 
   return (
     <div className="h-full flex flex-col gap-4">
-      {/* 검색 및 상단 툴바 */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -76,56 +74,60 @@ export default function ConsultationLog({ students = [], consultations = [], onA
         </button>
       </div>
 
-      {/* 🔥 1번 요청 해결: 가로 스크롤 학생 버튼 리스트 */}
-      <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide border-b border-gray-200 dark:border-gray-700">
+      {/* 🔥 3번 요청 해결: flex-wrap 속성을 추가하여 가로 스크롤 대신 자동으로 여러 줄 바꿈이 되도록 수정 */}
+      <div className="flex flex-wrap gap-2 pb-3 border-b border-gray-200 dark:border-gray-700 max-h-40 overflow-y-auto custom-scrollbar">
         <button 
           onClick={() => setFilterStudentId('all')}
-          className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition border ${filterStudentId === 'all' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100'}`}
+          className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-bold transition border ${filterStudentId === 'all' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100'}`}
         >
-          전체 기록 보기
+          전체 보기
         </button>
         {sortedStudents.map(s => (
           <button 
             key={s.id} onClick={() => setFilterStudentId(s.id)}
-            className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition border flex items-center gap-1.5 ${filterStudentId === s.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+            className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-bold transition border flex items-center gap-1.5 ${filterStudentId === s.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
           >
-            <span className="opacity-50 text-[10px]">{s.number}번</span> {s.name}
+            <span className="opacity-50 text-[10px]">{s.number}</span> {s.name}
           </button>
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-        {filteredLogs.length > 0 ? filteredLogs.map(log => {
-          const student = students.find(s => s.id === log.studentId);
-          return (
-            <div key={log.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 group hover:border-indigo-200 transition-all">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="bg-indigo-50 dark:bg-indigo-900/40 p-2 rounded-xl text-indigo-600 dark:text-indigo-300"><User size={20}/></div>
-                  <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                      {student ? `${student.grade}-${student.class} ${student.number}번 ${student.name}` : '삭제된 학생'}
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${log.type === 'parent' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{log.type === 'parent' ? '학부모 상담' : '학생 상담'}</span>
-                    </h4>
-                    <p className="text-xs text-gray-400 flex items-center gap-1"><Calendar size={12}/> {log.date} · <Tag size={12}/> {log.category}</p>
+      {/* 🔥 2번 요청 해결: 그리드 뷰(2줄) 적용 (lg 화면 이상일 때 grid-cols-2) */}
+      <div className="flex-1 overflow-y-auto pr-2">
+        {filteredLogs.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 items-start">
+            {filteredLogs.map(log => {
+              const student = students.find(s => s.id === log.studentId);
+              return (
+                <div key={log.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 group hover:border-indigo-200 transition-all flex flex-col h-full">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-indigo-50 dark:bg-indigo-900/40 p-2 rounded-xl text-indigo-600 dark:text-indigo-300"><User size={20}/></div>
+                      <div>
+                        <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                          {student ? `${student.grade}-${student.class} ${student.number}번 ${student.name}` : '삭제된 학생'}
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${log.type === 'parent' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{log.type === 'parent' ? '학부모 상담' : '학생 상담'}</span>
+                        </h4>
+                        <p className="text-xs text-gray-400 flex items-center gap-1"><Calendar size={12}/> {log.date} · <Tag size={12}/> {log.category}</p>
+                      </div>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition">
+                      <button onClick={() => handleEdit(log)} className="p-2 text-gray-400 hover:text-indigo-500 rounded-lg"><Edit2 size={18}/></button>
+                      <button onClick={() => { if(window.confirm("삭제하시겠습니까?")) onDeleteConsultation(log.id); }} className="p-2 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={18}/></button>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap flex-1">
+                    {log.content}
                   </div>
                 </div>
-                <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition">
-                  <button onClick={() => handleEdit(log)} className="p-2 text-gray-400 hover:text-indigo-500 rounded-lg"><Edit2 size={18}/></button>
-                  <button onClick={() => { if(window.confirm("삭제하시겠습니까?")) onDeleteConsultation(log.id); }} className="p-2 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={18}/></button>
-                </div>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                {log.content}
-              </div>
-            </div>
-          );
-        }) : (
+              );
+            })}
+          </div>
+        ) : (
           <div className="py-20 text-center text-gray-400"><MessageSquare size={48} className="mx-auto mb-4 opacity-20"/><p>기록이 없습니다.</p></div>
         )}
       </div>
 
-      {/* 모달 (기존 동일) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">

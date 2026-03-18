@@ -35,29 +35,35 @@ export default function MeetingLogs({ logs = [], onAddLog, onUpdateLog, onDelete
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-        {filteredLogs.length > 0 ? filteredLogs.map(log => (
-          <div key={log.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 group hover:border-indigo-200 transition-all">
-            <div className="flex justify-between items-start mb-3">
-              <div className="flex items-center gap-3">
-                <div className="bg-indigo-50 dark:bg-indigo-900/40 p-2 rounded-xl text-indigo-600 dark:text-indigo-300"><MessageSquare size={20}/></div>
-                <div>
-                  <h4 className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">{log.title}</h4>
-                  <p className="text-xs text-gray-400 flex items-center gap-1"><Calendar size={12}/> {log.date}</p>
+      {/* 🔥 2번 요청 해결: 그리드 뷰(2단 배열) 적용 (lg 화면 이상에서 2칸으로 나뉨) */}
+      <div className="flex-1 overflow-y-auto pr-2">
+        {filteredLogs.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 items-start">
+            {filteredLogs.map(log => (
+              <div key={log.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 group hover:border-indigo-200 transition-all flex flex-col h-full">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-indigo-50 dark:bg-indigo-900/40 p-2 rounded-xl text-indigo-600 dark:text-indigo-300"><MessageSquare size={20}/></div>
+                    <div>
+                      <h4 className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">{log.title}</h4>
+                      <p className="text-xs text-gray-400 flex items-center gap-1"><Calendar size={12}/> {log.date}</p>
+                    </div>
+                  </div>
+                  <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition">
+                    <button onClick={() => handleEdit(log)} className="p-2 text-gray-400 hover:text-indigo-500 rounded-lg"><Edit2 size={18}/></button>
+                    <button onClick={() => { if(window.confirm("삭제하시겠습니까?")) onDeleteLog(log.id); }} className="p-2 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={18}/></button>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto custom-scrollbar flex-1">
+                  {log.content}
                 </div>
               </div>
-              <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition">
-                <button onClick={() => handleEdit(log)} className="p-2 text-gray-400 hover:text-indigo-500 rounded-lg"><Edit2 size={18}/></button>
-                <button onClick={() => { if(window.confirm("삭제하시겠습니까?")) onDeleteLog(log.id); }} className="p-2 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={18}/></button>
-              </div>
-            </div>
-            
-            {/* 🔥 6번 요청: max-h-48 (약 5~6줄 높이)로 제한하고 스크롤 생성 */}
-            <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto custom-scrollbar">
-              {log.content}
-            </div>
+            ))}
           </div>
-        )) : <div className="py-20 text-center text-gray-400"><MessageSquare size={48} className="mx-auto mb-4 opacity-20"/><p>기록이 없습니다.</p></div>}
+        ) : (
+          <div className="py-20 text-center text-gray-400"><MessageSquare size={48} className="mx-auto mb-4 opacity-20"/><p>기록이 없습니다.</p></div>
+        )}
       </div>
 
       {isModalOpen && (
