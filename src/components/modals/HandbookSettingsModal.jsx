@@ -15,8 +15,9 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
         isHomeroom: handbook.isHomeroom ?? true,
         schoolInfo: {
             name: handbook.schoolInfo?.name || '',
-            grade: handbook.schoolInfo?.grade || '1',
-            class: handbook.schoolInfo?.class || '1'
+            // 값을 확실하게 문자로 변환하여 드롭다운 매칭 오류 방지
+            grade: String(handbook.schoolInfo?.grade || '1'),
+            class: String(handbook.schoolInfo?.class || '1')
         }
       });
     }
@@ -44,7 +45,7 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         
-        {/* 헤더 (새로만들기 창과 동일한 Indigo 배경) */}
+        {/* 헤더 */}
         <div className="bg-indigo-600 p-6 flex justify-between items-center">
            <h2 className="text-xl font-bold text-white flex items-center gap-2">
              교무수첩 설정
@@ -111,24 +112,24 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
                   <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">학년</label>
                     <select
-                      value={formData.schoolInfo.grade} 
+                      value={String(formData.schoolInfo.grade)} 
                       onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, grade: e.target.value}})} 
-                      className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none bg-white"
+                      className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none bg-white dark:bg-gray-800"
                     >
                       {[1, 2, 3, 4, 5, 6].map(g => (
-                        <option key={g} value={g}>{g}학년</option>
+                        <option key={g} value={String(g)}>{g}학년</option>
                       ))}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">반</label>
                     <select
-                      value={formData.schoolInfo.class} 
+                      value={String(formData.schoolInfo.class)} 
                       onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, class: e.target.value}})} 
-                      className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none bg-white"
+                      className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none bg-white dark:bg-gray-800"
                     >
                       {Array.from({length: 20}, (_, i) => i + 1).map(c => (
-                        <option key={c} value={c}>{c}반</option>
+                        <option key={c} value={String(c)}>{c}반</option>
                       ))}
                     </select>
                   </div>
