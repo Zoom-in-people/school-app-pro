@@ -9,10 +9,52 @@ let isGlobalLoaded = false;
 let globalInitPromise = null;
 let syncTimer = null;
 let needsSync = false;
+let isFetching = false; // 🔥 추가: 중복 다운로드 방지
 
 const dispatchSaveEvent = (status) => window.dispatchEvent(new CustomEvent('db-save-status', { detail: status }));
-// 🔥 다른 기기에서 가져온 최신 데이터를 화면에 즉각 반영하기 위한 방송(Broadcast) 이벤트
 const broadcastDataUpdate = () => window.dispatchEvent(new Event('db-data-updated'));
+
+// 🔥 추가: 구글 드라이브에서 최신 데이터인지 검사하고 다운로드하는 전용 함수
+export const fetchLatestFromDrive = async () => {
+  // 내가 지금 저장할 게 있거나 이미 가져오고 있는 중이면 충돌 방지를 위해 패스
+  if (isFetching || needsSync) return; 
+
+  const token = localStorage.getItem('google_access_token');
+  const fileId = localStorage.getItem('cached_file_id');
+  if (!token || !fileId) return;
+
+  isFetching = true;
+  try {
+    const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=modifiedTime`, { headers: { Authorization: `Bearer ${token}` } });
+    if (metaRes.ok) {
+      const metaData = await metaRes.json();
+      const driveTime = new Date(metaData.modifiedTime).getTime();
+      const localTime = Number(localStorage.getItem('db_last_modified')) || 0;
+
+      // 드라이브의 시간이 로컬 시간보다 최신이면 무조건 다운로드
+      if (driveTime > localTime) {
+        dispatchSaveEvent('loading');
+        const contentRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+        if (contentRes.ok) {
+          const fetchedData = await contentRes.json();
+          globalFullData = fetchedData || {};
+          
+          localStorage.setItem('school_app_local_db', JSON.stringify(globalFullData));
+          localStorage.setItem('db_last_modified', driveTime.toString());
+          isGlobalLoaded = true;
+          
+          // 🔥 모든 컴포넌트에게 새 데이터가 왔다고 방송 (새로고침 효과)
+          broadcastDataUpdate();
+          dispatchSaveEvent('loaded');
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Drive sync error", e);
+  } finally {
+    isFetching = false;
+  }
+};
 
 // 3초간 조작이 없으면 알아서 백그라운드 저장
 const syncToDrive = async () => {
@@ -21,36 +63,55 @@ const syncToDrive = async () => {
   const fileId = localStorage.getItem('cached_file_id');
   if (!token || !fileId) return;
 
+  needsSync = false;
   dispatchSaveEvent('saving');
   try {
     const file = new Blob([JSON.stringify(globalFullData)], { type: 'application/json' });
-    // 🔥 업데이트 시 modifiedTime도 응답받도록 fields 추가
     const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&fields=modifiedTime`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}` },
-      body: file
+      body: file,
+      keepalive: true
     });
     
     if (res.ok) {
       const metaData = await res.json();
       if (metaData.modifiedTime) {
-        // 내가 방금 올린 파일의 정확한 수정 시간을 로컬에 기록 (불필요한 재다운로드 방지)
         localStorage.setItem('db_last_modified', new Date(metaData.modifiedTime).getTime().toString());
       }
       dispatchSaveEvent('saved');
-      needsSync = false;
     } else {
+      needsSync = true;
       dispatchSaveEvent('error');
     }
   } catch (e) { 
+    needsSync = true;
     dispatchSaveEvent('error'); 
   }
 };
 
+// 🔥 수정: 브라우저/화면 상태 변화 감지 및 자동 동기화 로직
+if (typeof window !== 'undefined') {
+  window.addEventListener('visibilitychange', () => {
+    // 1. 화면을 끌 때 (홈버튼 누를 때) -> 강제 저장 진행
+    if (document.visibilityState === 'hidden' && needsSync) {
+      if (syncTimer) clearTimeout(syncTimer);
+      syncToDrive();
+    } 
+    // 2. 화면을 켤 때 -> 최신 데이터가 있는지 강제 검사
+    else if (document.visibilityState === 'visible') {
+      fetchLatestFromDrive();
+    }
+  });
+
+  // 3. 앱을 계속 켜두더라도 30초마다 자동으로 최신화 검사 (폴링)
+  setInterval(fetchLatestFromDrive, 30000);
+}
+
 const scheduleSync = () => {
   needsSync = true;
   if (syncTimer) clearTimeout(syncTimer);
-  syncTimer = setTimeout(syncToDrive, 2000); // 2초 디바운스
+  syncTimer = setTimeout(syncToDrive, 2000); 
 };
 
 export function useGoogleDriveDB(collectionName, userId, enabled = true) {
@@ -63,7 +124,6 @@ export function useGoogleDriveDB(collectionName, userId, enabled = true) {
       return;
     }
 
-    // 🔥 새 데이터가 도착했다는 방송을 들으면 내 상태를 업데이트함
     const handleDataUpdated = () => {
       setData(globalFullData[collectionName] || []);
     };
@@ -73,7 +133,6 @@ export function useGoogleDriveDB(collectionName, userId, enabled = true) {
       const token = localStorage.getItem('google_access_token');
       if (!token) return;
 
-      // 1. 빠른 로컬 데이터 로드 (일단 화면을 띄워줌)
       if (!isGlobalLoaded) {
         const localData = localStorage.getItem('school_app_local_db');
         if (localData) {
@@ -114,33 +173,8 @@ export function useGoogleDriveDB(collectionName, userId, enabled = true) {
             localStorage.setItem('cached_file_id', fileId);
           }
 
-          // 🔥 2. 완벽한 동기화: 로컬 시간과 구글 드라이브 시간을 비교
-          try {
-            // 용량이 큰 전체 파일 대신 '최종 수정 시간' 정보만 0.1초 만에 가져옴
-            const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=modifiedTime`, { headers: { Authorization: `Bearer ${token}` } });
-            if (metaRes.ok) {
-              const metaData = await metaRes.json();
-              const driveTime = new Date(metaData.modifiedTime).getTime();
-              const localTime = Number(localStorage.getItem('db_last_modified')) || 0;
-
-              // 구글 드라이브(다른 기기에서 수정한 것)가 더 최신일 경우에만 다운로드 진행
-              if (driveTime > localTime || !isGlobalLoaded) {
-                const contentRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
-                if (contentRes.ok) {
-                  const fetchedData = await contentRes.json();
-                  globalFullData = fetchedData || {};
-                  
-                  // 로컬 업데이트 및 시간 동기화
-                  localStorage.setItem('school_app_local_db', JSON.stringify(globalFullData));
-                  localStorage.setItem('db_last_modified', driveTime.toString());
-                  isGlobalLoaded = true;
-                  
-                  // 🔥 다운로드 완료 후 모든 화면에 "새로고침 하라!" 방송 송출
-                  broadcastDataUpdate();
-                }
-              }
-            }
-          } catch(e) { console.error("Drive sync error", e); }
+          // 🔥 초기 구동 시에도 무조건 최신 데이터 검사
+          await fetchLatestFromDrive();
           
           dispatchSaveEvent('loaded');
           if (needsSync) syncToDrive(); 
@@ -153,18 +187,16 @@ export function useGoogleDriveDB(collectionName, userId, enabled = true) {
 
     initDB();
 
-    // 컴포넌트가 사라질 때 이벤트 리스너 정리
     return () => window.removeEventListener('db-data-updated', handleDataUpdated);
   }, [userId, collectionName, enabled]);
 
-  // 데이터 수정 시 로컬 즉각 반영 + 방송 + 2초 뒤 구글 드라이브 동기화 예약
   const updateLocalAndSync = (newData) => {
     setData(newData);
     globalFullData[collectionName] = newData;
     localStorage.setItem('school_app_local_db', JSON.stringify(globalFullData));
-    localStorage.setItem('db_last_modified', Date.now().toString()); // 내 폰이 최신이 됨
+    localStorage.setItem('db_last_modified', Date.now().toString()); 
     
-    broadcastDataUpdate(); // 사이드바, 대시보드 등 다른 위젯들도 즉시 반영되도록 방송
+    broadcastDataUpdate(); 
     scheduleSync();
   };
 

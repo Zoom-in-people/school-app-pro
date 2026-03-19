@@ -21,7 +21,8 @@ import MeetingLogs from './pages/MeetingLogs';
 import MyTimetable from './pages/MyTimetable';
 import ExternalApps from './pages/ExternalApps';
 import UpdateHistory from './pages/UpdateHistory';
-import HowToUse from './pages/HowToUse'; // 🔥 추가: 사용 방법 페이지
+import HowToUse from './pages/HowToUse';
+import RealtimeSetup from './pages/RealtimeSetup'; // 🔥 1. 실시간 설정 페이지 불러오기
 
 export default function App() {
   const { user, loading, login, logout } = useAuth();
@@ -34,7 +35,7 @@ export default function App() {
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
   const [apiKey, setApiKey] = useLocalStorage('gemini_api_key', "");
-  const [hideApiPrompt, setHideApiPrompt] = useLocalStorage('hideApiPrompt', false); // 🔥 추가: 다시 보지 않기 상태
+  const [hideApiPrompt, setHideApiPrompt] = useLocalStorage('hideApiPrompt', false);
   const [theme, setTheme] = useLocalStorage('theme', 'light');
   const [fontSize, setFontSize] = useLocalStorage('fontSize', 'normal');
   const [widgets, setWidgets] = useLocalStorage('widgets', INITIAL_WIDGETS);
@@ -43,7 +44,6 @@ export default function App() {
   const [currentHandbook, setCurrentHandbook] = useState(null);
 
   useEffect(() => { 
-    // 🔥 수정: 사용자가 숨김 처리를 안 했을 때만 띄움
     if (user && !apiKey && !hideApiPrompt) {
       setIsSetupWizardOpen(true);
     }
@@ -191,8 +191,10 @@ export default function App() {
           <div className="max-w-7xl mx-auto h-full">
             {activeView === 'update_history' ? (
               <UpdateHistory />
-            ) : activeView === 'how_to_use' ? ( // 🔥 추가: 사용 방법 뷰 렌더링
+            ) : activeView === 'how_to_use' ? (
               <HowToUse />
+            ) : activeView === 'realtime_setup' ? ( // 🔥 2. 실시간 설정 페이지 렌더링 연결
+              <RealtimeSetup />
             ) : !currentHandbook ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (
@@ -216,13 +218,8 @@ export default function App() {
       </main>
 
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={{ apiKey, theme, fontSize }} setSettings={{ setApiKey, setTheme, setFontSize }} onOpenSetupWizard={() => { setIsSettingsOpen(false); setIsSetupWizardOpen(true); }}/>
-      
-      {/* 🔥 수정: 닫을 때 다시 보지 않기 상태(hideApiPrompt)를 true로 저장 */}
       <SetupWizardModal isOpen={isSetupWizardOpen} onClose={() => { setIsSetupWizardOpen(false); setHideApiPrompt(true); }} apiKey={apiKey} setApiKey={setApiKey} />
-      
       <AddHandbookModal isOpen={isAddHandbookOpen} onClose={() => setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
-      
-      {/* 🔥 수정: apiKey와 setApiKey를 모달로 전달하여 설정 창에서 등록 가능하게 만듦 */}
       <HandbookSettingsModal isOpen={isHandbookSettingsOpen} onClose={() => setIsHandbookSettingsOpen(false)} handbook={currentHandbook} onUpdate={handleUpdateHandbook} onDelete={handleDeleteHandbook} apiKey={apiKey} setApiKey={setApiKey} />
     </div>
   );

@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, BookOpen, CheckSquare, 
-  MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Grid, Info, HelpCircle
-} from 'lucide-react'; // 🔥 HelpCircle 아이콘 추가
+  MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Grid, Info, HelpCircle, Database
+} from 'lucide-react'; // 🔥 Database 아이콘 추가
 
 export default function Sidebar({ 
   activeView, setActiveView, onOpenSettings, user, logout, 
@@ -67,7 +67,8 @@ export default function Sidebar({
       title: "설정",
       items: [
         { id: 'handbook_settings', label: '교무수첩 설정', icon: Settings },
-        { id: 'how_to_use', label: '사용 방법', icon: HelpCircle }, // 🔥 추가: 사용 방법 메뉴
+        { id: 'how_to_use', label: '사용 방법', icon: HelpCircle }, 
+        { id: 'realtime_setup', label: '실시간 버전 만들기', icon: Database }, // 🔥 실시간 버전 추가
         { id: 'update_history', label: '업데이트 내역', icon: Info }, 
       ]
     }
