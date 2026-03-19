@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpCircle, LayoutDashboard, Calendar, Users, MessageSquare, BookOpen, CheckSquare, Clock, Edit2, Save } from 'lucide-react';
+import { HelpCircle, LayoutDashboard, Calendar, Users, MessageSquare, BookOpen, CheckSquare, Clock, Save } from 'lucide-react';
 
 export default function HowToUse() {
   const manuals = [
@@ -68,8 +68,9 @@ export default function HowToUse() {
       desc: "선생님의 소중한 기록은 오직 선생님의 구글 계정에만 저장됩니다.",
       points: [
         "수첩에 입력하는 모든 내용은 인터넷 서버가 아닌 브라우저 내부에 즉시 반영되어 로딩 없이 번개처럼 빠릅니다.",
-        "조작을 멈추거나 2초가 지나면 프로그램이 몰래 뒤에서 구글 드라이브(학교 전용 폴더)로 자동 동기화(백업)를 진행합니다.",
-        "혹시 스마트폰이나 다른 컴퓨터에서 접속할 때 최신 데이터가 안 뜬다면, 잠시만 기다리시면 드라이브에서 긁어와 화면을 최신화합니다."
+        "기본적으로 구글 드라이브(학교 전용 폴더)로 자동 동기화(백업)가 진행됩니다.",
+        "사이드바 좌측 상단의 [드라이브 수동 백업] 버튼을 누르면 원할 때 언제든 구글 드라이브에 강제 저장본을 생성할 수 있습니다.",
+        "[실시간 버전 만들기(Pro)] 기능을 통해 Firebase를 연동하신 경우, 평소에는 실시간으로 빠르게 동기화되며 필요 시 수동 백업 버튼으로 드라이브에 안전한 복사본을 남기실 수 있습니다."
       ]
     }
   ];

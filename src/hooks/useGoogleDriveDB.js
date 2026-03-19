@@ -31,7 +31,7 @@ const getCustomFirebaseDb = () => {
   } catch (e) { return null; }
 };
 
-// 🔥 사이드바에서 사용할 '수동 드라이브 백업' 함수 외부 공개
+// 🔥 3번 에러 해결: 구글 로그인 1시간 만료(401) 시 알림 처리 추가
 export const backupToGoogleDrive = async () => {
   const token = localStorage.getItem('google_access_token');
   const fileId = localStorage.getItem('cached_file_id');
@@ -44,6 +44,10 @@ export const backupToGoogleDrive = async () => {
       headers: { Authorization: `Bearer ${token}` },
       body: file
     });
+    
+    if (res.status === 401) {
+      return { success: false, message: "구글 로그인이 만료되었습니다 (1시간 초과). 안전을 위해 로그아웃 후 다시 로그인해 주세요." };
+    }
     if (res.ok) {
        return { success: true, message: "구글 드라이브에 안전하게 수동 백업되었습니다!" };
     }
@@ -61,7 +65,6 @@ export const fetchLatestFromCloud = async () => {
     const db = getCustomFirebaseDb();
     const localTime = Number(localStorage.getItem('db_last_modified')) || 0;
 
-    // 🔥 1. 파이어베이스가 있다면 무조건 파이어베이스가 최우선 (드라이브 무시)
     if (db && currentUserId) {
       const docRef = doc(db, "users", currentUserId, "school_app", "data");
       const docSnap = await getDoc(docRef); 
@@ -83,7 +86,6 @@ export const fetchLatestFromCloud = async () => {
         }
       }
     } 
-    // 🔥 2. 파이어베이스가 없다면 기본 구글 드라이브 로딩
     else {
       const token = localStorage.getItem('google_access_token');
       const fileId = localStorage.getItem('cached_file_id');
@@ -107,7 +109,12 @@ export const fetchLatestFromCloud = async () => {
          }
       }
     }
-  } catch (e) { console.error("Cloud fetch error", e); }
+  } catch (e) { 
+    if (e.message && e.message.includes('permission')) {
+      console.error("Firebase 권한 에러: Firestore 보안 규칙을 허용해주세요.");
+    }
+    console.error("Cloud fetch error", e); 
+  }
   finally { isFetching = false; }
 };
 
@@ -119,7 +126,6 @@ const syncToCloud = async () => {
   const db = getCustomFirebaseDb();
   const now = Date.now();
   
-  // 🔥 1. 파이어베이스 설정이 있으면 파이어베이스에만 자동 저장 (드라이브 자동저장 안 함)
   if (db && currentUserId) {
     try {
       const docRef = doc(db, "users", currentUserId, "school_app", "data");
@@ -130,7 +136,6 @@ const syncToCloud = async () => {
       needsSync = true; dispatchSaveEvent('error');
     }
   } 
-  // 🔥 2. 파이어베이스가 없으면 구글 드라이브에 자동 저장
   else {
     const token = localStorage.getItem('google_access_token');
     const fileId = localStorage.getItem('cached_file_id');
@@ -219,7 +224,6 @@ export function useGoogleDriveDB(collectionName, userId, enabled = true) {
             localStorage.setItem('cached_folder_id', folderId);
           }
 
-          // 🔥 스마트폰을 위해 구글 드라이브에서 파이어베이스 설정 비밀 편지 읽어오기
           if (token && folderId) {
             try {
               const q = `'${folderId}' in parents and name='firebase_config.json' and trashed=false`;
@@ -236,7 +240,6 @@ export function useGoogleDriveDB(collectionName, userId, enabled = true) {
             } catch(e) { console.error("Config sync error", e); }
           }
 
-          // 드라이브 DB 파일 확인 및 생성 (백업용 공간 확보)
           if (!fileId) {
             const q = `'${folderId}' in parents and name='${DB_FILE_NAME}' and trashed=false`;
             const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,modifiedTime)`, { headers: { Authorization: `Bearer ${token}` } });

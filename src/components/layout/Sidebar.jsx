@@ -2,9 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, BookOpen, CheckSquare, 
   MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Grid, Info, HelpCircle, Database,
-  CloudUpload, Loader // 🔥 아이콘 추가
+  CloudUpload, Loader 
 } from 'lucide-react'; 
-// 🔥 수동 백업 함수 불러오기
 import { backupToGoogleDrive } from '../../hooks/useGoogleDriveDB';
 
 export default function Sidebar({ 
@@ -14,7 +13,7 @@ export default function Sidebar({
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
-  const [isBackingUp, setIsBackingUp] = useState(false); // 🔥 백업 중 상태 관리
+  const [isBackingUp, setIsBackingUp] = useState(false); 
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -34,7 +33,6 @@ export default function Sidebar({
     return () => window.removeEventListener('db-save-status', handleSaveStatus);
   }, []);
 
-  // 🔥 드라이브 수동 백업 실행 함수
   const handleManualBackup = async () => {
     setIsBackingUp(true);
     const result = await backupToGoogleDrive();
@@ -144,8 +142,8 @@ export default function Sidebar({
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6 custom-scrollbar">
         {menuGroups.map((group, index) => (
           <React.Fragment key={index}>
-            {/* 🔥 학급 관리 메뉴 바로 위에 드라이브 수동 백업 버튼 생성 */}
-            {group.title === "학급 관리" && (
+            {/* 🔥 1번 요청: 수동 백업 버튼을 '메인' 탭 위로 이동 */}
+            {group.title === "메인" && (
               <div className="mb-6 px-1">
                 <button 
                   onClick={handleManualBackup}

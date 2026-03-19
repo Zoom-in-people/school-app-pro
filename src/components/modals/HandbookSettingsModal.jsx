@@ -13,7 +13,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   
-  // 🔥 추가: 모달 내부에서 API 키를 수정하기 위한 상태
   const [localApiKey, setLocalApiKey] = useState('');
 
   useEffect(() => {
@@ -32,7 +31,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
       setSchoolSearchName(handbook.schoolInfo?.name || '');
       setSearchResults([]);
     }
-    // 🔥 모달 열릴 때 기존 API 키 세팅
     setLocalApiKey(apiKey || '');
   }, [handbook, isOpen, apiKey]);
 
@@ -91,7 +89,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
   const handleSubmit = (e) => {
     e.preventDefault();
     onUpdate(handbook.id, formData);
-    // 🔥 저장 시 부모 컴포넌트(App)의 API 키 업데이트
     if (setApiKey) setApiKey(localApiKey.trim()); 
     onClose();
   };
@@ -209,10 +206,11 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">학년</label>
+                    {/* 🔥 클래스 네임 충돌 해결: dark:bg-gray-800 삭제 */}
                     <select
                       value={String(formData.schoolInfo.grade)} 
                       onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, grade: e.target.value}})} 
-                      className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none bg-white dark:bg-gray-800"
+                      className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none bg-white"
                     >
                       {[1, 2, 3, 4, 5, 6].map(g => (
                         <option key={g} value={String(g)}>{g}학년</option>
@@ -221,10 +219,11 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">반</label>
+                    {/* 🔥 클래스 네임 충돌 해결: dark:bg-gray-800 삭제 */}
                     <select
                       value={String(formData.schoolInfo.class)} 
                       onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, class: e.target.value}})} 
-                      className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none bg-white dark:bg-gray-800"
+                      className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none bg-white"
                     >
                       {Array.from({length: 20}, (_, i) => i + 1).map(c => (
                         <option key={c} value={String(c)}>{c}반</option>
@@ -235,7 +234,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
               )}
             </div>
 
-            {/* 🔥 추가: Gemini API 입력 란 추가 */}
             <div className="pt-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
               <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1"><Sparkles className="text-yellow-500" size={16}/> Gemini API Key (선택)</label>
               <input type="password" value={localApiKey} onChange={(e) => setLocalApiKey(e.target.value)} placeholder="AI 기능을 사용하려면 API 키를 입력하세요" className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-yellow-500 outline-none transition text-sm" />
