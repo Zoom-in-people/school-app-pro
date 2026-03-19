@@ -17,18 +17,32 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
     lunchAfter: 4      
   });
 
-  const [modalData, setModalData] = useState(null);
+  const [modalData, setModalData] = useState(null); 
 
   useEffect(() => {
-    if (!timetable || timetable.type !== 'manual') setIsSettingMode(true);
-    else if (timetable && timetable.settings) setSettings(timetable.settings);
+    if (!timetable || timetable.type !== 'manual') {
+      setIsSettingMode(true);
+    } else if (timetable && timetable.settings) {
+      setSettings(timetable.settings);
+    }
   }, [timetable]);
 
   const handleSaveSettings = () => {
     if (settings.days.length === 0) return alert("최소 하루 이상의 요일을 선택해야 합니다.");
-    const newTimetable = { type: 'manual', settings, schedule: timetable?.schedule || {}, recentSubjects: timetable?.recentSubjects || [], recentRooms: timetable?.recentRooms || [] };
-    if (timetable && timetable.id) onUpdateTimetable(timetable.id, newTimetable);
-    else onAddTimetable(newTimetable);
+    
+    const newTimetable = {
+      type: 'manual',
+      settings,
+      schedule: timetable?.schedule || {},
+      recentSubjects: timetable?.recentSubjects || [],
+      recentRooms: timetable?.recentRooms || []
+    };
+
+    if (timetable && timetable.id) {
+      onUpdateTimetable(timetable.id, newTimetable);
+    } else {
+      onAddTimetable(newTimetable);
+    }
     setIsSettingMode(false);
   };
 
@@ -41,7 +55,9 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
 
   const handleDayToggle = (day) => {
     setSettings(prev => {
-      const newDays = prev.days.includes(day) ? prev.days.filter(d => d !== day) : [...prev.days, day];
+      const newDays = prev.days.includes(day) 
+        ? prev.days.filter(d => d !== day) 
+        : [...prev.days, day];
       const order = ['월', '화', '수', '목', '금', '토', '일'];
       return { ...prev, days: newDays.sort((a, b) => order.indexOf(a) - order.indexOf(b)) };
     });
@@ -50,13 +66,16 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
   const generateTimes = () => {
     const times = [];
     let [h, m] = settings.startTime.split(':').map(Number);
+    
     for (let i = 1; i <= settings.totalPeriods; i++) {
       const startStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
       let endM = m + Number(settings.classDuration);
       let endH = h + Math.floor(endM / 60);
       endM = endM % 60;
       const endStr = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
+      
       times.push({ period: i, start: startStr, end: endStr });
+      
       if (i === Number(settings.lunchAfter)) {
         const [lh, lm] = settings.lunchEnd.split(':').map(Number);
         h = lh; m = lm;
@@ -80,10 +99,20 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
   const handleSaveCell = () => {
     const key = `${modalData.period}-${modalData.day}`;
     const newSchedule = { ...timetable.schedule, [key]: { subject: modalData.subject, room: modalData.room } };
-    if (!modalData.subject.trim() && !modalData.room.trim()) delete newSchedule[key];
+    
+    if (!modalData.subject.trim() && !modalData.room.trim()) {
+      delete newSchedule[key];
+    }
+
     const newSubjects = modalData.subject.trim() ? Array.from(new Set([modalData.subject.trim(), ...(timetable.recentSubjects || [])])).slice(0, 10) : timetable.recentSubjects;
     const newRooms = modalData.room.trim() ? Array.from(new Set([modalData.room.trim(), ...(timetable.recentRooms || [])])).slice(0, 10) : timetable.recentRooms;
-    onUpdateTimetable(timetable.id, { ...timetable, schedule: newSchedule, recentSubjects: newSubjects, recentRooms: newRooms });
+
+    onUpdateTimetable(timetable.id, {
+      ...timetable,
+      schedule: newSchedule,
+      recentSubjects: newSubjects,
+      recentRooms: newRooms
+    });
     setModalData(null);
   };
 
@@ -103,10 +132,8 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
         </div>
         
         <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 md:p-8 overflow-y-auto custom-scrollbar">
-          {/* 🔥 2번 요청: 시간표 설정 UI/UX 가시성 대폭 개선 */}
           <div className="max-w-3xl mx-auto space-y-6">
             
-            {/* 카드 1: 요일 설정 */}
             <div className="bg-gray-50 dark:bg-gray-700/30 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
               <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-4"><Calendar className="text-indigo-500" size={20}/> 1. 수업 요일 설정</h3>
               <div className="flex flex-wrap gap-2">
@@ -118,7 +145,6 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
               </div>
             </div>
 
-            {/* 카드 2: 기본 형태 */}
             <div className="bg-gray-50 dark:bg-gray-700/30 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
               <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-4"><Layout className="text-indigo-500" size={20}/> 2. 기본 형태 설정</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -137,7 +163,6 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
               </div>
             </div>
 
-            {/* 카드 3: 시간 설정 */}
             <div className="bg-gray-50 dark:bg-gray-700/30 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
               <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-4"><Bell className="text-indigo-500" size={20}/> 3. 시간표 종소리 설정</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -199,7 +224,6 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
       <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto custom-scrollbar flex flex-col">
         <div className="min-w-[500px] flex-1">
           <table className="w-full text-center h-full table-fixed">
-            {/* 🔥 1번 요청: 표 높이, 패딩, 글자 크기 축소로 한눈에 들어오게 최적화 */}
             <thead className="bg-indigo-50 dark:bg-gray-700/50">
               <tr>
                 <th className="w-20 p-2 border-b border-r dark:border-gray-600 text-indigo-800 dark:text-indigo-200 font-bold text-xs md:text-sm">교시</th>
@@ -242,7 +266,8 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
                     </tr>
                     {isLunchNext && (
                       <tr className="bg-orange-50/50 dark:bg-orange-900/10">
-                        <td colSpan={settings.days.length + 1} className="p-1 border-b dark:border-gray-600 text-center py-2 md:py-3">
+                        {/* 🔥 수정: h-14 md:h-16 클래스 추가로 점심시간 높이를 다른 교시와 동일하게 축소 */}
+                        <td colSpan={settings.days.length + 1} className="p-1 border-b dark:border-gray-600 text-center h-14 md:h-16">
                           <div className="flex items-center justify-center gap-2 text-orange-600 dark:text-orange-400 font-bold text-xs md:text-sm">
                             점심 시간 <span className="text-[10px] font-normal opacity-80 ml-1">({settings.lunchStart} ~ {settings.lunchEnd})</span>
                           </div>

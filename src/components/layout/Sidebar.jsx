@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, BookOpen, CheckSquare, 
-  MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Grid, Info 
-} from 'lucide-react';
+  MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Grid, Info, HelpCircle
+} from 'lucide-react'; // 🔥 HelpCircle 아이콘 추가
 
 export default function Sidebar({ 
   activeView, setActiveView, onOpenSettings, user, logout, 
@@ -67,6 +67,7 @@ export default function Sidebar({
       title: "설정",
       items: [
         { id: 'handbook_settings', label: '교무수첩 설정', icon: Settings },
+        { id: 'how_to_use', label: '사용 방법', icon: HelpCircle }, // 🔥 추가: 사용 방법 메뉴
         { id: 'update_history', label: '업데이트 내역', icon: Info }, 
       ]
     }
@@ -74,7 +75,7 @@ export default function Sidebar({
 
   const handleMenuClick = (itemId) => {
     if (itemId === 'handbook_settings') onOpenHandbookSettings(); 
-    else setActiveView(itemId); // 페이지 이동으로 원상복구!
+    else setActiveView(itemId); 
   };
 
   return (

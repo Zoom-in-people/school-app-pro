@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+// 🔥 수정: lucide-react에서 Download 아이콘을 활용하도록 유지
 import { Search, Plus, Filter, MoreHorizontal, User, FileSpreadsheet, Download, X, Save, Trash2, Sparkles, Loader, AlertTriangle, FileText, BookOpen, StickyNote, Image as ImageIcon, Upload, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { uploadFileToStorage } from '../utils/storage';
@@ -51,7 +52,6 @@ export default function StudentManager({
     });
   }, [safeStudents, searchTerm, activeClassFilter]);
 
-  // 🔥 [중요] 엑셀 업로드 시 중복 체크 및 덮어쓰기 로직
   const handleExcelUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -81,7 +81,6 @@ export default function StudentManager({
       const updateTasks = [];
 
       parsedStudents.forEach(parsed => {
-        // 학년, 반, 번호가 모두 일치하는 학생 찾기
         const existing = safeStudents.find(s => 
           String(s.grade) === String(parsed.grade) && 
           String(s.class) === String(parsed.class) && 
@@ -89,10 +88,8 @@ export default function StudentManager({
         );
 
         if (existing) {
-          // 일치하는 학생이 있으면 업데이트 목록으로
           updateTasks.push({ id: existing.id, fields: { ...parsed } });
         } else {
-          // 없으면 신규 추가 목록으로
           newStudents.push(parsed);
         }
       });
@@ -197,8 +194,10 @@ export default function StudentManager({
             <Plus size={16}/> 학생 추가
           </button>
           <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+          
+          {/* 🔥 수정: 다운로드 아이콘으로 교체 (Download 컴포넌트 사용) */}
           <button onClick={handleDownloadTemplate} className="text-gray-500 hover:text-green-600 p-2 rounded-lg transition" title="엑셀 양식 다운로드">
-            <FileSpreadsheet size={20}/>
+            <Download size={20}/> 
           </button>
           <button onClick={() => fileInputRef.current.click()} className="text-gray-500 hover:text-blue-600 p-2 rounded-lg transition" title="엑셀 업로드">
             <Upload size={20}/>
@@ -319,7 +318,7 @@ function StudentCard({ student, onEdit, onDelete, isHomeroomView, apiKey, onUpda
         <div className="px-4 pb-3 flex-1 space-y-2">
           <div className="flex flex-wrap gap-1.5 min-h-[24px]">
             {student.tags && student.tags.length > 0 ? student.tags.slice(0, 3).map((tag, i) => (
-              <span key={i} className="text-[10px] px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md font-medium">
+              <span key={i} className="text-[10px] px-2 py-1 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md font-medium border border-gray-100 dark:border-gray-600">
                 #{tag}
               </span>
             )) : (

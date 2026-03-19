@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, GraduationCap, Search } from 'lucide-react';
+import { X, Save, Trash2, GraduationCap, Search, Sparkles } from 'lucide-react';
 import { NEIS_API_KEY, OFFICE_CODES } from '../../constants/data';
 
-export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpdate, onDelete }) {
+export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpdate, onDelete, apiKey, setApiKey }) {
   const [formData, setFormData] = useState({ 
     title: '', 
     isHomeroom: true,
     schoolInfo: { name: '', code: '', officeCode: '', grade: '1', class: '1' } 
   });
 
-  // 🔥 학교 검색을 위한 상태 추가
   const [schoolSearchName, setSchoolSearchName] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  
+  // 🔥 추가: 모달 내부에서 API 키를 수정하기 위한 상태
+  const [localApiKey, setLocalApiKey] = useState('');
 
   useEffect(() => {
     if (handbook) {
@@ -28,11 +30,12 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
         }
       });
       setSchoolSearchName(handbook.schoolInfo?.name || '');
-      setSearchResults([]); // 모달이 열릴 때 검색 결과 초기화
+      setSearchResults([]);
     }
-  }, [handbook, isOpen]);
+    // 🔥 모달 열릴 때 기존 API 키 세팅
+    setLocalApiKey(apiKey || '');
+  }, [handbook, isOpen, apiKey]);
 
-  // 🔥 학교 검색 함수
   const searchSchool = async () => {
     if (schoolSearchName.length < 2) return alert("학교명을 2글자 이상 입력하세요.");
     setIsSearching(true);
@@ -71,7 +74,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
     }
   };
 
-  // 🔥 검색된 학교 선택
   const handleSelectSchool = (school) => {
     setFormData(prev => ({
       ...prev,
@@ -83,12 +85,14 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
       }
     }));
     setSchoolSearchName(school.name);
-    setSearchResults([]); // 선택 후 결과창 닫기
+    setSearchResults([]);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     onUpdate(handbook.id, formData);
+    // 🔥 저장 시 부모 컴포넌트(App)의 API 키 업데이트
+    if (setApiKey) setApiKey(localApiKey.trim()); 
     onClose();
   };
 
@@ -108,7 +112,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
         
-        {/* 헤더 */}
         <div className="bg-indigo-600 p-6 flex justify-between items-center shrink-0">
            <h2 className="text-xl font-bold text-white flex items-center gap-2">
              교무수첩 설정
@@ -121,7 +124,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
           <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* 1. 교무수첩 이름 */}
             <div className="space-y-2">
               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">교무수첩 이름</label>
               <input 
@@ -134,7 +136,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
               />
             </div>
 
-            {/* 2. 담임 여부 (토글) */}
             <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl flex items-center justify-between border border-gray-100 dark:border-gray-600">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-300">
@@ -156,7 +157,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
               </label>
             </div>
 
-            {/* 3. 학교 정보 및 검색 */}
             <div className="space-y-4">
               <div className="relative">
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">학교 설정 (급식 연동용)</label>
@@ -184,7 +184,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
                   </button>
                 </div>
                 
-                {/* 검색 결과 드롭다운 */}
                 {searchResults.length > 0 && (
                   <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 absolute z-50 w-[calc(100%-3.5rem)] shadow-xl custom-scrollbar">
                     {searchResults.map((s, idx) => (
@@ -206,7 +205,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
                 )}
               </div>
 
-              {/* 담임일 경우 학년/반 입력 */}
               {formData.isHomeroom && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -237,12 +235,18 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
               )}
             </div>
 
+            {/* 🔥 추가: Gemini API 입력 란 추가 */}
+            <div className="pt-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
+              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1"><Sparkles className="text-yellow-500" size={16}/> Gemini API Key (선택)</label>
+              <input type="password" value={localApiKey} onChange={(e) => setLocalApiKey(e.target.value)} placeholder="AI 기능을 사용하려면 API 키를 입력하세요" className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-yellow-500 outline-none transition text-sm" />
+              <p className="text-[10px] text-gray-400">학생 명렬표의 AI 세특 일괄 생성 기능에 사용됩니다.</p>
+            </div>
+
             <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition shadow-lg shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-2">
               <Save size={20}/> 변경사항 저장
             </button>
           </form>
 
-          {/* 삭제 영역 */}
           <div className="pt-6 border-t border-gray-100 dark:border-gray-700 mt-6 shrink-0">
             <button 
               type="button"
