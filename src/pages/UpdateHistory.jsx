@@ -1,17 +1,28 @@
 import React from 'react';
 import { Info, Sparkles, CheckCircle2 } from 'lucide-react';
 
-// 🔥 이 부분에 'export default'가 반드시 있어야 합니다!
 export default function UpdateHistory() {
+  // 🔥 새로운 업데이트가 있을 때마다 배열의 맨 앞에 추가됩니다.
   const updates = [
     {
-      version: "v1.2.1 (최신)",
+      version: "v1.3.0 (최신)",
       date: "최근 업데이트",
+      changes: [
+        "나의 시간표 전면 개편: 직접 요일/시간을 설정하고 수업을 추가하는 수동 시간표 생성기 도입",
+        "상담 일지 개선: 학생 버튼 번호순 정렬 및 개별 학생 클릭 시 기록 필터링 기능 추가",
+        "업무 체크리스트 UI: 표 헤더 가로 고정으로 글자 깨짐 방지 및 '상태' 텍스트 가로 정렬",
+        "업무 분류 커스텀: 업무 등록 시 분류 입력 디자인(Chips) 개선 및 기존 분류 삭제 기능 추가",
+        "회의록 UI 최적화: 개별 회의록 카드의 높이를 반으로 줄이고 내부 스크롤 적용",
+        "사이드바 정리: 불필요한 메뉴 제거 및 업데이트 내역 전용 페이지 신설"
+      ]
+    },
+    {
+      version: "v1.2.1",
+      date: "이전 업데이트",
       changes: [
         "상담일지 학생 선택 버튼 자동 줄바꿈(가로 스크롤 제거) 적용",
         "상담일지 및 회의록 2단(두 줄) 그리드 뷰 적용",
-        "월별행사 공휴일(음력) 계산 오류 완벽 수정",
-        "업데이트 내역 전용 페이지 신설"
+        "월별행사 공휴일(음력) 계산 오류 완벽 수정 (2024~2035년 데이터 고정)"
       ]
     },
     {
@@ -20,8 +31,7 @@ export default function UpdateHistory() {
       changes: [
         "나의 시간표 구글 드라이브 연동 및 즉각 삭제 기능 추가",
         "업무 체크리스트 UI 최적화 (가로 고정 및 글자 잘림 방지)",
-        "업무 분류(태그) 커스텀 편집 및 저장 기능 추가",
-        "회의록 조회 높이 축소 (스크롤 도입)"
+        "업무 분류(태그) 커스텀 편집 및 저장 기능 추가"
       ]
     },
     {
@@ -43,11 +53,11 @@ export default function UpdateHistory() {
         <p className="text-gray-500 dark:text-gray-400">교무수첩 Pro의 새로운 기능과 개선 사항을 확인하세요.</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+      <div className="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar">
         {updates.map((update, index) => (
-          <div key={index} className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden">
+          <div key={index} className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden transition hover:shadow-md">
             {index === 0 && (
-              <div className="absolute top-0 right-0 bg-indigo-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg flex items-center gap-1">
+              <div className="absolute top-0 right-0 bg-indigo-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg flex items-center gap-1 shadow-sm">
                 <Sparkles size={12}/> NEW
               </div>
             )}
