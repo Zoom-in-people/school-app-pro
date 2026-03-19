@@ -3,13 +3,11 @@ import { Users, AlertTriangle, BookOpen, ClipboardList, MessageSquare, CheckCirc
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
 
-// 🔥 2번 요청 연결: myTimetable 프롭스 받기
 export default function Dashboard({ students, todos, setActiveView, schoolInfo, isHomeroom, attendanceLog, onUpdateAttendance, onUpdateStudent, lessonGroups, onUpdateLessonGroup, myTimetable }) {
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [targetStudent, setTargetStudent] = useState(null);
   const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, note: "" });
   
-  // 첫 번째 시간표 데이터 가져오기
   const timetable = myTimetable && myTimetable.length > 0 ? myTimetable[0] : null;
 
   const getTodayDateString = () => { 
@@ -17,6 +15,16 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; 
   };
   const todayStr = getTodayDateString();
+  const todayDayName = ['일', '월', '화', '수', '목', '금', '토'][new Date().getDay()];
+
+  // 오늘 시간표 데이터 추출
+  const todayClasses = [];
+  if (timetable && timetable.type === 'manual' && timetable.settings) {
+    for (let i = 1; i <= timetable.settings.totalPeriods; i++) {
+      const cls = timetable.schedule?.[`${i}-${todayDayName}`];
+      if (cls) todayClasses.push({ period: i, ...cls });
+    }
+  }
 
   const getDDayFormat = (dueDate) => {
     if (!dueDate) return { text: '', color: 'text-gray-500' };
@@ -138,20 +146,39 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           </WidgetCard>
         </div>
 
+        {/* 🔥 2번 요청 반영: 대시보드 시간표 위젯 리뉴얼 */}
         <div className="lg:col-span-3 h-80 lg:h-96">
           <div className="bg-indigo-600 rounded-2xl shadow-lg p-5 text-white h-full flex flex-col overflow-hidden relative group">
-            <div className="flex justify-between items-center mb-3 z-10">
-              <h4 className="font-bold flex items-center gap-2 text-lg"><Clock size={20}/> 오늘의 수업</h4>
-              <button onClick={() => setActiveView('my_timetable')} className="text-xs font-bold text-indigo-200 hover:text-white transition bg-white/10 px-2 py-1 rounded">수정하기</button>
+            <div className="flex justify-between items-center mb-4 z-10 shrink-0">
+              <h4 className="font-bold flex items-center gap-2 text-lg"><Clock size={20}/> 오늘의 수업 ({todayDayName})</h4>
+              <button onClick={() => setActiveView('my_timetable')} className="text-xs font-bold text-indigo-200 hover:text-white transition bg-white/10 px-2 py-1 rounded">설정하기</button>
             </div>
             
-            <div className="flex-1 flex items-center justify-center bg-indigo-500/50 rounded-xl overflow-hidden border border-indigo-400/30">
-              {timetable?.url ? (
-                <img src={timetable.url} alt="TimeTable" className="w-full h-full object-contain bg-white dark:bg-gray-800/50"/>
+            <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl overflow-y-auto p-4 shadow-inner custom-scrollbar">
+              {timetable && timetable.type === 'manual' ? (
+                todayClasses.length > 0 ? (
+                  <div className="space-y-3">
+                    {todayClasses.map((cls, idx) => (
+                      <div key={idx} className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-100 dark:border-indigo-800/50">
+                        <div className="bg-indigo-500 text-white w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm shrink-0 shadow-sm">{cls.period}</div>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-gray-800 dark:text-gray-100 text-sm">{cls.subject}</span>
+                          {cls.room && <span className="text-xs text-gray-500 dark:text-gray-400">{cls.room}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-400 py-10 flex flex-col items-center">
+                    <Clock size={32} className="mb-2 opacity-30 text-indigo-500"/>
+                    <p className="font-bold text-sm mb-1">오늘은 수업이 없습니다.</p>
+                  </div>
+                )
               ) : (
-                <div className="text-center text-indigo-200 text-sm p-4">
-                  <p className="font-bold mb-1">시간표가 없습니다.</p>
-                  <p className="text-xs opacity-70">'나의 시간표' 메뉴에서 <br/>이미지를 업로드하세요.</p>
+                <div className="text-center text-gray-400 py-10 flex flex-col items-center h-full justify-center">
+                  <BookOpen size={40} className="mb-3 opacity-30 text-indigo-500"/>
+                  <p className="font-bold text-sm text-gray-600 dark:text-gray-300 mb-1">수동 시간표가 없습니다.</p>
+                  <p className="text-xs opacity-70">상단 '설정하기'를 눌러 시간표를 만들어보세요.</p>
                 </div>
               )}
             </div>
