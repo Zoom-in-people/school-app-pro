@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Calendar as CalIcon, ChevronLeft, ChevronRight, Plus, Trash2, X, MessageSquare } from 'lucide-react';
+import { showToast, showConfirm } from '../utils/alerts'; // 🔥 알림창 가져오기
 
-// 🔥 1번 해결: 복잡하고 에러나는 음력 계산 공식을 완전히 폐기하고, 2024~2035년 데이터를 하드코딩하여 영구 고정
 const LUNAR_HOLIDAYS = {
   2024: { seol: '2024-02-10', buddha: '2024-05-15', chuseok: '2024-09-17' },
   2025: { seol: '2025-01-29', buddha: '2025-05-05', chuseok: '2025-10-06' },
@@ -35,9 +35,7 @@ function getHolidays(year) {
 
   const hData = LUNAR_HOLIDAYS[year];
   if (hData) {
-    // 날짜 문자열에 'T00:00:00'을 붙여 시간대 꼬임을 방지
     const parseH = (dStr) => new Date(dStr + "T00:00:00");
-    
     const seol = parseH(hData.seol);
     const pSeol = new Date(seol); pSeol.setDate(seol.getDate() - 1);
     const nSeol = new Date(seol); nSeol.setDate(seol.getDate() + 1);
@@ -51,7 +49,6 @@ function getHolidays(year) {
     addHoliday(pChu, '추석 연휴', true, true); addHoliday(chuseok, '추석', true, true); addHoliday(nChu, '추석 연휴', true, true);
   }
 
-  // 대체공휴일 처리 로직
   const tempHolidays = { ...holidays };
   Object.values(tempHolidays).forEach(h => {
     if (!h.allowSub) return;
@@ -117,17 +114,15 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const emptyDays = Array.from({ length: firstDayOfMonth }, (_, i) => i);
 
-  // 🔥 2번 해결 (31일 버그 수정): 시간대 혼동을 막기 위해 시작은 자정(00:00:00), 끝은 자정 직전(23:59:59)으로 강제 고정
   const currentEvents = events ? events.filter(e => {
     const eStart = new Date(e.startDate + 'T00:00:00');
     const eEnd = new Date(e.endDate + 'T23:59:59');
     const mStart = new Date(currentYear, currentMonth - 1, 1, 0, 0, 0);
-    const mEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59); // 31일의 밤 11시 59분
+    const mEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59);
     return (eStart <= mEnd && eEnd >= mStart);
   }) : [];
 
   const getEventsForDay = (day) => {
-    // 타겟 날짜를 낮 12시 정각으로 고정하여 안전하게 비교
     const targetDateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const targetDate = new Date(targetDateStr + 'T12:00:00');
     return currentEvents.filter(e => {
@@ -185,8 +180,25 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
     setIsEventModalOpen(true);
   };
   const openEditEvent = (evt, e) => { e.stopPropagation(); setTargetEvent(evt); setEventForm({ title: evt.title, startDate: evt.startDate, endDate: evt.endDate }); setIsEventModalOpen(true); };
-  const handleSaveEvent = () => { if (!eventForm.title) return alert("내용 입력"); if (targetEvent) onUpdateEvent(targetEvent.id, eventForm); else onUpdateEvent(null, eventForm); setIsEventModalOpen(false); };
-  const handleDeleteEvent = (id) => { if(window.confirm("삭제?")) onUpdateEvent(id, null); };
+  
+  const handleSaveEvent = () => { 
+    // 🔥 예쁜 토스트 경고
+    if (!eventForm.title) return showToast("일정 내용을 입력해주세요.", "warning"); 
+    
+    if (targetEvent) onUpdateEvent(targetEvent.id, eventForm); 
+    else onUpdateEvent(null, eventForm); 
+    
+    setIsEventModalOpen(false); 
+    showToast('일정이 저장되었습니다.');
+  };
+  
+  const handleDeleteEvent = async (id) => { 
+    // 🔥 예쁜 삭제 확인창
+    if(await showConfirm("일정을 삭제하시겠습니까?", "선택한 일정이 달력에서 제거됩니다.")) {
+      onUpdateEvent(id, null); 
+      showToast('삭제되었습니다.');
+    }
+  };
 
   const openAttPopup = (studentId, day) => {
     const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -313,7 +325,7 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                         if (isSunday || holidayInfo) colorClass = "bg-red-50/50 dark:bg-red-900/10 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30";
 
                         if (log && log.type) { 
-                          content = log.type.slice(0, 1); // 2글자에서 앞 1글자로 셀 안에서 보이도록 처리
+                          content = log.type.slice(0, 1);
                           hasNote = !!log.note;
                           if (log.type.includes('결')) colorClass = "bg-red-50 text-red-600 font-bold border-red-100";
                           if (log.type.includes('지')) colorClass = "bg-yellow-50 text-yellow-600 font-bold border-yellow-100";

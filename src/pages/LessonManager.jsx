@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Settings, X, BookOpen, CheckCircle, HelpCircle, Calendar } from 'lucide-react';
+import { showToast, showConfirm } from '../utils/alerts'; // 🔥 알림창 가져오기
 
 const SettingsModal = ({ group, onClose, onSave }) => {
   const [localGroup, setLocalGroup] = useState(JSON.parse(JSON.stringify(group)));
@@ -13,14 +14,16 @@ const SettingsModal = ({ group, onClose, onSave }) => {
   const removeProgressItem = (idx) => { setLocalGroup(prev => ({...prev, progressItems: prev.progressItems.filter((_, i) => i !== idx)})); };
   const addClass = () => {
     let className = classMode === 'standard' ? `${grade}학년 ${cls}반` : customName.trim();
-    if (!className) return alert("입력하세요");
-    if (localGroup.classes.some(c => c.name === className)) return alert("중복입니다");
+    // 🔥 예쁜 토스트 알림 적용
+    if (!className) return showToast("이름을 입력하세요.", "warning");
+    if (localGroup.classes.some(c => c.name === className)) return showToast("이미 추가된 교실입니다.", "warning");
+    
     setLocalGroup(prev => ({...prev, classes: [...prev.classes, { id: Date.now().toString(), name: className }]}));
     setCustomName("");
   };
   const removeClass = (clsId) => { setLocalGroup(prev => ({...prev, classes: prev.classes.filter(c => c.id !== clsId)})); };
 
-  const handleSave = () => { onSave(localGroup.id, localGroup); onClose(); };
+  const handleSave = () => { onSave(localGroup.id, localGroup); onClose(); showToast('수업 설정이 저장되었습니다.'); };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
@@ -67,13 +70,18 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
 
   const handleAddGroup = () => {
     const name = prompt("새 수업 그룹 이름을 입력하세요");
-    if (name) onAddGroup({ name, progressItems: ["1단원"], classes: [], status: {} });
+    if (name) {
+      onAddGroup({ name, progressItems: ["1단원"], classes: [], status: {} });
+      showToast('새 그룹이 생성되었습니다.');
+    }
   };
 
-  const handleDeleteGroup = (id) => {
-    if (window.confirm("삭제하시겠습니까?")) {
+  const handleDeleteGroup = async (id) => {
+    // 🔥 예쁜 삭제 확인창 적용
+    if (await showConfirm("수업 그룹을 삭제하시겠습니까?", "등록된 모든 진도 데이터가 삭제됩니다.")) {
       onDeleteGroup(id);
       if (selectedGroupId === id) setSelectedGroupId(null);
+      showToast('삭제되었습니다.');
     }
   };
 
@@ -115,7 +123,6 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
             <table className="w-full text-sm text-center border-collapse">
               <thead className="bg-indigo-50 dark:bg-gray-700 text-indigo-900 dark:text-gray-200 font-bold">
                 <tr>
-                  {/* 🔥 2번 요청: 표 세로/가로 전환 (세로가 진도, 가로가 반) */}
                   <th className="p-3 border border-indigo-100 dark:border-gray-600 min-w-[150px] sticky left-0 bg-indigo-50 dark:bg-gray-700 z-10 shadow-sm">진도 단계</th>
                   {activeGroup.classes.map(cls => (
                     <th key={cls.id} className="p-3 border border-indigo-100 dark:border-gray-600 min-w-[100px]">{cls.name}</th>

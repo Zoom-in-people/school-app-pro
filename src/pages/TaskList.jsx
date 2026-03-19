@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, CheckCircle, Circle } from 'lucide-react';
 import TodoModal from '../components/modals/TodoModal';
+import { showToast, showConfirm } from '../utils/alerts'; // 🔥 알림창 가져오기
 
 export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo }) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -11,8 +12,10 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
     if (todo.id) {
       const { id, ...fields } = todo;
       onUpdateTodo(id, fields);
+      showToast('업무가 수정되었습니다.'); // 🔥 저장 완료 알림
     } else {
       onAddTodo({ ...todo, done: false });
+      showToast('새 업무가 등록되었습니다.');
     }
     setModalOpen(false);
   };
@@ -37,7 +40,6 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border overflow-hidden overflow-x-auto">
         <table className="w-full text-left min-w-[600px]">
-          {/* 🔥 3, 4번 요청: 헤더 가로 고정 유지 */}
           <thead className="bg-gray-50 dark:bg-gray-700 text-gray-500 text-sm">
             <tr>
               <th className="p-4 w-16 text-center whitespace-nowrap">상태</th>
@@ -63,7 +65,6 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
                       {todo.done ? <CheckCircle className="text-green-500"/> : <Circle className="text-gray-300 hover:text-indigo-400"/>}
                     </button>
                   </td>
-                  {/* 🔥 4번 요청: 글자 넘침 방지 및 한 줄 유지 처리 */}
                   <td className={`p-4 font-bold ${todo.done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'} truncate max-w-[200px] md:max-w-xs`} title={todo.title}>
                     {todo.title}
                   </td>
@@ -77,7 +78,13 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
                   <td className="p-4 text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">{todo.dueDate}</td>
                   <td className="p-4 text-right whitespace-nowrap">
                     <button onClick={() => { setTargetTodo(todo); setModalOpen(true); }} className="p-2 text-gray-400 hover:text-indigo-600 bg-white/50 dark:bg-transparent rounded-lg transition"><Edit2 size={16}/></button>
-                    <button onClick={() => onDeleteTodo(todo.id)} className="p-2 text-gray-400 hover:text-red-600 bg-white/50 dark:bg-transparent rounded-lg transition ml-1"><Trash2 size={16}/></button>
+                    {/* 🔥 예쁜 삭제 확인창 적용 */}
+                    <button onClick={async () => {
+                      if(await showConfirm("업무를 삭제하시겠습니까?", "선택한 업무가 목록에서 제거됩니다.")) {
+                        onDeleteTodo(todo.id);
+                        showToast('삭제되었습니다.');
+                      }
+                    }} className="p-2 text-gray-400 hover:text-red-600 bg-white/50 dark:bg-transparent rounded-lg transition ml-1"><Trash2 size={16}/></button>
                   </td>
                 </tr>
               );

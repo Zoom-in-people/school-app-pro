@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Calendar, User, MessageSquare, Tag, Trash2, Edit2, X, Save, Printer } from 'lucide-react'; // 🔥 Printer 아이콘 추가
+import { Search, Plus, Calendar, User, MessageSquare, Tag, Trash2, Edit2, X, Save, Printer } from 'lucide-react';
+import { showToast, showConfirm } from '../utils/alerts'; // 🔥 알림창 가져오기
 
 export default function ConsultationLog({ students = [], consultations = [], onAddConsultation, onUpdateConsultation, onDeleteConsultation }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,15 +33,18 @@ export default function ConsultationLog({ students = [], consultations = [], onA
   }, [consultations, filterStudentId, searchTerm, students]);
 
   const handleSave = () => {
-    if (!selectedStudentId) return alert("학생을 선택해주세요.");
-    if (!formData.content) return alert("내용을 입력해주세요.");
+    // 🔥 예쁜 토스트 경고
+    if (!selectedStudentId) return showToast("학생을 선택해주세요.", "warning");
+    if (!formData.content) return showToast("내용을 입력해주세요.", "warning");
+    
     if (editingLogId) onUpdateConsultation(editingLogId, { studentId: selectedStudentId, ...formData });
     else onAddConsultation({ studentId: selectedStudentId, ...formData });
+    
+    showToast('상담 내용이 저장되었습니다.', 'success');
     closeModal();
   };
 
   const closeModal = () => { setIsModalOpen(false); setEditingLogId(null); setSelectedStudentId(''); setFormData({ date: new Date().toISOString().split('T')[0], type: 'student', content: '', category: '생활' }); };
-
   const handleEdit = (log) => { setSelectedStudentId(log.studentId); setFormData({ date: log.date, type: log.type, content: log.content, category: log.category }); setEditingLogId(log.id); setIsModalOpen(true); };
 
   return (
@@ -51,7 +55,6 @@ export default function ConsultationLog({ students = [], consultations = [], onA
           <input type="text" placeholder="상담 내용 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white" />
         </div>
         <div className="flex gap-2">
-          {/* 🔥 인쇄 버튼 */}
           <button onClick={() => window.print()} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center gap-2 border border-gray-200 dark:border-gray-600 shadow-sm">
             <Printer size={18}/> 인쇄
           </button>
@@ -90,7 +93,13 @@ export default function ConsultationLog({ students = [], consultations = [], onA
                     </div>
                     <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition no-print">
                       <button onClick={() => handleEdit(log)} className="p-2 text-gray-400 hover:text-indigo-500 rounded-lg"><Edit2 size={18}/></button>
-                      <button onClick={() => { if(window.confirm("삭제하시겠습니까?")) onDeleteConsultation(log.id); }} className="p-2 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={18}/></button>
+                      {/* 🔥 예쁜 삭제 확인창 적용 */}
+                      <button onClick={async () => { 
+                        if(await showConfirm("상담 기록을 삭제하시겠습니까?", "이 기록은 영구적으로 삭제됩니다.")) {
+                          onDeleteConsultation(log.id); 
+                          showToast('삭제되었습니다.');
+                        }
+                      }} className="p-2 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={18}/></button>
                     </div>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap flex-1 print:bg-white print:text-black print:p-2 print:border-none">
@@ -104,7 +113,6 @@ export default function ConsultationLog({ students = [], consultations = [], onA
           <div className="py-20 text-center text-gray-400 no-print"><MessageSquare size={48} className="mx-auto mb-4 opacity-20"/><p>기록이 없습니다.</p></div>
         )}
       </div>
-
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">

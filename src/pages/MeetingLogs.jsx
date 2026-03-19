@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Calendar, Clock, Trash2, Edit2, X, Save, MessageSquare, Printer } from 'lucide-react'; // 🔥 Printer 아이콘 추가
+import { Search, Plus, Calendar, Clock, Trash2, Edit2, X, Save, MessageSquare, Printer } from 'lucide-react';
+import { showToast, showConfirm } from '../utils/alerts'; // 🔥 알림창 가져오기
 
 export default function MeetingLogs({ logs = [], onAddLog, onUpdateLog, onDeleteLog }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,9 +15,13 @@ export default function MeetingLogs({ logs = [], onAddLog, onUpdateLog, onDelete
   }, [logs, searchTerm]);
 
   const handleSave = () => {
-    if (!formData.title || !formData.content) return alert("제목과 내용을 모두 입력해주세요.");
+    // 🔥 예쁜 토스트 경고
+    if (!formData.title || !formData.content) return showToast("제목과 내용을 모두 입력해주세요.", "warning");
+    
     if (editingLogId) onUpdateLog(editingLogId, formData);
     else onAddLog(formData);
+    
+    showToast('회의록이 저장되었습니다.', 'success'); // 🔥 완료 알림
     closeModal();
   };
 
@@ -25,14 +30,12 @@ export default function MeetingLogs({ logs = [], onAddLog, onUpdateLog, onDelete
 
   return (
     <div className="h-full flex flex-col gap-4 relative">
-      {/* 🔥 인쇄 시 툴바 숨김 처리 (no-print) */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border dark:border-gray-700 no-print">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input type="text" placeholder="회의록 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white dark:border-gray-600"/>
         </div>
         <div className="flex gap-2">
-          {/* 🔥 2번 요청: 인쇄 버튼 추가 */}
           <button onClick={() => window.print()} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center gap-2 border border-gray-200 dark:border-gray-600 shadow-sm">
             <Printer size={18}/> 인쇄
           </button>
@@ -42,7 +45,6 @@ export default function MeetingLogs({ logs = [], onAddLog, onUpdateLog, onDelete
         </div>
       </div>
 
-      {/* 🔥 인쇄 시 높이 무제한 및 내부 스크롤 해제 */}
       <div className="flex-1 overflow-y-auto pr-2 print:overflow-visible print:h-auto mt-2">
         {filteredLogs.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 items-start print:block print:space-y-6">
@@ -58,11 +60,16 @@ export default function MeetingLogs({ logs = [], onAddLog, onUpdateLog, onDelete
                   </div>
                   <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition no-print">
                     <button onClick={() => handleEdit(log)} className="p-2 text-gray-400 hover:text-indigo-500 rounded-lg"><Edit2 size={18}/></button>
-                    <button onClick={() => { if(window.confirm("삭제하시겠습니까?")) onDeleteLog(log.id); }} className="p-2 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={18}/></button>
+                    {/* 🔥 예쁜 삭제 확인창 적용 */}
+                    <button onClick={async () => { 
+                      if(await showConfirm("회의록을 삭제하시겠습니까?", "이 기록은 영구적으로 삭제됩니다.")) {
+                        onDeleteLog(log.id); 
+                        showToast('삭제되었습니다.');
+                      }
+                    }} className="p-2 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={18}/></button>
                   </div>
                 </div>
                 
-                {/* 🔥 인쇄 시 max-h-48을 없애고 모든 내용을 풀어서 보여줌 */}
                 <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto custom-scrollbar flex-1 print:max-h-none print:overflow-visible print:bg-white print:text-black print:p-2 print:border-none">
                   {log.content}
                 </div>
@@ -73,7 +80,7 @@ export default function MeetingLogs({ logs = [], onAddLog, onUpdateLog, onDelete
           <div className="py-20 text-center text-gray-400 no-print"><MessageSquare size={48} className="mx-auto mb-4 opacity-20"/><p>기록이 없습니다.</p></div>
         )}
       </div>
-      
+
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
