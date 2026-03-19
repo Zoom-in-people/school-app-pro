@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Calendar, Clock, Trash2, Edit2, X, Save, MessageSquare } from 'lucide-react';
+import { Search, Plus, Calendar, Clock, Trash2, Edit2, X, Save, MessageSquare, Printer } from 'lucide-react'; // 🔥 Printer 아이콘 추가
 
 export default function MeetingLogs({ logs = [], onAddLog, onUpdateLog, onDeleteLog }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,48 +24,56 @@ export default function MeetingLogs({ logs = [], onAddLog, onUpdateLog, onDelete
   const handleEdit = (log) => { setFormData({ date: log.date, title: log.title, content: log.content }); setEditingLogId(log.id); setIsModalOpen(true); };
 
   return (
-    <div className="h-full flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border dark:border-gray-700">
+    <div className="h-full flex flex-col gap-4 relative">
+      {/* 🔥 인쇄 시 툴바 숨김 처리 (no-print) */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border dark:border-gray-700 no-print">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input type="text" placeholder="회의록 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white dark:border-gray-600"/>
         </div>
-        <button onClick={() => { closeModal(); setIsModalOpen(true); }} className="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition flex items-center gap-2">
-          <Plus size={18}/> 새 회의록 작성
-        </button>
+        <div className="flex gap-2">
+          {/* 🔥 2번 요청: 인쇄 버튼 추가 */}
+          <button onClick={() => window.print()} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center gap-2 border border-gray-200 dark:border-gray-600 shadow-sm">
+            <Printer size={18}/> 인쇄
+          </button>
+          <button onClick={() => { closeModal(); setIsModalOpen(true); }} className="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition flex items-center gap-2 shadow-sm">
+            <Plus size={18}/> 새 회의록 작성
+          </button>
+        </div>
       </div>
 
-      {/* 🔥 2번 요청 해결: 그리드 뷰(2단 배열) 적용 (lg 화면 이상에서 2칸으로 나뉨) */}
-      <div className="flex-1 overflow-y-auto pr-2">
+      {/* 🔥 인쇄 시 높이 무제한 및 내부 스크롤 해제 */}
+      <div className="flex-1 overflow-y-auto pr-2 print:overflow-visible print:h-auto mt-2">
         {filteredLogs.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 items-start print:block print:space-y-6">
             {filteredLogs.map(log => (
-              <div key={log.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 group hover:border-indigo-200 transition-all flex flex-col h-full">
+              <div key={log.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 group hover:border-indigo-200 transition-all flex flex-col h-full print-break-inside-avoid print:border-gray-400 print:shadow-none">
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="bg-indigo-50 dark:bg-indigo-900/40 p-2 rounded-xl text-indigo-600 dark:text-indigo-300"><MessageSquare size={20}/></div>
+                    <div className="bg-indigo-50 dark:bg-indigo-900/40 p-2 rounded-xl text-indigo-600 dark:text-indigo-300 print:bg-gray-100 print:text-black"><MessageSquare size={20}/></div>
                     <div>
-                      <h4 className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">{log.title}</h4>
-                      <p className="text-xs text-gray-400 flex items-center gap-1"><Calendar size={12}/> {log.date}</p>
+                      <h4 className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2 print:text-black">{log.title}</h4>
+                      <p className="text-xs text-gray-400 flex items-center gap-1 print:text-gray-600"><Calendar size={12}/> {log.date}</p>
                     </div>
                   </div>
-                  <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition">
+                  <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition no-print">
                     <button onClick={() => handleEdit(log)} className="p-2 text-gray-400 hover:text-indigo-500 rounded-lg"><Edit2 size={18}/></button>
                     <button onClick={() => { if(window.confirm("삭제하시겠습니까?")) onDeleteLog(log.id); }} className="p-2 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={18}/></button>
                   </div>
                 </div>
                 
-                <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto custom-scrollbar flex-1">
+                {/* 🔥 인쇄 시 max-h-48을 없애고 모든 내용을 풀어서 보여줌 */}
+                <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto custom-scrollbar flex-1 print:max-h-none print:overflow-visible print:bg-white print:text-black print:p-2 print:border-none">
                   {log.content}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="py-20 text-center text-gray-400"><MessageSquare size={48} className="mx-auto mb-4 opacity-20"/><p>기록이 없습니다.</p></div>
+          <div className="py-20 text-center text-gray-400 no-print"><MessageSquare size={48} className="mx-auto mb-4 opacity-20"/><p>기록이 없습니다.</p></div>
         )}
       </div>
-
+      
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">

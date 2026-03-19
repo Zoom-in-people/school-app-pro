@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Calendar, User, MessageSquare, Tag, Trash2, Edit2, X, Save } from 'lucide-react';
+import { Search, Plus, Calendar, User, MessageSquare, Tag, Trash2, Edit2, X, Save, Printer } from 'lucide-react'; // 🔥 Printer 아이콘 추가
 
 export default function ConsultationLog({ students = [], consultations = [], onAddConsultation, onUpdateConsultation, onDeleteConsultation }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -8,12 +8,7 @@ export default function ConsultationLog({ students = [], consultations = [], onA
 
   const [editingLogId, setEditingLogId] = useState(null);
   const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [formData, setFormData] = useState({ 
-    date: new Date().toISOString().split('T')[0], 
-    type: 'student', 
-    content: '', 
-    category: '생활' 
-  });
+  const [formData, setFormData] = useState({ date: new Date().toISOString().split('T')[0], type: 'student', content: '', category: '생활' });
 
   const sortedStudents = useMemo(() => {
     return [...students].sort((a, b) => {
@@ -39,84 +34,66 @@ export default function ConsultationLog({ students = [], consultations = [], onA
   const handleSave = () => {
     if (!selectedStudentId) return alert("학생을 선택해주세요.");
     if (!formData.content) return alert("내용을 입력해주세요.");
-    
     if (editingLogId) onUpdateConsultation(editingLogId, { studentId: selectedStudentId, ...formData });
     else onAddConsultation({ studentId: selectedStudentId, ...formData });
     closeModal();
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingLogId(null);
-    setSelectedStudentId('');
-    setFormData({ date: new Date().toISOString().split('T')[0], type: 'student', content: '', category: '생활' });
-  };
+  const closeModal = () => { setIsModalOpen(false); setEditingLogId(null); setSelectedStudentId(''); setFormData({ date: new Date().toISOString().split('T')[0], type: 'student', content: '', category: '생활' }); };
 
-  const handleEdit = (log) => {
-    setSelectedStudentId(log.studentId);
-    setFormData({ date: log.date, type: log.type, content: log.content, category: log.category });
-    setEditingLogId(log.id);
-    setIsModalOpen(true);
-  };
+  const handleEdit = (log) => { setSelectedStudentId(log.studentId); setFormData({ date: log.date, type: log.type, content: log.content, category: log.category }); setEditingLogId(log.id); setIsModalOpen(true); };
 
   return (
-    <div className="h-full flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+    <div className="h-full flex flex-col gap-4 relative">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 no-print">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input 
-            type="text" placeholder="상담 내용 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white"
-          />
+          <input type="text" placeholder="상담 내용 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white" />
         </div>
-        <button onClick={() => { closeModal(); setIsModalOpen(true); }} className="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition flex items-center gap-2">
-          <Plus size={18}/> 새 상담 등록
-        </button>
+        <div className="flex gap-2">
+          {/* 🔥 인쇄 버튼 */}
+          <button onClick={() => window.print()} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center gap-2 border border-gray-200 dark:border-gray-600 shadow-sm">
+            <Printer size={18}/> 인쇄
+          </button>
+          <button onClick={() => { closeModal(); setIsModalOpen(true); }} className="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition flex items-center gap-2 shadow-sm">
+            <Plus size={18}/> 새 상담 등록
+          </button>
+        </div>
       </div>
 
-      {/* 🔥 3번 요청 해결: flex-wrap 속성을 추가하여 가로 스크롤 대신 자동으로 여러 줄 바꿈이 되도록 수정 */}
-      <div className="flex flex-wrap gap-2 pb-3 border-b border-gray-200 dark:border-gray-700 max-h-40 overflow-y-auto custom-scrollbar">
-        <button 
-          onClick={() => setFilterStudentId('all')}
-          className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-bold transition border ${filterStudentId === 'all' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100'}`}
-        >
-          전체 보기
-        </button>
+      <div className="flex flex-wrap gap-2 pb-3 border-b border-gray-200 dark:border-gray-700 max-h-40 overflow-y-auto custom-scrollbar no-print">
+        <button onClick={() => setFilterStudentId('all')} className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-bold transition border ${filterStudentId === 'all' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100'}`}>전체 보기</button>
         {sortedStudents.map(s => (
-          <button 
-            key={s.id} onClick={() => setFilterStudentId(s.id)}
-            className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-bold transition border flex items-center gap-1.5 ${filterStudentId === s.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-          >
+          <button key={s.id} onClick={() => setFilterStudentId(s.id)} className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-bold transition border flex items-center gap-1.5 ${filterStudentId === s.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
             <span className="opacity-50 text-[10px]">{s.number}</span> {s.name}
           </button>
         ))}
       </div>
 
-      {/* 🔥 2번 요청 해결: 그리드 뷰(2줄) 적용 (lg 화면 이상일 때 grid-cols-2) */}
-      <div className="flex-1 overflow-y-auto pr-2">
+      <div className="flex-1 overflow-y-auto pr-2 print:overflow-visible print:h-auto mt-2">
         {filteredLogs.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 items-start print:block print:space-y-6">
             {filteredLogs.map(log => {
               const student = students.find(s => s.id === log.studentId);
               return (
-                <div key={log.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 group hover:border-indigo-200 transition-all flex flex-col h-full">
+                <div key={log.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 group hover:border-indigo-200 transition-all flex flex-col h-full print-break-inside-avoid print:border-gray-400 print:shadow-none">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="bg-indigo-50 dark:bg-indigo-900/40 p-2 rounded-xl text-indigo-600 dark:text-indigo-300"><User size={20}/></div>
+                      <div className="bg-indigo-50 dark:bg-indigo-900/40 p-2 rounded-xl text-indigo-600 dark:text-indigo-300 print:bg-gray-100 print:text-black"><User size={20}/></div>
                       <div>
-                        <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 print:text-black">
                           {student ? `${student.grade}-${student.class} ${student.number}번 ${student.name}` : '삭제된 학생'}
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${log.type === 'parent' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{log.type === 'parent' ? '학부모 상담' : '학생 상담'}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${log.type === 'parent' ? 'bg-orange-100 text-orange-600 print:bg-white print:border print:border-orange-300' : 'bg-blue-100 text-blue-600 print:bg-white print:border print:border-blue-300'}`}>{log.type === 'parent' ? '학부모 상담' : '학생 상담'}</span>
                         </h4>
-                        <p className="text-xs text-gray-400 flex items-center gap-1"><Calendar size={12}/> {log.date} · <Tag size={12}/> {log.category}</p>
+                        <p className="text-xs text-gray-400 flex items-center gap-1 print:text-gray-600"><Calendar size={12}/> {log.date} · <Tag size={12}/> {log.category}</p>
                       </div>
                     </div>
-                    <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition">
+                    <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition no-print">
                       <button onClick={() => handleEdit(log)} className="p-2 text-gray-400 hover:text-indigo-500 rounded-lg"><Edit2 size={18}/></button>
                       <button onClick={() => { if(window.confirm("삭제하시겠습니까?")) onDeleteConsultation(log.id); }} className="p-2 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={18}/></button>
                     </div>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap flex-1">
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap flex-1 print:bg-white print:text-black print:p-2 print:border-none">
                     {log.content}
                   </div>
                 </div>
@@ -124,9 +101,10 @@ export default function ConsultationLog({ students = [], consultations = [], onA
             })}
           </div>
         ) : (
-          <div className="py-20 text-center text-gray-400"><MessageSquare size={48} className="mx-auto mb-4 opacity-20"/><p>기록이 없습니다.</p></div>
+          <div className="py-20 text-center text-gray-400 no-print"><MessageSquare size={48} className="mx-auto mb-4 opacity-20"/><p>기록이 없습니다.</p></div>
         )}
       </div>
+
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">

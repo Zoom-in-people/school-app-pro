@@ -1,22 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Database, Save, CheckCircle, ExternalLink, Code, Loader, Edit2, Trash2, X } from 'lucide-react';
-// 🔥 설정 제거 시 자동 백업을 위해 함수 불러오기
 import { backupToGoogleDrive } from '../hooks/useGoogleDriveDB';
+import { showToast, showAlert, showConfirm } from '../utils/alerts'; // 🔥 알림창 가져오기
 
 export default function RealtimeSetup() {
   const [configText, setConfigText] = useState('');
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
-  // 🔥 2번 요청 반영을 위한 추가 상태
   const [hasExistingConfig, setHasExistingConfig] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     const existingConfig = localStorage.getItem('custom_firebase_config');
-    if (existingConfig) {
-      setHasExistingConfig(true); // 기존 설정이 있으면 가림막 화면 띄우기
-    }
+    if (existingConfig) setHasExistingConfig(true);
   }, []);
 
   const syncConfigToDrive = async (text) => {
@@ -31,35 +27,25 @@ export default function RealtimeSetup() {
       const file = new Blob([text], { type: 'application/json' });
 
       if (searchData.files && searchData.files.length > 0) {
-        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${searchData.files[0].id}?uploadType=media`, {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${token}` },
-          body: file
-        });
+        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${searchData.files[0].id}?uploadType=media`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: file });
       } else {
         const metadata = { name: 'firebase_config.json', parents: [folderId] };
         const formData = new FormData();
         formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
         formData.append('file', file);
-        await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData
-        });
+        await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
       }
-    } catch (e) {
-      console.error('Drive sync failed', e);
-    }
+    } catch (e) { console.error('Drive sync failed', e); }
   };
 
   const handleSave = async () => {
     if (configText.trim() === '') {
-      alert('Firebase 설정 코드를 입력해주세요.');
+      showToast('Firebase 설정 코드를 입력해주세요.', 'warning');
       return;
     }
 
     if (!configText.includes('apiKey') || !configText.includes('projectId')) {
-      alert('입력하신 텍스트에 올바른 Firebase 설정(apiKey, projectId 등)이 포함되어 있지 않습니다. 가이드 5번을 다시 확인해주세요.');
+      showAlert('설정 오류', '입력하신 텍스트에 올바른 Firebase 설정(apiKey, projectId 등)이 포함되어 있지 않습니다.', 'error');
       return;
     }
 
@@ -73,41 +59,42 @@ export default function RealtimeSetup() {
     setIsEditing(false);
     setTimeout(() => setIsSaved(false), 3000);
     
-    if (window.confirm('설정이 저장되었습니다! 실시간 모드를 적용하기 위해 새로고침 하시겠습니까?')) {
-      window.location.reload();
-    }
+    // 🔥 예쁜 Confirm 창 적용
+    const isConfirmed = await showConfirm('적용 완료!', '실시간 모드를 즉시 적용하기 위해 새로고침 하시겠습니까?', '새로고침', false);
+    if (isConfirmed) window.location.reload();
   };
 
-  // 🔥 2번 요청: 설정 제거 시 구글 드라이브 강제 백업 후 삭제
   const handleRemoveConfig = async () => {
-    if (window.confirm('Firebase 설정을 제거하시겠습니까?\n제거하기 전 현재 데이터를 구글 드라이브에 안전하게 자동 백업합니다.')) {
+    // 🔥 예쁜 Confirm 창 적용
+    const isConfirmed = await showConfirm(
+      '설정을 제거하시겠습니까?', 
+      '제거하기 전 현재 데이터를 구글 드라이브에 안전하게 백업합니다.', 
+      '네, 제거합니다'
+    );
+    
+    if (isConfirmed) {
       setIsSaving(true);
       try {
         const result = await backupToGoogleDrive();
         if (!result.success) {
-           alert(result.message + "\n(백업에 문제가 생겼지만 설정 지우기를 강행합니다.)");
+           showToast(result.message, 'warning');
         }
         await syncConfigToDrive(''); 
         localStorage.removeItem('custom_firebase_config');
-        alert('구글 드라이브 백업 및 설정 제거가 완료되었습니다. 기본 모드로 돌아가기 위해 새로고침 됩니다.');
+        
+        await showAlert('제거 완료', '구글 드라이브 백업 및 설정 제거가 완료되었습니다. 기본 모드로 돌아갑니다.', 'success');
         window.location.reload();
       } catch(e) {
-        alert('오류가 발생했습니다.');
+        showToast('오류가 발생했습니다.', 'error');
         setIsSaving(false);
       }
     }
   };
 
-  const handleEdit = () => {
-    setIsEditing(true);
-    setConfigText(''); // 수정 누르면 빈 칸으로 시작
-  };
+  const handleEdit = () => { setIsEditing(true); setConfigText(''); };
+  const handleCancelEdit = () => { setIsEditing(false); setConfigText(''); };
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setConfigText('');
-  };
-
+  // 아래 return 구문은 기존과 완전히 동일합니다!
   return (
     <div className="h-full flex flex-col gap-6 p-2 overflow-y-auto custom-scrollbar">
       <div className="flex flex-col gap-2">
@@ -188,13 +175,11 @@ export default function RealtimeSetup() {
           </div>
         </div>
 
-        {/* 우측: 설정 입력 영역 */}
         <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg border border-indigo-100 dark:border-gray-700 flex flex-col h-full lg:sticky lg:top-4">
           <h3 className="font-bold text-xl mb-2 dark:text-white flex items-center gap-2">
             <Code className="text-indigo-600" size={24}/> 나의 Firebase 설정 관리
           </h3>
           
-          {/* 🔥 2번 요청 반영: 적용 중일 때는 텍스트 에어리어를 숨기고 상태 뷰 노출 */}
           {hasExistingConfig && !isEditing ? (
             <div className="flex-1 flex flex-col justify-center items-center text-center space-y-6 py-10">
               <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center shadow-inner">
@@ -247,8 +232,7 @@ export default function RealtimeSetup() {
                   </button>
                 </div>
                 <p className="text-xs text-gray-400 text-center">
-                  {/* 🔥 1번 요청 반영: 문구 수정 */}
-                  * 설정이 완료되면 모든 기기에서 데이터가 <strong>실시간으로 변동됩니다.</strong><br/>언제든 지우고 기본 모드로 돌아갈 수 있습니다.
+                  * 설정은 구글 드라이브를 통해 스마트폰으로 <strong>자동 전달</strong>됩니다.<br/>언제든 지우고 기본 모드로 돌아갈 수 있습니다.
                 </p>
               </div>
             </>

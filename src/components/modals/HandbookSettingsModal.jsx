@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2, GraduationCap, Search, Sparkles } from 'lucide-react';
 import { NEIS_API_KEY, OFFICE_CODES } from '../../constants/data';
+import { showToast, showAlert, showConfirm } from '../../utils/alerts'; // 🔥 알림창 가져오기
 
 export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpdate, onDelete, apiKey, setApiKey }) {
   const [formData, setFormData] = useState({ 
@@ -12,7 +13,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
   const [schoolSearchName, setSchoolSearchName] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  
   const [localApiKey, setLocalApiKey] = useState('');
 
   useEffect(() => {
@@ -35,7 +35,10 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
   }, [handbook, isOpen, apiKey]);
 
   const searchSchool = async () => {
-    if (schoolSearchName.length < 2) return alert("학교명을 2글자 이상 입력하세요.");
+    if (schoolSearchName.length < 2) {
+      showToast('학교명을 2글자 이상 입력하세요.', 'warning');
+      return;
+    }
     setIsSearching(true);
     try {
       let allResults = [];
@@ -48,10 +51,7 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
           const data = await res.json();
           if (data.schoolInfo) {
             return data.schoolInfo[1].row.map(s => ({
-              name: s.SCHUL_NM,
-              code: s.SD_SCHUL_CODE,
-              officeCode: s.ATPT_OFCDC_SC_CODE,
-              address: s.ORG_RDNMA
+              name: s.SCHUL_NM, code: s.SD_SCHUL_CODE, officeCode: s.ATPT_OFCDC_SC_CODE, address: s.ORG_RDNMA
             }));
           }
         } catch (e) { return []; }
@@ -62,11 +62,11 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
       allResults = results.flat();
       
       setSearchResults(allResults);
-      if (allResults.length === 0) alert("검색 결과가 없습니다.");
+      if (allResults.length === 0) showToast("검색 결과가 없습니다.", 'info');
 
     } catch (e) {
       console.error(e);
-      alert("검색 중 오류가 발생했습니다.");
+      showToast("검색 중 오류가 발생했습니다.", 'error');
     } finally {
       setIsSearching(false);
     }
@@ -75,12 +75,7 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
   const handleSelectSchool = (school) => {
     setFormData(prev => ({
       ...prev,
-      schoolInfo: {
-        ...prev.schoolInfo,
-        name: school.name,
-        code: school.code,
-        officeCode: school.officeCode
-      }
+      schoolInfo: { ...prev.schoolInfo, name: school.name, code: school.code, officeCode: school.officeCode }
     }));
     setSchoolSearchName(school.name);
     setSearchResults([]);
@@ -91,15 +86,20 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
     onUpdate(handbook.id, formData);
     if (setApiKey) setApiKey(localApiKey.trim()); 
     onClose();
+    showToast('설정이 저장되었습니다.');
   };
 
-  const handleDelete = () => {
-    if (window.confirm(
-      "정말로 이 교무수첩을 삭제하시겠습니까?\n\n" +
-      "⚠️ 주의: 입력한 모든 학생 정보와 상담 기록이 영구적으로 삭제됩니다.\n" +
-      "(구글 드라이브의 파일은 휴지통으로 이동됩니다)"
-    )) {
+  const handleDelete = async () => {
+    // 🔥 예쁜 Confirm 알림창으로 교체!
+    const isConfirmed = await showConfirm(
+      '정말로 삭제하시겠습니까?', 
+      '⚠️ 입력한 모든 학생 정보와 상담 기록이 영구적으로 삭제됩니다.', 
+      '네, 삭제합니다'
+    );
+
+    if (isConfirmed) {
       onDelete(handbook.id);
+      showToast('교무수첩이 삭제되었습니다.', 'success');
     }
   };
 
@@ -110,46 +110,24 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
         
         <div className="bg-indigo-600 p-6 flex justify-between items-center shrink-0">
-           <h2 className="text-xl font-bold text-white flex items-center gap-2">
-             교무수첩 설정
-           </h2>
-           <button onClick={onClose} className="p-1 rounded-full hover:bg-white/20 transition">
-             <X className="text-white" />
-           </button>
+           <h2 className="text-xl font-bold text-white flex items-center gap-2">교무수첩 설정</h2>
+           <button onClick={onClose} className="p-1 rounded-full hover:bg-white/20 transition"><X className="text-white" /></button>
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
           <form onSubmit={handleSubmit} className="space-y-6">
-            
             <div className="space-y-2">
               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">교무수첩 이름</label>
-              <input 
-                type="text" 
-                required
-                value={formData.title} 
-                onChange={(e) => setFormData({...formData, title: e.target.value})} 
-                placeholder="예: 2026학년도 1학기"
-                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
-              />
+              <input type="text" required value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} placeholder="예: 2026학년도 1학기" className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" />
             </div>
 
             <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl flex items-center justify-between border border-gray-100 dark:border-gray-600">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-300">
-                  <GraduationCap size={20}/>
-                </div>
-                <div>
-                  <p className="font-bold text-gray-900 dark:text-white text-sm">담임 선생님이신가요?</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">우리반 관리 기능을 활성화합니다.</p>
-                </div>
+                <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-300"><GraduationCap size={20}/></div>
+                <div><p className="font-bold text-gray-900 dark:text-white text-sm">담임 선생님이신가요?</p><p className="text-xs text-gray-500 dark:text-gray-400">우리반 관리 기능을 활성화합니다.</p></div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={formData.isHomeroom} 
-                  onChange={(e) => setFormData({...formData, isHomeroom: e.target.checked})} 
-                  className="sr-only peer" 
-                />
+                <input type="checkbox" checked={formData.isHomeroom} onChange={(e) => setFormData({...formData, isHomeroom: e.target.checked})} className="sr-only peer" />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
               </label>
             </div>
@@ -158,76 +136,34 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
               <div className="relative">
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">학교 설정 (급식 연동용)</label>
                 <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    value={schoolSearchName} 
-                    onChange={(e) => setSchoolSearchName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        searchSchool();
-                      }
-                    }}
-                    placeholder="학교명 검색 (예: 서울초)"
-                    className="flex-1 p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
-                  />
-                  <button 
-                    type="button" 
-                    onClick={searchSchool} 
-                    disabled={isSearching}
-                    className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 transition disabled:opacity-50"
-                  >
-                    <Search size={20}/>
-                  </button>
+                  <input type="text" value={schoolSearchName} onChange={(e) => setSchoolSearchName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchSchool(); } }} placeholder="학교명 검색 (예: 서울초)" className="flex-1 p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition" />
+                  <button type="button" onClick={searchSchool} disabled={isSearching} className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 transition disabled:opacity-50"><Search size={20}/></button>
                 </div>
                 
                 {searchResults.length > 0 && (
                   <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 absolute z-50 w-[calc(100%-3.5rem)] shadow-xl custom-scrollbar">
                     {searchResults.map((s, idx) => (
-                      <div 
-                        key={idx} 
-                        onClick={() => handleSelectSchool(s)} 
-                        className="p-3 hover:bg-indigo-50 dark:hover:bg-gray-600 cursor-pointer text-sm border-b border-gray-100 dark:border-gray-600 last:border-none transition"
-                      >
-                        <p className="font-bold dark:text-white">{s.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{s.address}</p>
+                      <div key={idx} onClick={() => handleSelectSchool(s)} className="p-3 hover:bg-indigo-50 dark:hover:bg-gray-600 cursor-pointer text-sm border-b border-gray-100 dark:border-gray-600 last:border-none transition">
+                        <p className="font-bold dark:text-white">{s.name}</p><p className="text-xs text-gray-500 dark:text-gray-400">{s.address}</p>
                       </div>
                     ))}
                   </div>
                 )}
-                {formData.schoolInfo.code && (
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 font-bold">
-                    ✅ 선택됨: {formData.schoolInfo.name}
-                  </p>
-                )}
+                {formData.schoolInfo.code && <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 font-bold">✅ 선택됨: {formData.schoolInfo.name}</p>}
               </div>
 
               {formData.isHomeroom && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">학년</label>
-                    {/* 🔥 클래스 네임 충돌 해결: dark:bg-gray-800 삭제 */}
-                    <select
-                      value={String(formData.schoolInfo.grade)} 
-                      onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, grade: e.target.value}})} 
-                      className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none bg-white"
-                    >
-                      {[1, 2, 3, 4, 5, 6].map(g => (
-                        <option key={g} value={String(g)}>{g}학년</option>
-                      ))}
+                    <select value={String(formData.schoolInfo.grade)} onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, grade: e.target.value}})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none bg-white">
+                      {[1, 2, 3, 4, 5, 6].map(g => <option key={g} value={String(g)}>{g}학년</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">반</label>
-                    {/* 🔥 클래스 네임 충돌 해결: dark:bg-gray-800 삭제 */}
-                    <select
-                      value={String(formData.schoolInfo.class)} 
-                      onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, class: e.target.value}})} 
-                      className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none bg-white"
-                    >
-                      {Array.from({length: 20}, (_, i) => i + 1).map(c => (
-                        <option key={c} value={String(c)}>{c}반</option>
-                      ))}
+                    <select value={String(formData.schoolInfo.class)} onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, class: e.target.value}})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none bg-white">
+                      {Array.from({length: 20}, (_, i) => i + 1).map(c => <option key={c} value={String(c)}>{c}반</option>)}
                     </select>
                   </div>
                 </div>
@@ -246,11 +182,7 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
           </form>
 
           <div className="pt-6 border-t border-gray-100 dark:border-gray-700 mt-6 shrink-0">
-            <button 
-              type="button"
-              onClick={handleDelete}
-              className="w-full flex items-center justify-center gap-2 p-4 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition font-bold border border-transparent hover:border-red-100 dark:hover:border-red-800"
-            >
+            <button type="button" onClick={handleDelete} className="w-full flex items-center justify-center gap-2 p-4 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition font-bold border border-transparent hover:border-red-100 dark:hover:border-red-800">
               <Trash2 size={18}/> 이 교무수첩 삭제하기
             </button>
           </div>

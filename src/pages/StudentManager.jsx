@@ -5,6 +5,7 @@ import { uploadFileToStorage } from '../utils/storage';
 import EditStudentModal from '../components/modals/EditStudentModal';
 import AiGenModal from '../components/modals/AiGenModal';
 import { downloadTemplate } from '../utils/helpers';
+import { showToast, showAlert, showConfirm } from '../utils/alerts'; // 🔥 알림창 가져오기
 
 export default function StudentManager({ 
   students = [], onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, onUpdateStudentsMany, 
@@ -16,7 +17,6 @@ export default function StudentManager({
   const [editingStudent, setEditingStudent] = useState(null);
   const [activeClassFilter, setActiveClassFilter] = useState(null);
 
-  // 🔥 3번 요청: 무한 스크롤 및 페이지네이션 상태 추가
   const [visibleCount, setVisibleCount] = useState(20);
   const loaderRef = useRef(null);
   
@@ -49,17 +49,11 @@ export default function StudentManager({
     });
   }, [safeStudents, searchTerm, activeClassFilter]);
 
-  // 검색이나 필터 변경 시 무한 스크롤 초기화
-  useEffect(() => {
-    setVisibleCount(20);
-  }, [searchTerm, activeClassFilter]);
+  useEffect(() => { setVisibleCount(20); }, [searchTerm, activeClassFilter]);
 
-  // 🔥 3번 요청: 무한 스크롤 감지 로직
   const handleObserver = useCallback((entries) => {
     const target = entries[0];
-    if (target.isIntersecting) {
-      setVisibleCount((prev) => prev + 20); // 바닥에 닿으면 20명 더 보여주기
-    }
+    if (target.isIntersecting) setVisibleCount((prev) => prev + 20);
   }, []);
 
   useEffect(() => {
@@ -73,7 +67,9 @@ export default function StudentManager({
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    
+    // 🔥 예쁜 팝업을 위해 비동기로 변경
+    reader.onload = async (evt) => {
       const bstr = evt.target.result;
       const wb = XLSX.read(bstr, { type: 'binary' });
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -95,9 +91,17 @@ export default function StudentManager({
         else newStudents.push(parsed);
       });
 
-      if (window.confirm(`분석 완료: 새 학생 ${newStudents.length}명 추가, 기존 학생 ${updateTasks.length}명 덮어쓰기 하시겠습니까?`)) {
+      // 🔥 Confirm 팝업
+      const isConfirmed = await showConfirm(
+        '엑셀 분석 완료!', 
+        `새 학생 ${newStudents.length}명 추가, 기존 학생 ${updateTasks.length}명 덮어쓰기를 진행할까요?`,
+        '저장하기', false
+      );
+      
+      if (isConfirmed) {
         if (newStudents.length > 0) onAddStudents(newStudents);
         if (updateTasks.length > 0) onUpdateStudentsMany(updateTasks);
+        showToast('성공적으로 업로드되었습니다.');
       }
     };
     reader.readAsBinaryString(file);
@@ -107,21 +111,38 @@ export default function StudentManager({
   const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (!activeClassFilter) { alert("사진을 등록할 '반'을 먼저 선택해주세요."); e.target.value = ''; return; }
+    if (!activeClassFilter) { 
+      showToast("사진을 등록할 '반'을 먼저 선택해주세요.", 'warning'); 
+      e.target.value = ''; return; 
+    }
     try {
       const uploaded = await uploadFileToStorage(file, 'class_photos');
       const newPhotoData = { id: activeClassFilter, classId: activeClassFilter, url: uploaded.url, fileName: uploaded.name, fullPath: uploaded.fullPath };
       const existing = classPhotos.find(p => p.classId === activeClassFilter);
       if (existing) onUpdateClassPhoto(existing.id, newPhotoData);
       else onAddClassPhoto(newPhotoData);
-      alert("업로드 완료!");
-    } catch (error) { alert("업로드 실패: " + error.message); }
+      showToast("사진이 성공적으로 업로드되었습니다!");
+    } catch (error) { 
+      showAlert("업로드 실패", error.message, 'error'); 
+    }
     e.target.value = '';
   };
 
   const handleEdit = (student) => { setEditingStudent(student); setIsModalOpen(true); };
-  const handleSaveStudent = (data) => { if (editingStudent) onUpdateStudent(editingStudent.id, data); else onAddStudent(data); setIsModalOpen(false); setEditingStudent(null); };
-  const handleDelete = (id) => { if (window.confirm("정말 삭제하시겠습니까?")) onDeleteStudent(id); };
+  const handleSaveStudent = (data) => { 
+    if (editingStudent) onUpdateStudent(editingStudent.id, data); 
+    else onAddStudent(data); 
+    setIsModalOpen(false); setEditingStudent(null); 
+    showToast('저장되었습니다.');
+  };
+  
+  const handleDelete = async (id) => { 
+    // 🔥 Confirm 팝업 교체
+    if (await showConfirm('학생을 삭제하시겠습니까?', '입력된 태그와 상담 기록이 모두 삭제됩니다.')) {
+      onDeleteStudent(id); 
+      showToast('삭제되었습니다.');
+    }
+  };
 
   const currentClassPhoto = activeClassFilter ? classPhotos.find(p => p.classId === activeClassFilter) : null;
 
@@ -160,7 +181,7 @@ export default function StudentManager({
           <div className="mb-6 animate-in fade-in slide-in-from-top-4">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-indigo-100 dark:border-gray-700 overflow-hidden relative group">
               <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => { if(window.confirm("사진을 삭제하시겠습니까?")) onDeleteClassPhoto(currentClassPhoto.id); }} className="bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition"><Trash2 size={16}/></button>
+                <button onClick={async () => { if(await showConfirm("사진을 삭제하시겠습니까?", "명렬표 사진이 지워집니다.")) onDeleteClassPhoto(currentClassPhoto.id); }} className="bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition"><Trash2 size={16}/></button>
               </div>
               <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 text-center font-bold text-indigo-800 dark:text-indigo-200 border-b border-indigo-100 dark:border-gray-700">
                 📸 {activeClassFilter}반 사진 명렬표
@@ -175,12 +196,9 @@ export default function StudentManager({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredStudents.length > 0 ? (
             <>
-              {/* 🔥 무한 스크롤: 전체 중 visibleCount 만큼만 렌더링 */}
               {filteredStudents.slice(0, visibleCount).map(student => (
                 <StudentCard key={student.id} student={student} onEdit={() => handleEdit(student)} onDelete={() => handleDelete(student.id)} isHomeroomView={isHomeroomView} apiKey={apiKey} onUpdateStudent={onUpdateStudent} />
               ))}
-              
-              {/* 스크롤 바닥 감지용 투명 박스 */}
               {visibleCount < filteredStudents.length && (
                 <div ref={loaderRef} className="col-span-full h-10 flex justify-center items-center py-4">
                   <Loader className="animate-spin text-indigo-400" size={24} />
@@ -202,7 +220,6 @@ export default function StudentManager({
   );
 }
 
-// StudentCard, BatchAiGenModal 컴포넌트 생략 (이전 코드와 완전히 동일)
 function StudentCard({ student, onEdit, onDelete, isHomeroomView, apiKey, onUpdateStudent }) {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   return (
@@ -241,7 +258,7 @@ function StudentCard({ student, onEdit, onDelete, isHomeroomView, apiKey, onUpda
           {apiKey && <button onClick={() => setIsAiModalOpen(true)} className="text-xs bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 px-2 py-1 rounded-md shadow-sm hover:border-indigo-300 text-indigo-600 dark:text-indigo-300 font-bold flex items-center gap-1 transition"><Sparkles size={12}/> AI 세특</button>}
         </div>
       </div>
-      {isAiModalOpen && <AiGenModal student={student} onClose={() => setIsAiModalOpen(false)} apiKey={apiKey} onSave={(text) => { onUpdateStudent(student.id, { ...student, aiGeneratedText: text }); setIsAiModalOpen(false); }} onUpdateStudent={(updated) => onUpdateStudent(student.id, updated)} />}
+      {isAiModalOpen && <AiGenModal student={student} onClose={() => setIsAiModalOpen(false)} apiKey={apiKey} onSave={(text) => { onUpdateStudent(student.id, { ...student, aiGeneratedText: text }); setIsAiModalOpen(false); showToast('세특이 저장되었습니다.'); }} onUpdateStudent={(updated) => onUpdateStudent(student.id, updated)} />}
     </>
   );
 }
@@ -252,7 +269,10 @@ function BatchAiGenModal({ isOpen, onClose, students, apiKey, onUpdateStudentsMa
   const targets = students.filter(s => (s.tags?.length > 0 || s.uniqueness) && !s.aiGeneratedText);
 
   const runBatch = async () => {
-    if (!targets.length) return alert("생성할 대상이 없습니다.");
+    if (!targets.length) {
+      showToast('생성할 대상이 없습니다.', 'warning');
+      return;
+    }
     setLoading(true);
     let completed = 0;
     const updates = [];
@@ -268,7 +288,8 @@ function BatchAiGenModal({ isOpen, onClose, students, apiKey, onUpdateStudentsMa
       await new Promise(r => setTimeout(r, 1000));
     }
     if (updates.length > 0) onUpdateStudentsMany(updates);
-    setLoading(false); onClose(); alert(`${updates.length}명의 세특이 생성되었습니다!`);
+    setLoading(false); onClose(); 
+    showAlert('생성 완료!', `${updates.length}명의 세특이 성공적으로 생성되었습니다.`, 'success');
   };
 
   if (!isOpen) return null;

@@ -21,8 +21,8 @@ import MeetingLogs from './pages/MeetingLogs';
 import MyTimetable from './pages/MyTimetable';
 import ExternalApps from './pages/ExternalApps';
 import UpdateHistory from './pages/UpdateHistory';
-import HowToUse from './pages/HowToUse';
-import RealtimeSetup from './pages/RealtimeSetup'; // 🔥 1. 실시간 설정 페이지 불러오기
+import HowToUse from './pages/HowToUse'; 
+import RealtimeSetup from './pages/RealtimeSetup'; 
 
 export default function App() {
   const { user, loading, login, logout } = useAuth();
@@ -161,11 +161,11 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-      {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />}
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300 print:h-auto print:bg-white print:text-black">
+      {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm no-print" onClick={() => setIsSidebarOpen(false)} />}
 
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-2xl md:shadow-none
+        no-print fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-2xl md:shadow-none
         transform transition-transform duration-300 ease-in-out
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         md:relative md:translate-x-0 md:w-64 md:block
@@ -181,25 +181,25 @@ export default function App() {
         />
       </div>
 
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative">
-        <header className="md:hidden bg-white dark:bg-gray-800 p-4 flex items-center justify-between border-b dark:border-gray-700 sticky top-0 z-30">
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative print:overflow-visible print:h-auto print:p-0">
+        <header className="md:hidden bg-white dark:bg-gray-800 p-4 flex items-center justify-between border-b dark:border-gray-700 sticky top-0 z-30 no-print">
           <span className="font-bold text-lg">{currentHandbook ? currentHandbook.title : "교무수첩 Pro"}</span>
           <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><Menu size={24}/></button>
         </header>
 
-        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
-          <div className="max-w-7xl mx-auto h-full">
+        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto print:p-0 print:overflow-visible print:h-auto">
+          <div className="max-w-7xl mx-auto h-full print:max-w-full">
             {activeView === 'update_history' ? (
               <UpdateHistory />
             ) : activeView === 'how_to_use' ? (
               <HowToUse />
-            ) : activeView === 'realtime_setup' ? ( // 🔥 2. 실시간 설정 페이지 렌더링 연결
+            ) : activeView === 'realtime_setup' ? (
               <RealtimeSetup />
             ) : !currentHandbook ? (
-              <div className="flex flex-col items-center justify-center h-full text-center space-y-6"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-6 no-print"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (
               <>
-                {activeView === 'dashboard' && <Dashboard students={homeroomStudents} todos={todos} setActiveView={setActiveView} isHomeroom={currentHandbook.isHomeroom} schoolInfo={currentHandbook.schoolInfo || {}} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => updateHomeroomStudent(id, data)} lessonGroups={lessonGroups} onUpdateLessonGroup={updateLessonGroup} currentHandbook={currentHandbook} onUpdateHandbook={handleUpdateHandbook} myTimetable={myTimetable} />}
+                {activeView === 'dashboard' && <Dashboard students={homeroomStudents} todos={todos} setActiveView={setActiveView} isHomeroom={currentHandbook.isHomeroom} schoolInfo={currentHandbook.schoolInfo || {}} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => updateHomeroomStudent(id, data)} lessonGroups={lessonGroups} onUpdateLessonGroup={updateLessonGroup} currentHandbook={currentHandbook} onUpdateHandbook={handleUpdateHandbook} myTimetable={myTimetable} widgets={widgets} setWidgets={setWidgets} />}
                 {activeView === 'monthly' && <MonthlyEvents handbook={currentHandbook} isHomeroom={currentHandbook.isHomeroom} students={homeroomStudents} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} events={events} onUpdateEvent={handleUpdateEvent} />}
                 {activeView === 'students_homeroom' && <StudentManager key="homeroom-manager" students={homeroomStudents} onAddStudent={addHomeroomStudent} onAddStudents={addManyHomeroomStudents} onUpdateStudent={updateHomeroomStudent} onDeleteStudent={removeHomeroomStudent} onUpdateStudentsMany={updateManyHomeroomStudents} onSetAllStudents={setAllHomeroomStudents} apiKey={apiKey} isHomeroomView={true} />}
                 {activeView === 'students_subject' && <StudentManager key="subject-manager" students={subjectStudents} onAddStudent={addSubjectStudent} onAddStudents={addManySubjectStudents} onUpdateStudent={updateSubjectStudent} onDeleteStudent={removeSubjectStudent} onUpdateStudentsMany={updateManySubjectStudents} onSetAllStudents={setAllSubjectStudents} apiKey={apiKey} isHomeroomView={false} classPhotos={classPhotos} onAddClassPhoto={addClassPhoto} onUpdateClassPhoto={updateClassPhoto} onDeleteClassPhoto={removeClassPhoto} />}
