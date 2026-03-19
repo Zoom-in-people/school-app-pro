@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Database, Save, CheckCircle, ExternalLink, Code, Loader } from 'lucide-react';
+import { AlertTriangle, Database, Save, CheckCircle, ExternalLink, Code, Loader, Edit2, Trash2, X } from 'lucide-react';
+// 🔥 설정 제거 시 자동 백업을 위해 함수 불러오기
+import { backupToGoogleDrive } from '../hooks/useGoogleDriveDB';
 
 export default function RealtimeSetup() {
   const [configText, setConfigText] = useState('');
   const [isSaved, setIsSaved] = useState(false);
-  const [isSaving, setIsSaving] = useState(false); // 로딩 상태 추가
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // 🔥 2번 요청 반영을 위한 추가 상태
+  const [hasExistingConfig, setHasExistingConfig] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     const existingConfig = localStorage.getItem('custom_firebase_config');
     if (existingConfig) {
-      setConfigText(existingConfig);
+      setHasExistingConfig(true); // 기존 설정이 있으면 가림막 화면 띄우기
     }
   }, []);
 
-  // 🔥 구글 드라이브를 통해 다른 기기(스마트폰)로 설정 코드를 배달하는 기능
   const syncConfigToDrive = async (text) => {
     const token = localStorage.getItem('google_access_token');
     const folderId = localStorage.getItem('cached_folder_id');
@@ -26,14 +31,12 @@ export default function RealtimeSetup() {
       const file = new Blob([text], { type: 'application/json' });
 
       if (searchData.files && searchData.files.length > 0) {
-        // 기존 설정 파일 덮어쓰기
         await fetch(`https://www.googleapis.com/upload/drive/v3/files/${searchData.files[0].id}?uploadType=media`, {
           method: 'PATCH',
           headers: { Authorization: `Bearer ${token}` },
           body: file
         });
       } else {
-        // 새 설정 파일 만들기
         const metadata = { name: 'firebase_config.json', parents: [folderId] };
         const formData = new FormData();
         formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
@@ -51,13 +54,7 @@ export default function RealtimeSetup() {
 
   const handleSave = async () => {
     if (configText.trim() === '') {
-      if (window.confirm('설정을 비우고 저장하시면 기본 모드(구글 드라이브)로 돌아갑니다. 진행하시겠습니까?')) {
-        setIsSaving(true);
-        await syncConfigToDrive(''); // 빈 내용으로 덮어써서 폰에서도 지워지게 만듦
-        localStorage.removeItem('custom_firebase_config');
-        alert('기본 모드로 돌아갑니다. 새로고침 됩니다.');
-        window.location.reload();
-      }
+      alert('Firebase 설정 코드를 입력해주세요.');
       return;
     }
 
@@ -67,16 +64,48 @@ export default function RealtimeSetup() {
     }
 
     setIsSaving(true);
-    await syncConfigToDrive(configText); // 드라이브에 비밀 편지 저장
+    await syncConfigToDrive(configText); 
     localStorage.setItem('custom_firebase_config', configText);
     
     setIsSaved(true);
     setIsSaving(false);
+    setHasExistingConfig(true);
+    setIsEditing(false);
     setTimeout(() => setIsSaved(false), 3000);
     
-    if (window.confirm('설정이 저장되었으며 스마트폰으로 자동 전달됩니다! 실시간 모드를 적용하기 위해 새로고침 하시겠습니까?')) {
+    if (window.confirm('설정이 저장되었습니다! 실시간 모드를 적용하기 위해 새로고침 하시겠습니까?')) {
       window.location.reload();
     }
+  };
+
+  // 🔥 2번 요청: 설정 제거 시 구글 드라이브 강제 백업 후 삭제
+  const handleRemoveConfig = async () => {
+    if (window.confirm('Firebase 설정을 제거하시겠습니까?\n제거하기 전 현재 데이터를 구글 드라이브에 안전하게 자동 백업합니다.')) {
+      setIsSaving(true);
+      try {
+        const result = await backupToGoogleDrive();
+        if (!result.success) {
+           alert(result.message + "\n(백업에 문제가 생겼지만 설정 지우기를 강행합니다.)");
+        }
+        await syncConfigToDrive(''); 
+        localStorage.removeItem('custom_firebase_config');
+        alert('구글 드라이브 백업 및 설정 제거가 완료되었습니다. 기본 모드로 돌아가기 위해 새로고침 됩니다.');
+        window.location.reload();
+      } catch(e) {
+        alert('오류가 발생했습니다.');
+        setIsSaving(false);
+      }
+    }
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+    setConfigText(''); // 수정 누르면 빈 칸으로 시작
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setConfigText('');
   };
 
   return (
@@ -159,35 +188,71 @@ export default function RealtimeSetup() {
           </div>
         </div>
 
+        {/* 우측: 설정 입력 영역 */}
         <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg border border-indigo-100 dark:border-gray-700 flex flex-col h-full lg:sticky lg:top-4">
           <h3 className="font-bold text-xl mb-2 dark:text-white flex items-center gap-2">
-            <Code className="text-indigo-600" size={24}/> 나의 Firebase 설정 입력
+            <Code className="text-indigo-600" size={24}/> 나의 Firebase 설정 관리
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">
-            가이드 <strong>5번</strong>에서 복사한 코드의 중괄호 <code className="font-bold text-lg">&#123; ... &#125;</code> 내용을 포함하여 아래에 그대로 붙여넣어 주세요.
-          </p>
           
-          <div className="flex-1 flex flex-col relative group min-h-[300px]">
-            <textarea 
-              value={configText}
-              onChange={(e) => setConfigText(e.target.value)}
-              placeholder={`{\n  apiKey: "AIzaSy...",\n  authDomain: "my-app.firebaseapp.com",\n  projectId: "my-app-123",\n  storageBucket: "my-app-123.appspot.com",\n  messagingSenderId: "123456789",\n  appId: "1:123456789:web:abcdef..."\n}`}
-              className="w-full flex-1 p-5 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-mono text-sm sm:text-base focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none resize-none shadow-inner transition-all"
-            />
-          </div>
+          {/* 🔥 2번 요청 반영: 적용 중일 때는 텍스트 에어리어를 숨기고 상태 뷰 노출 */}
+          {hasExistingConfig && !isEditing ? (
+            <div className="flex-1 flex flex-col justify-center items-center text-center space-y-6 py-10">
+              <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center shadow-inner">
+                <CheckCircle className="text-green-500" size={40} />
+              </div>
+              <div>
+                <h4 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Firebase 설정 적용 중</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                  현재 실시간 통신 모드가 완벽하게 작동하고 있습니다.<br/>보안을 위해 입력하신 코드는 가림 처리되었습니다.
+                </p>
+              </div>
+              <div className="flex w-full gap-3 mt-8">
+                <button onClick={handleEdit} className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center justify-center gap-2">
+                  <Edit2 size={18} /> 수정
+                </button>
+                <button onClick={handleRemoveConfig} disabled={isSaving} className="flex-1 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-bold rounded-xl hover:bg-red-100 dark:hover:bg-red-900/40 transition flex items-center justify-center gap-2 disabled:opacity-50">
+                  {isSaving ? <Loader size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                  설정 제거
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">
+                가이드 <strong>5번</strong>에서 복사한 코드의 중괄호 <code className="font-bold text-lg">&#123; ... &#125;</code> 내용을 포함하여 아래에 그대로 붙여넣어 주세요.
+              </p>
+              
+              <div className="flex-1 flex flex-col relative group min-h-[300px]">
+                <textarea 
+                  value={configText}
+                  onChange={(e) => setConfigText(e.target.value)}
+                  placeholder={`{\n  apiKey: "AIzaSy...",\n  authDomain: "my-app.firebaseapp.com",\n  projectId: "my-app-123",\n  storageBucket: "my-app-123.appspot.com",\n  messagingSenderId: "123456789",\n  appId: "1:123456789:web:abcdef..."\n}`}
+                  className="w-full flex-1 p-5 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-mono text-sm sm:text-base focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none resize-none shadow-inner transition-all"
+                />
+              </div>
 
-          <div className="mt-6 flex flex-col items-center gap-4">
-            <button 
-              onClick={handleSave} 
-              disabled={isSaving}
-              className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md text-lg disabled:opacity-70 ${isSaved ? 'bg-green-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
-            >
-              {isSaving ? <><Loader className="animate-spin" size={24}/> 클라우드에 연동 중...</> : isSaved ? <><CheckCircle size={24}/> 저장 완료!</> : <><Save size={24}/> 설정 저장 및 적용하기</>}
-            </button>
-            <p className="text-xs text-gray-400 text-center">
-              * 설정은 구글 드라이브를 통해 스마트폰으로 <strong>자동 전달</strong>됩니다.<br/>언제든 지우고 기본 모드로 돌아갈 수 있습니다.
-            </p>
-          </div>
+              <div className="mt-6 flex flex-col items-center gap-4">
+                <div className="flex w-full gap-3">
+                  {isEditing && (
+                    <button onClick={handleCancelEdit} className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center justify-center gap-2">
+                      <X size={20} /> 취소
+                    </button>
+                  )}
+                  <button 
+                    onClick={handleSave} 
+                    disabled={isSaving}
+                    className={`flex-[2] py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md text-lg disabled:opacity-70 ${isSaved ? 'bg-green-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
+                  >
+                    {isSaving ? <><Loader className="animate-spin" size={24}/> 적용 중...</> : isSaved ? <><CheckCircle size={24}/> 저장 완료!</> : <><Save size={24}/> 설정 저장 및 적용하기</>}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 text-center">
+                  {/* 🔥 1번 요청 반영: 문구 수정 */}
+                  * 설정이 완료되면 모든 기기에서 데이터가 <strong>실시간으로 변동됩니다.</strong><br/>언제든 지우고 기본 모드로 돌아갈 수 있습니다.
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
