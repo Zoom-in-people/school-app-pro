@@ -5,12 +5,13 @@ import {
   CloudUpload, Loader 
 } from 'lucide-react'; 
 import { backupToGoogleDrive } from '../../hooks/useGoogleDriveDB';
+import { useAppStore } from '../../store/useAppStore'; // 🔥 Zustand 도입
+import { showToast } from '../../utils/alerts';
 
-export default function Sidebar({ 
-  activeView, setActiveView, onOpenSettings, user, logout, 
-  handbooks, currentHandbook, onSelectHandbook, onOpenAddHandbook, onOpenHandbookSettings 
-}) {
+export default function Sidebar({ user, logout, handbooks }) {
   
+  const store = useAppStore(); // 🔥 전역 상태 꺼내오기
+
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
   const [isBackingUp, setIsBackingUp] = useState(false); 
@@ -36,7 +37,8 @@ export default function Sidebar({
   const handleManualBackup = async () => {
     setIsBackingUp(true);
     const result = await backupToGoogleDrive();
-    alert(result.message);
+    if(result.success) showToast(result.message, 'success');
+    else showToast(result.message, 'error');
     setIsBackingUp(false);
   };
 
@@ -85,8 +87,8 @@ export default function Sidebar({
   ];
 
   const handleMenuClick = (itemId) => {
-    if (itemId === 'handbook_settings') onOpenHandbookSettings(); 
-    else setActiveView(itemId); 
+    if (itemId === 'handbook_settings') store.setIsHandbookSettingsOpen(true); 
+    else store.setActiveView(itemId); 
   };
 
   return (
@@ -108,7 +110,7 @@ export default function Sidebar({
       <div className="p-3">
         <div className="relative" ref={dropdownRef}>
           <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className={`w-full flex items-center justify-between bg-gray-50 dark:bg-gray-700 border rounded-lg px-2 py-1.5 text-left transition shadow-sm ${isDropdownOpen ? 'border-indigo-500 ring-1 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200 dark:border-gray-600 hover:border-indigo-500'}`}>
-            <span className="font-bold text-xs text-gray-700 dark:text-gray-200 truncate">{currentHandbook ? currentHandbook.title : '교무수첩 선택'}</span>
+            <span className="font-bold text-xs text-gray-700 dark:text-gray-200 truncate">{store.currentHandbook ? store.currentHandbook.title : '교무수첩 선택'}</span>
             <ChevronDown size={14} className={`text-gray-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
           
@@ -117,12 +119,12 @@ export default function Sidebar({
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl animate-in fade-in slide-in-from-top-2 overflow-hidden">
                 <div className="max-h-60 overflow-y-auto py-1">
                   {sortedHandbooks.map((handbook) => (
-                    <button key={handbook.id} onClick={() => { onSelectHandbook(handbook); setIsDropdownOpen(false); }} className={`w-full text-left px-2 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition ${currentHandbook?.id === handbook.id ? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/20' : 'text-gray-700 dark:text-gray-300'}`}>
+                    <button key={handbook.id} onClick={() => { store.selectHandbook(handbook); setIsDropdownOpen(false); }} className={`w-full text-left px-2 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition ${store.currentHandbook?.id === handbook.id ? 'text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/20' : 'text-gray-700 dark:text-gray-300'}`}>
                       {handbook.title}
                     </button>
                   ))}
                   <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-                  <button onClick={() => { onOpenAddHandbook(); setIsDropdownOpen(false); }} className="w-full text-left px-2 py-2 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-bold flex items-center gap-2">
+                  <button onClick={() => { store.setIsAddHandbookOpen(true); setIsDropdownOpen(false); }} className="w-full text-left px-2 py-2 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-bold flex items-center gap-2">
                     <Plus size={12}/> 새 교무수첩 만들기
                   </button>
                 </div>
@@ -142,7 +144,6 @@ export default function Sidebar({
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6 custom-scrollbar">
         {menuGroups.map((group, index) => (
           <React.Fragment key={index}>
-            {/* 🔥 1번 요청: 수동 백업 버튼을 '메인' 탭 위로 이동 */}
             {group.title === "메인" && (
               <div className="mb-6 px-1">
                 <button 
@@ -160,7 +161,7 @@ export default function Sidebar({
               <h3 className="px-3 text-[10px] font-extrabold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{group.title}</h3>
               <div className="space-y-0.5">
                 {group.items.map((item) => {
-                  const isActive = activeView === item.id;
+                  const isActive = store.activeView === item.id;
                   const highlight = isActive && item.id !== 'handbook_settings';
                   return (
                     <button key={item.id} onClick={() => handleMenuClick(item.id)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 font-medium text-sm ${highlight ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'}`}>

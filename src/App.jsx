@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Menu, LogIn, Plus } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
-import { useGoogleDriveDB as useFirestore } from './hooks/useGoogleDriveDB'; 
-import { useLocalStorage } from './utils/useLocalStorage';
-import { INITIAL_WIDGETS } from './constants/data';
+import { useAppStore } from './store/useAppStore'; // 🔥 Zustand 스토어 도입
+import { useAppData } from './hooks/useAppData';   // 🔥 DB 훅 분리
+import { showToast } from './utils/alerts';
+
 import Sidebar from './components/layout/Sidebar';
 import SettingsModal from './components/modals/SettingsModal';
 import SetupWizardModal from './components/modals/SetupWizardModal';
@@ -27,121 +28,82 @@ import RealtimeSetup from './pages/RealtimeSetup';
 export default function App() {
   const { user, loading, login, logout } = useAuth();
   
-  const [activeView, setActiveView] = useState('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isAddHandbookOpen, setIsAddHandbookOpen] = useState(false);
-  const [isHandbookSettingsOpen, setIsHandbookSettingsOpen] = useState(false);
-  const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
-
-  const [apiKey, setApiKey] = useLocalStorage('gemini_api_key', "");
-  const [hideApiPrompt, setHideApiPrompt] = useLocalStorage('hideApiPrompt', false);
-  const [theme, setTheme] = useLocalStorage('theme', 'light');
-  const [fontSize, setFontSize] = useLocalStorage('fontSize', 'normal');
-  const [widgets, setWidgets] = useLocalStorage('widgets', INITIAL_WIDGETS);
-  const [lastHandbookId, setLastHandbookId] = useLocalStorage('lastHandbookId', null);
-
-  const [currentHandbook, setCurrentHandbook] = useState(null);
+  // 🔥 한 줄의 코드로 UI 상태와 설정값들을 모두 가져옴
+  const store = useAppStore(); 
 
   useEffect(() => { 
-    if (user && !apiKey && !hideApiPrompt) {
-      setIsSetupWizardOpen(true);
+    if (user && !store.apiKey && !store.hideApiPrompt) {
+      store.setIsSetupWizardOpen(true);
     }
-  }, [user, apiKey, hideApiPrompt]);
+  }, [user, store.apiKey, store.hideApiPrompt]);
 
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') root.classList.add('dark');
+    if (store.theme === 'dark') root.classList.add('dark');
     else root.classList.remove('dark');
-  }, [theme]);
+  }, [store.theme]);
 
   useEffect(() => {
     const root = document.documentElement;
-    if (fontSize === 'xsmall') root.style.fontSize = '75%';
-    else if (fontSize === 'small') root.style.fontSize = '87.5%';
-    else if (fontSize === 'large') root.style.fontSize = '112.5%';
-    else if (fontSize === 'xlarge') root.style.fontSize = '125%';
+    if (store.fontSize === 'xsmall') root.style.fontSize = '75%';
+    else if (store.fontSize === 'small') root.style.fontSize = '87.5%';
+    else if (store.fontSize === 'large') root.style.fontSize = '112.5%';
+    else if (store.fontSize === 'xlarge') root.style.fontSize = '125%';
     else root.style.fontSize = '100%';
-  }, [fontSize]);
+  }, [store.fontSize]);
 
   const userId = user ? user.uid : null;
 
-  const { data: handbooks, add: addHandbook, update: updateHandbook, remove: removeHandbook } 
-    = useFirestore('handbooks', userId, true);
+  // 🔥 복잡한 DB 로직을 단 한 줄로 압축!
+  const db = useAppData(userId, store.currentHandbook?.id);
+  const { data: handbooks, add: addHandbook, update: updateHandbook, remove: removeHandbook } = db.handbooks;
 
   useEffect(() => {
     if (handbooks.length > 0) {
-      if (lastHandbookId) {
-        const found = handbooks.find(h => h.id === lastHandbookId);
-        if (found) setCurrentHandbook(found);
-        else setCurrentHandbook(handbooks[0]);
+      if (store.lastHandbookId) {
+        const found = handbooks.find(h => h.id === store.lastHandbookId);
+        if (found) store.setCurrentHandbook(found);
+        else store.setCurrentHandbook(handbooks[0]);
       } else {
-        setCurrentHandbook(handbooks[0]);
+        store.setCurrentHandbook(handbooks[0]);
       }
     } else {
-      setCurrentHandbook(null);
+      store.setCurrentHandbook(null);
     }
-  }, [handbooks, lastHandbookId]);
-
-  const currentHandbookId = currentHandbook ? currentHandbook.id : null;
-  const collectionPrefix = currentHandbookId ? `_${currentHandbookId}` : '';
-  const isHandbookLoaded = !!currentHandbookId;
-
-  const { data: homeroomStudents, add: addHomeroomStudent, addMany: addManyHomeroomStudents, remove: removeHomeroomStudent, update: updateHomeroomStudent, updateMany: updateManyHomeroomStudents, setAll: setAllHomeroomStudents } = useFirestore(`students_homeroom${collectionPrefix}`, userId, isHandbookLoaded);
-  const { data: subjectStudents, add: addSubjectStudent, addMany: addManySubjectStudents, remove: removeSubjectStudent, update: updateSubjectStudent, updateMany: updateManySubjectStudents, setAll: setAllSubjectStudents } = useFirestore(`students_subject${collectionPrefix}`, userId, isHandbookLoaded);
-  const { data: consultations, add: addConsultation, remove: removeConsultation, update: updateConsultation } = useFirestore(`consultations${collectionPrefix}`, userId, isHandbookLoaded);
-  const { data: todos, add: addTodo, remove: removeTodo, update: updateTodo } = useFirestore(`todos${collectionPrefix}`, userId, isHandbookLoaded);
-  const { data: attendanceLog, add: addAttendance, remove: removeAttendance, update: updateAttendance } = useFirestore(`attendance${collectionPrefix}`, userId, isHandbookLoaded);
-  const { data: events, add: addEvent, remove: removeEvent, update: updateEvent } = useFirestore(`events${collectionPrefix}`, userId, isHandbookLoaded);
-  const { data: lessonGroups, add: addLessonGroup, remove: removeLessonGroup, update: updateLessonGroup } = useFirestore(`lesson_groups${collectionPrefix}`, userId, isHandbookLoaded);
-  const { data: meetingLogs, add: addMeetingLog, remove: removeMeetingLog, update: updateMeetingLog } = useFirestore(`meeting_logs${collectionPrefix}`, userId, isHandbookLoaded);
-  const { data: myTimetable, add: addMyTimetable, update: updateMyTimetable, remove: removeMyTimetable } = useFirestore(`my_timetable${collectionPrefix}`, userId, isHandbookLoaded);
-  const { data: classPhotos, add: addClassPhoto, update: updateClassPhoto, remove: removeClassPhoto } = useFirestore(`class_photos${collectionPrefix}`, userId, isHandbookLoaded);
-  const { data: academicSchedule, add: addSchedule, update: updateSchedule, remove: removeSchedule } = useFirestore(`academic_schedule${collectionPrefix}`, userId, isHandbookLoaded);
-  const { data: educationPlans, add: addEducationPlan, update: updateEducationPlan, remove: removeEducationPlan } = useFirestore(`education_plans${collectionPrefix}`, userId, isHandbookLoaded);
+  }, [handbooks, store.lastHandbookId]);
 
   const handleCreateHandbook = async (data) => {
     try {
       const newId = await addHandbook(data);
       if (newId) {
-        const newHandbook = { id: newId, ...data };
-        setCurrentHandbook(newHandbook);
-        setLastHandbookId(newId);
-        setActiveView('dashboard');
-        setIsAddHandbookOpen(false);
+        store.selectHandbook({ id: newId, ...data });
+        store.setIsAddHandbookOpen(false);
       }
-    } catch (error) { alert("생성 실패"); }
+    } catch (error) { showToast("교무수첩 생성 실패", 'error'); }
   };
 
   const handleUpdateHandbook = async (id, data) => {
     await updateHandbook(id, data);
-    setCurrentHandbook(prev => ({ ...prev, ...data }));
+    store.setCurrentHandbook({ ...store.currentHandbook, ...data });
   };
 
   const handleDeleteHandbook = async (id) => {
     await removeHandbook(id); 
-    if (currentHandbook && currentHandbook.id === id) {
+    if (store.currentHandbook && store.currentHandbook.id === id) {
       const remaining = handbooks.filter(h => h.id !== id);
       if (remaining.length > 0) {
-        setCurrentHandbook(remaining[0]);
-        setLastHandbookId(remaining[0].id);
+        store.setCurrentHandbook(remaining[0]);
+        store.setLastHandbookId(remaining[0].id);
       } else {
-        setCurrentHandbook(null);
-        setLastHandbookId(null);
+        store.setCurrentHandbook(null);
+        store.setLastHandbookId(null);
       }
     }
-    setIsHandbookSettingsOpen(false);
+    store.setIsHandbookSettingsOpen(false);
   };
 
-  const handleSelectHandbook = (handbook) => {
-    setCurrentHandbook(handbook);
-    setLastHandbookId(handbook.id);
-    setActiveView('dashboard');
-    setIsSidebarOpen(false);
-  };
-
-  const handleUpdateAttendance = (id, data) => { if (id && !data) removeAttendance(id); else if (id && data) updateAttendance(id, data); else addAttendance(data); };
-  const handleUpdateEvent = (id, data) => { if (id && !data) removeEvent(id); else if (id && data) updateEvent(id, data); else addEvent(data); };
+  const handleUpdateAttendance = (id, data) => { if (id && !data) db.attendanceLog.remove(id); else if (id && data) db.attendanceLog.update(id, data); else db.attendanceLog.add(data); };
+  const handleUpdateEvent = (id, data) => { if (id && !data) db.events.remove(id); else if (id && data) db.events.update(id, data); else db.events.add(data); };
 
   if (loading) return <div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin text-4xl">⏳</div></div>;
 
@@ -162,65 +124,56 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300 print:h-auto print:bg-white print:text-black">
-      {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm no-print" onClick={() => setIsSidebarOpen(false)} />}
+      {store.isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm no-print" onClick={() => store.setIsSidebarOpen(false)} />}
 
       <div className={`
         no-print fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-2xl md:shadow-none
         transform transition-transform duration-300 ease-in-out
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${store.isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         md:relative md:translate-x-0 md:w-64 md:block
       `}>
-        <Sidebar 
-          activeView={activeView} 
-          setActiveView={(view) => { setActiveView(view); setIsSidebarOpen(false); }} 
-          onOpenSettings={() => { setIsSettingsOpen(true); setIsSidebarOpen(false); }} 
-          user={user} logout={logout} handbooks={handbooks} currentHandbook={currentHandbook} 
-          onSelectHandbook={handleSelectHandbook} 
-          onOpenAddHandbook={() => { setIsAddHandbookOpen(true); setIsSidebarOpen(false); }} 
-          onOpenHandbookSettings={() => { setIsHandbookSettingsOpen(true); setIsSidebarOpen(false); }}
-        />
+        {/* 🔥 Sidebar로 넘기던 수많은 Props가 삭제되었습니다! */}
+        <Sidebar user={user} logout={logout} handbooks={handbooks} />
       </div>
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative print:overflow-visible print:h-auto print:p-0">
         <header className="md:hidden bg-white dark:bg-gray-800 p-4 flex items-center justify-between border-b dark:border-gray-700 sticky top-0 z-30 no-print">
-          <span className="font-bold text-lg">{currentHandbook ? currentHandbook.title : "교무수첩 Pro"}</span>
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><Menu size={24}/></button>
+          <span className="font-bold text-lg">{store.currentHandbook ? store.currentHandbook.title : "교무수첩 Pro"}</span>
+          <button onClick={() => store.setIsSidebarOpen(true)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><Menu size={24}/></button>
         </header>
 
         <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto print:p-0 print:overflow-visible print:h-auto">
           <div className="max-w-7xl mx-auto h-full print:max-w-full">
-            {activeView === 'update_history' ? (
-              <UpdateHistory />
-            ) : activeView === 'how_to_use' ? (
-              <HowToUse />
-            ) : activeView === 'realtime_setup' ? (
-              <RealtimeSetup />
-            ) : !currentHandbook ? (
-              <div className="flex flex-col items-center justify-center h-full text-center space-y-6 no-print"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
+            {store.activeView === 'update_history' ? <UpdateHistory />
+            : store.activeView === 'how_to_use' ? <HowToUse />
+            : store.activeView === 'realtime_setup' ? <RealtimeSetup />
+            : !store.currentHandbook ? (
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-6 no-print"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => store.setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (
               <>
-                {activeView === 'dashboard' && <Dashboard students={homeroomStudents} todos={todos} setActiveView={setActiveView} isHomeroom={currentHandbook.isHomeroom} schoolInfo={currentHandbook.schoolInfo || {}} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => updateHomeroomStudent(id, data)} lessonGroups={lessonGroups} onUpdateLessonGroup={updateLessonGroup} currentHandbook={currentHandbook} onUpdateHandbook={handleUpdateHandbook} myTimetable={myTimetable} widgets={widgets} setWidgets={setWidgets} />}
-                {activeView === 'monthly' && <MonthlyEvents handbook={currentHandbook} isHomeroom={currentHandbook.isHomeroom} students={homeroomStudents} attendanceLog={attendanceLog} onUpdateAttendance={handleUpdateAttendance} events={events} onUpdateEvent={handleUpdateEvent} />}
-                {activeView === 'students_homeroom' && <StudentManager key="homeroom-manager" students={homeroomStudents} onAddStudent={addHomeroomStudent} onAddStudents={addManyHomeroomStudents} onUpdateStudent={updateHomeroomStudent} onDeleteStudent={removeHomeroomStudent} onUpdateStudentsMany={updateManyHomeroomStudents} onSetAllStudents={setAllHomeroomStudents} apiKey={apiKey} isHomeroomView={true} />}
-                {activeView === 'students_subject' && <StudentManager key="subject-manager" students={subjectStudents} onAddStudent={addSubjectStudent} onAddStudents={addManySubjectStudents} onUpdateStudent={updateSubjectStudent} onDeleteStudent={removeSubjectStudent} onUpdateStudentsMany={updateManySubjectStudents} onSetAllStudents={setAllSubjectStudents} apiKey={apiKey} isHomeroomView={false} classPhotos={classPhotos} onAddClassPhoto={addClassPhoto} onUpdateClassPhoto={updateClassPhoto} onDeleteClassPhoto={removeClassPhoto} />}
-                {activeView === 'lessons' && <LessonManager lessonGroups={lessonGroups} onAddGroup={addLessonGroup} onUpdateGroup={updateLessonGroup} onDeleteGroup={removeLessonGroup} />}
-                {activeView === 'consultation' && <ConsultationLog students={homeroomStudents} consultations={consultations} onAddConsultation={addConsultation} onDeleteConsultation={removeConsultation} onUpdateConsultation={updateConsultation} />}
-                {activeView === 'tasks' && <TaskList todos={todos} onAddTodo={addTodo} onUpdateTodo={updateTodo} onDeleteTodo={removeTodo} />}
-                {activeView === 'schedule' && <AcademicSchedule apiKey={apiKey} scheduleData={academicSchedule} onUpdateSchedule={updateSchedule} onAddSchedule={addSchedule} onDeleteSchedule={removeSchedule} />}
-                {activeView === 'edu_plan' && <EducationPlan apiKey={apiKey} planData={educationPlans} onSavePlan={addEducationPlan} onUpdatePlan={updateEducationPlan} onDeletePlan={removeEducationPlan} />}
-                {activeView === 'meeting_logs' && <MeetingLogs logs={meetingLogs} onAddLog={addMeetingLog} onUpdateLog={updateMeetingLog} onDeleteLog={removeMeetingLog} />}
-                {activeView === 'my_timetable' && <MyTimetable timetableData={myTimetable} onAddTimetable={addMyTimetable} onUpdateTimetable={updateMyTimetable} onDeleteTimetable={removeMyTimetable} />}
-                {activeView === 'apps' && <ExternalApps />}
+                {store.activeView === 'dashboard' && <Dashboard students={db.homeroomStudents.data} todos={db.todos.data} setActiveView={store.setActiveView} isHomeroom={store.currentHandbook.isHomeroom} schoolInfo={store.currentHandbook.schoolInfo || {}} attendanceLog={db.attendanceLog.data} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => db.homeroomStudents.update(id, data)} lessonGroups={db.lessonGroups.data} onUpdateLessonGroup={db.lessonGroups.update} currentHandbook={store.currentHandbook} onUpdateHandbook={handleUpdateHandbook} myTimetable={db.myTimetable.data} widgets={store.widgets} setWidgets={store.setWidgets} />}
+                {store.activeView === 'monthly' && <MonthlyEvents handbook={store.currentHandbook} isHomeroom={store.currentHandbook.isHomeroom} students={db.homeroomStudents.data} attendanceLog={db.attendanceLog.data} onUpdateAttendance={handleUpdateAttendance} events={db.events.data} onUpdateEvent={handleUpdateEvent} />}
+                {store.activeView === 'students_homeroom' && <StudentManager key="homeroom-manager" students={db.homeroomStudents.data} onAddStudent={db.homeroomStudents.add} onAddStudents={db.homeroomStudents.addMany} onUpdateStudent={db.homeroomStudents.update} onDeleteStudent={db.homeroomStudents.remove} onUpdateStudentsMany={db.homeroomStudents.updateMany} onSetAllStudents={db.homeroomStudents.setAll} apiKey={store.apiKey} isHomeroomView={true} />}
+                {store.activeView === 'students_subject' && <StudentManager key="subject-manager" students={db.subjectStudents.data} onAddStudent={db.subjectStudents.add} onAddStudents={db.subjectStudents.addMany} onUpdateStudent={db.subjectStudents.update} onDeleteStudent={db.subjectStudents.remove} onUpdateStudentsMany={db.subjectStudents.updateMany} onSetAllStudents={db.subjectStudents.setAll} apiKey={store.apiKey} isHomeroomView={false} classPhotos={db.classPhotos.data} onAddClassPhoto={db.classPhotos.add} onUpdateClassPhoto={db.classPhotos.update} onDeleteClassPhoto={db.classPhotos.remove} />}
+                {store.activeView === 'lessons' && <LessonManager lessonGroups={db.lessonGroups.data} onAddGroup={db.lessonGroups.add} onUpdateGroup={db.lessonGroups.update} onDeleteGroup={db.lessonGroups.remove} />}
+                {store.activeView === 'consultation' && <ConsultationLog students={db.homeroomStudents.data} consultations={db.consultations.data} onAddConsultation={db.consultations.add} onDeleteConsultation={db.consultations.remove} onUpdateConsultation={db.consultations.update} />}
+                {store.activeView === 'tasks' && <TaskList todos={db.todos.data} onAddTodo={db.todos.add} onUpdateTodo={db.todos.update} onDeleteTodo={db.todos.remove} />}
+                {store.activeView === 'schedule' && <AcademicSchedule apiKey={store.apiKey} scheduleData={db.academicSchedule.data} onUpdateSchedule={db.academicSchedule.update} onAddSchedule={db.academicSchedule.add} onDeleteSchedule={db.academicSchedule.remove} />}
+                {store.activeView === 'edu_plan' && <EducationPlan apiKey={store.apiKey} planData={db.educationPlans.data} onSavePlan={db.educationPlans.add} onUpdatePlan={db.educationPlans.update} onDeletePlan={db.educationPlans.remove} />}
+                {store.activeView === 'meeting_logs' && <MeetingLogs logs={db.meetingLogs.data} onAddLog={db.meetingLogs.add} onUpdateLog={db.meetingLogs.update} onDeleteLog={db.meetingLogs.remove} />}
+                {store.activeView === 'my_timetable' && <MyTimetable timetableData={db.myTimetable.data} onAddTimetable={db.myTimetable.add} onUpdateTimetable={db.myTimetable.update} onDeleteTimetable={db.myTimetable.remove} />}
+                {store.activeView === 'apps' && <ExternalApps />}
               </>
             )}
           </div>
         </div>
       </main>
 
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={{ apiKey, theme, fontSize }} setSettings={{ setApiKey, setTheme, setFontSize }} onOpenSetupWizard={() => { setIsSettingsOpen(false); setIsSetupWizardOpen(true); }}/>
-      <SetupWizardModal isOpen={isSetupWizardOpen} onClose={() => { setIsSetupWizardOpen(false); setHideApiPrompt(true); }} apiKey={apiKey} setApiKey={setApiKey} />
-      <AddHandbookModal isOpen={isAddHandbookOpen} onClose={() => setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
-      <HandbookSettingsModal isOpen={isHandbookSettingsOpen} onClose={() => setIsHandbookSettingsOpen(false)} handbook={currentHandbook} onUpdate={handleUpdateHandbook} onDelete={handleDeleteHandbook} apiKey={apiKey} setApiKey={setApiKey} />
+      {/* 🔥 모달창들도 Props 대신 Zustand를 바라보게 구조가 단순해짐 */}
+      <SettingsModal isOpen={store.isSettingsOpen} onClose={() => store.setIsSettingsOpen(false)} settings={{ apiKey: store.apiKey, theme: store.theme, fontSize: store.fontSize }} setSettings={{ setApiKey: store.setApiKey, setTheme: store.setTheme, setFontSize: store.setFontSize }} onOpenSetupWizard={() => { store.setIsSettingsOpen(false); store.setIsSetupWizardOpen(true); }}/>
+      <SetupWizardModal isOpen={store.isSetupWizardOpen} onClose={() => { store.setIsSetupWizardOpen(false); store.setHideApiPrompt(true); }} apiKey={store.apiKey} setApiKey={store.setApiKey} />
+      <AddHandbookModal isOpen={store.isAddHandbookOpen} onClose={() => store.setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
+      <HandbookSettingsModal isOpen={store.isHandbookSettingsOpen} onClose={() => store.setIsHandbookSettingsOpen(false)} handbook={store.currentHandbook} onUpdate={handleUpdateHandbook} onDelete={handleDeleteHandbook} apiKey={store.apiKey} setApiKey={store.setApiKey} />
     </div>
   );
 }
