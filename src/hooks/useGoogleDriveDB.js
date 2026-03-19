@@ -1,24 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { getOrCreateFolder, uploadFileToDrive } from '../utils/googleDrive';
-// 🔥 Firebase 관련 모듈 호출
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
 const DB_FILE_NAME = 'school_app_db.json';
 
-// 메모리 전역 상태
 let globalFullData = {};
 let isGlobalLoaded = false;
 let globalInitPromise = null;
 let syncTimer = null;
 let needsSync = false;
 let isFetching = false; 
-let currentUserId = null; // 현재 유저 아이디 추적
+let currentUserId = null; 
 
 const dispatchSaveEvent = (status) => window.dispatchEvent(new CustomEvent('db-save-status', { detail: status }));
 const broadcastDataUpdate = () => window.dispatchEvent(new Event('db-data-updated'));
 
-// 🔥 커스텀 파이어베이스 가져오기
 const getCustomFirebaseDb = () => {
   const configStr = localStorage.getItem('custom_firebase_config');
   if (!configStr) return null;
@@ -34,7 +31,28 @@ const getCustomFirebaseDb = () => {
   } catch (e) { return null; }
 };
 
-// 🔥 2번 요청: 필요할 때만 1회성으로 읽어오기 (onSnapshot 폐기 및 getDoc 사용)
+// 🔥 사이드바에서 사용할 '수동 드라이브 백업' 함수 외부 공개
+export const backupToGoogleDrive = async () => {
+  const token = localStorage.getItem('google_access_token');
+  const fileId = localStorage.getItem('cached_file_id');
+  if (!token || !fileId) return { success: false, message: "구글 드라이브 연결 정보가 없습니다." };
+  
+  try {
+    const file = new Blob([JSON.stringify(globalFullData)], { type: 'application/json' });
+    const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&fields=modifiedTime`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+      body: file
+    });
+    if (res.ok) {
+       return { success: true, message: "구글 드라이브에 안전하게 수동 백업되었습니다!" };
+    }
+    return { success: false, message: "백업 실패: 서버 응답 오류" };
+  } catch (e) {
+    return { success: false, message: "백업 에러: " + e.message };
+  }
+};
+
 export const fetchLatestFromCloud = async () => {
   if (isFetching || needsSync) return;
   isFetching = true;
@@ -43,16 +61,16 @@ export const fetchLatestFromCloud = async () => {
     const db = getCustomFirebaseDb();
     const localTime = Number(localStorage.getItem('db_last_modified')) || 0;
 
-    // --- [Firebase 모드] ---
+    // 🔥 1. 파이어베이스가 있다면 무조건 파이어베이스가 최우선 (드라이브 무시)
     if (db && currentUserId) {
       const docRef = doc(db, "users", currentUserId, "school_app", "data");
-      const docSnap = await getDoc(docRef); // 1회성 읽기 (비용 최적화: 문서 1개 = 1읽기)
+      const docSnap = await getDoc(docRef); 
       
       if (docSnap.exists()) {
         const fbData = docSnap.data();
         const fbTime = fbData.lastModified || 0;
         
-        if (fbTime > localTime) {
+        if (!isGlobalLoaded || fbTime > localTime) {
           dispatchSaveEvent('loading');
           const pureData = { ...fbData };
           delete pureData.lastModified; 
@@ -63,14 +81,9 @@ export const fetchLatestFromCloud = async () => {
           broadcastDataUpdate();
           dispatchSaveEvent('loaded');
         }
-      } else {
-        // 🔥 1번 요청: Firebase에 데이터가 없으면 현재 로컬/드라이브의 최신 데이터를 최초 업로드(마이그레이션)
-        if (Object.keys(globalFullData).length > 0) {
-           await setDoc(docRef, { ...globalFullData, lastModified: Date.now() });
-        }
       }
     } 
-    // --- [Google Drive 모드] ---
+    // 🔥 2. 파이어베이스가 없다면 기본 구글 드라이브 로딩
     else {
       const token = localStorage.getItem('google_access_token');
       const fileId = localStorage.getItem('cached_file_id');
@@ -98,7 +111,6 @@ export const fetchLatestFromCloud = async () => {
   finally { isFetching = false; }
 };
 
-// 클라우드 저장 (백그라운드)
 const syncToCloud = async () => {
   if (!needsSync) return;
   needsSync = false;
@@ -107,18 +119,18 @@ const syncToCloud = async () => {
   const db = getCustomFirebaseDb();
   const now = Date.now();
   
-  // --- [Firebase 저장] ---
+  // 🔥 1. 파이어베이스 설정이 있으면 파이어베이스에만 자동 저장 (드라이브 자동저장 안 함)
   if (db && currentUserId) {
     try {
       const docRef = doc(db, "users", currentUserId, "school_app", "data");
-      await setDoc(docRef, { ...globalFullData, lastModified: now }); // 단일 문서로 덮어쓰기 (1 쓰기 비용)
+      await setDoc(docRef, { ...globalFullData, lastModified: now }); 
       localStorage.setItem('db_last_modified', now.toString());
       dispatchSaveEvent('saved');
     } catch(e) {
       needsSync = true; dispatchSaveEvent('error');
     }
   } 
-  // --- [Google Drive 저장] ---
+  // 🔥 2. 파이어베이스가 없으면 구글 드라이브에 자동 저장
   else {
     const token = localStorage.getItem('google_access_token');
     const fileId = localStorage.getItem('cached_file_id');
@@ -143,24 +155,22 @@ const syncToCloud = async () => {
   }
 };
 
-// 🔥 4번 요청: 인터넷 창을 닫아버리거나 화면을 숨길 때 무조건 즉시 자동 저장
 if (typeof window !== 'undefined') {
   window.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && needsSync) {
       if (syncTimer) clearTimeout(syncTimer);
-      syncToCloud(); // 탭 닫힐 때 Firebase로 전송
+      syncToCloud(); 
     } else if (document.visibilityState === 'visible') {
-      fetchLatestFromCloud(); // 화면 켤 때 최신 정보 읽기
+      fetchLatestFromCloud(); 
     }
   });
-  // 혹시 모를 누락을 대비한 30초 주기적 1회성 확인
   setInterval(fetchLatestFromCloud, 30000);
 }
 
 const scheduleSync = () => {
   needsSync = true;
   if (syncTimer) clearTimeout(syncTimer);
-  syncTimer = setTimeout(syncToCloud, 2000); // 2초 조작 없으면 저장
+  syncTimer = setTimeout(syncToCloud, 2000); 
 };
 
 export function useGoogleDriveDB(collectionName, userId, enabled = true) {
@@ -173,7 +183,7 @@ export function useGoogleDriveDB(collectionName, userId, enabled = true) {
       return;
     }
     
-    currentUserId = userId; // 유저 아이디 세팅
+    currentUserId = userId; 
 
     const handleDataUpdated = () => {
       setData(globalFullData[collectionName] || []);
@@ -209,6 +219,24 @@ export function useGoogleDriveDB(collectionName, userId, enabled = true) {
             localStorage.setItem('cached_folder_id', folderId);
           }
 
+          // 🔥 스마트폰을 위해 구글 드라이브에서 파이어베이스 설정 비밀 편지 읽어오기
+          if (token && folderId) {
+            try {
+              const q = `'${folderId}' in parents and name='firebase_config.json' and trashed=false`;
+              const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } });
+              const result = await res.json();
+              if (result.files && result.files.length > 0) {
+                const configRes = await fetch(`https://www.googleapis.com/drive/v3/files/${result.files[0].id}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+                if (configRes.ok) {
+                  const configText = await configRes.text();
+                  if (configText.trim() === '') localStorage.removeItem('custom_firebase_config');
+                  else localStorage.setItem('custom_firebase_config', configText);
+                }
+              }
+            } catch(e) { console.error("Config sync error", e); }
+          }
+
+          // 드라이브 DB 파일 확인 및 생성 (백업용 공간 확보)
           if (!fileId) {
             const q = `'${folderId}' in parents and name='${DB_FILE_NAME}' and trashed=false`;
             const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,modifiedTime)`, { headers: { Authorization: `Bearer ${token}` } });
@@ -223,7 +251,7 @@ export function useGoogleDriveDB(collectionName, userId, enabled = true) {
             localStorage.setItem('cached_file_id', fileId);
           }
 
-          await fetchLatestFromCloud(); // 접속 시 최신화
+          await fetchLatestFromCloud(); 
           
           dispatchSaveEvent('loaded');
           if (needsSync) syncToCloud(); 

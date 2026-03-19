@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, BookOpen, CheckSquare, 
-  MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Grid, Info, HelpCircle, Database
-} from 'lucide-react'; // 🔥 Database 아이콘 추가
+  MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Grid, Info, HelpCircle, Database,
+  CloudUpload, Loader // 🔥 아이콘 추가
+} from 'lucide-react'; 
+// 🔥 수동 백업 함수 불러오기
+import { backupToGoogleDrive } from '../../hooks/useGoogleDriveDB';
 
 export default function Sidebar({ 
   activeView, setActiveView, onOpenSettings, user, logout, 
@@ -11,6 +14,7 @@ export default function Sidebar({
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
+  const [isBackingUp, setIsBackingUp] = useState(false); // 🔥 백업 중 상태 관리
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -29,6 +33,14 @@ export default function Sidebar({
     window.addEventListener('db-save-status', handleSaveStatus);
     return () => window.removeEventListener('db-save-status', handleSaveStatus);
   }, []);
+
+  // 🔥 드라이브 수동 백업 실행 함수
+  const handleManualBackup = async () => {
+    setIsBackingUp(true);
+    const result = await backupToGoogleDrive();
+    alert(result.message);
+    setIsBackingUp(false);
+  };
 
   const sortedHandbooks = [...handbooks].sort((a, b) => b.title.localeCompare(a.title));
 
@@ -68,7 +80,7 @@ export default function Sidebar({
       items: [
         { id: 'handbook_settings', label: '교무수첩 설정', icon: Settings },
         { id: 'how_to_use', label: '사용 방법', icon: HelpCircle }, 
-        { id: 'realtime_setup', label: '실시간 버전 만들기', icon: Database }, // 🔥 실시간 버전 추가
+        { id: 'realtime_setup', label: '실시간 버전 만들기', icon: Database }, 
         { id: 'update_history', label: '업데이트 내역', icon: Info }, 
       ]
     }
@@ -129,22 +141,38 @@ export default function Sidebar({
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6">
+      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6 custom-scrollbar">
         {menuGroups.map((group, index) => (
-          <div key={index}>
-            <h3 className="px-3 text-[10px] font-extrabold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{group.title}</h3>
-            <div className="space-y-0.5">
-              {group.items.map((item) => {
-                const isActive = activeView === item.id;
-                const highlight = isActive && item.id !== 'handbook_settings';
-                return (
-                  <button key={item.id} onClick={() => handleMenuClick(item.id)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 font-medium text-sm ${highlight ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'}`}>
-                    <item.icon size={18} className={highlight ? 'text-white' : 'text-gray-500 dark:text-gray-400'} />{item.label}
-                  </button>
-                );
-              })}
+          <React.Fragment key={index}>
+            {/* 🔥 학급 관리 메뉴 바로 위에 드라이브 수동 백업 버튼 생성 */}
+            {group.title === "학급 관리" && (
+              <div className="mb-6 px-1">
+                <button 
+                  onClick={handleManualBackup}
+                  disabled={isBackingUp}
+                  className="w-full flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800 py-2.5 rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
+                >
+                  {isBackingUp ? <Loader size={16} className="animate-spin"/> : <CloudUpload size={16}/>}
+                  {isBackingUp ? '드라이브 백업 중...' : '드라이브 수동 백업'}
+                </button>
+              </div>
+            )}
+            
+            <div>
+              <h3 className="px-3 text-[10px] font-extrabold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">{group.title}</h3>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const isActive = activeView === item.id;
+                  const highlight = isActive && item.id !== 'handbook_settings';
+                  return (
+                    <button key={item.id} onClick={() => handleMenuClick(item.id)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 font-medium text-sm ${highlight ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'}`}>
+                      <item.icon size={18} className={highlight ? 'text-white' : 'text-gray-500 dark:text-gray-400'} />{item.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </React.Fragment>
         ))}
       </nav>
 

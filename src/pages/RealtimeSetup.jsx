@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Database, Save, CheckCircle, ExternalLink, Code } from 'lucide-react';
+import { AlertTriangle, Database, Save, CheckCircle, ExternalLink, Code, Loader } from 'lucide-react';
 
 export default function RealtimeSetup() {
   const [configText, setConfigText] = useState('');
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // 로딩 상태 추가
 
   useEffect(() => {
     const existingConfig = localStorage.getItem('custom_firebase_config');
@@ -12,9 +13,47 @@ export default function RealtimeSetup() {
     }
   }, []);
 
-  const handleSave = () => {
+  // 🔥 구글 드라이브를 통해 다른 기기(스마트폰)로 설정 코드를 배달하는 기능
+  const syncConfigToDrive = async (text) => {
+    const token = localStorage.getItem('google_access_token');
+    const folderId = localStorage.getItem('cached_folder_id');
+    if (!token || !folderId) return;
+
+    try {
+      const q = `'${folderId}' in parents and name='firebase_config.json' and trashed=false`;
+      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } });
+      const searchData = await searchRes.json();
+      const file = new Blob([text], { type: 'application/json' });
+
+      if (searchData.files && searchData.files.length > 0) {
+        // 기존 설정 파일 덮어쓰기
+        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${searchData.files[0].id}?uploadType=media`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` },
+          body: file
+        });
+      } else {
+        // 새 설정 파일 만들기
+        const metadata = { name: 'firebase_config.json', parents: [folderId] };
+        const formData = new FormData();
+        formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+        formData.append('file', file);
+        await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData
+        });
+      }
+    } catch (e) {
+      console.error('Drive sync failed', e);
+    }
+  };
+
+  const handleSave = async () => {
     if (configText.trim() === '') {
       if (window.confirm('설정을 비우고 저장하시면 기본 모드(구글 드라이브)로 돌아갑니다. 진행하시겠습니까?')) {
+        setIsSaving(true);
+        await syncConfigToDrive(''); // 빈 내용으로 덮어써서 폰에서도 지워지게 만듦
         localStorage.removeItem('custom_firebase_config');
         alert('기본 모드로 돌아갑니다. 새로고침 됩니다.');
         window.location.reload();
@@ -22,17 +61,20 @@ export default function RealtimeSetup() {
       return;
     }
 
-    // 간단한 유효성 검사
     if (!configText.includes('apiKey') || !configText.includes('projectId')) {
       alert('입력하신 텍스트에 올바른 Firebase 설정(apiKey, projectId 등)이 포함되어 있지 않습니다. 가이드 5번을 다시 확인해주세요.');
       return;
     }
 
+    setIsSaving(true);
+    await syncConfigToDrive(configText); // 드라이브에 비밀 편지 저장
     localStorage.setItem('custom_firebase_config', configText);
+    
     setIsSaved(true);
+    setIsSaving(false);
     setTimeout(() => setIsSaved(false), 3000);
     
-    if (window.confirm('Firebase 설정이 성공적으로 저장되었습니다! 실시간 통신 모드를 적용하기 위해 새로고침 하시겠습니까?')) {
+    if (window.confirm('설정이 저장되었으며 스마트폰으로 자동 전달됩니다! 실시간 모드를 적용하기 위해 새로고침 하시겠습니까?')) {
       window.location.reload();
     }
   };
@@ -47,7 +89,6 @@ export default function RealtimeSetup() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* 좌측: 상세 가이드 영역 */}
         <div className="space-y-6">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-5 rounded-2xl flex items-start gap-4 shadow-sm">
             <AlertTriangle className="text-red-600 dark:text-red-400 shrink-0 mt-1" size={24} />
@@ -67,8 +108,6 @@ export default function RealtimeSetup() {
             </h3>
             
             <ol className="space-y-8 text-sm text-gray-700 dark:text-gray-300 relative border-l-2 border-indigo-100 dark:border-gray-700 ml-3 pl-6">
-              
-              {/* Step 1 */}
               <li className="relative">
                 <span className="absolute -left-[37px] bg-indigo-600 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-md">1</span>
                 <p className="font-bold text-base mb-2 text-gray-900 dark:text-gray-100">Firebase 사이트 접속 및 로그인</p>
@@ -77,8 +116,6 @@ export default function RealtimeSetup() {
                   Firebase 사이트 열기 <ExternalLink size={16}/>
                 </a>
               </li>
-
-              {/* Step 2 */}
               <li className="relative">
                 <span className="absolute -left-[37px] bg-indigo-600 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-md">2</span>
                 <p className="font-bold text-base mb-2 text-gray-900 dark:text-gray-100">새 프로젝트 만들기</p>
@@ -89,8 +126,6 @@ export default function RealtimeSetup() {
                   <li>로딩이 끝나면 <strong>[계속]</strong>을 누릅니다.</li>
                 </ul>
               </li>
-
-              {/* Step 3 */}
               <li className="relative">
                 <span className="absolute -left-[37px] bg-indigo-600 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-md">3</span>
                 <p className="font-bold text-base mb-2 text-gray-900 dark:text-gray-100">데이터베이스(저장소) 개통하기</p>
@@ -101,8 +136,6 @@ export default function RealtimeSetup() {
                   <li>위치 설정 창이 뜨면 목록에서 <strong>[asia-northeast3 (Seoul)]</strong>을 찾아 선택하고 <strong>[사용 설정]</strong>을 누릅니다.</li>
                 </ul>
               </li>
-
-              {/* Step 4 */}
               <li className="relative">
                 <span className="absolute -left-[37px] bg-indigo-600 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-md">4</span>
                 <p className="font-bold text-base mb-2 text-gray-900 dark:text-gray-100">내 앱(수첩) 연결하기</p>
@@ -112,8 +145,6 @@ export default function RealtimeSetup() {
                   <li>앱 닉네임 칸에 자유롭게 이름(예: <code className="bg-gray-100 dark:bg-gray-700 text-pink-600 px-1.5 py-0.5 rounded">수첩</code>)을 적고 <strong>[앱 등록]</strong> 버튼을 누릅니다. (밑에 있는 Firebase 호스팅 체크박스는 무시하세요.)</li>
                 </ul>
               </li>
-
-              {/* Step 5 */}
               <li className="relative">
                 <span className="absolute -left-[37px] bg-indigo-600 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-md">5</span>
                 <p className="font-bold text-base mb-2 text-gray-900 dark:text-gray-100">설정 코드 복사 후 붙여넣기</p>
@@ -128,7 +159,6 @@ export default function RealtimeSetup() {
           </div>
         </div>
 
-        {/* 우측: 설정 입력 영역 */}
         <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg border border-indigo-100 dark:border-gray-700 flex flex-col h-full lg:sticky lg:top-4">
           <h3 className="font-bold text-xl mb-2 dark:text-white flex items-center gap-2">
             <Code className="text-indigo-600" size={24}/> 나의 Firebase 설정 입력
@@ -149,12 +179,13 @@ export default function RealtimeSetup() {
           <div className="mt-6 flex flex-col items-center gap-4">
             <button 
               onClick={handleSave} 
-              className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md text-lg ${isSaved ? 'bg-green-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
+              disabled={isSaving}
+              className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md text-lg disabled:opacity-70 ${isSaved ? 'bg-green-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
             >
-              {isSaved ? <><CheckCircle size={24}/> 저장 완료!</> : <><Save size={24}/> 설정 저장 및 적용하기</>}
+              {isSaving ? <><Loader className="animate-spin" size={24}/> 클라우드에 연동 중...</> : isSaved ? <><CheckCircle size={24}/> 저장 완료!</> : <><Save size={24}/> 설정 저장 및 적용하기</>}
             </button>
             <p className="text-xs text-gray-400 text-center">
-              * 입력하신 정보는 선생님의 브라우저에만 안전하게 보관되며, 언제든 지우고 기본 모드로 돌아갈 수 있습니다.
+              * 설정은 구글 드라이브를 통해 스마트폰으로 <strong>자동 전달</strong>됩니다.<br/>언제든 지우고 기본 모드로 돌아갈 수 있습니다.
             </p>
           </div>
         </div>
