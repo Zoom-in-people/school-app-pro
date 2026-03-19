@@ -1,49 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Settings, Plus, Save, Trash2, X, ChevronRight } from 'lucide-react';
+import { Clock, Settings, Plus, Save, Trash2, X, ChevronRight, Calendar, Layout, Bell } from 'lucide-react';
 
 export default function MyTimetable({ timetableData = [], onAddTimetable, onUpdateTimetable, onDeleteTimetable }) {
   const timetable = timetableData && timetableData.length > 0 ? timetableData[0] : null;
 
   const [isSettingMode, setIsSettingMode] = useState(false);
   
-  // 기본 설정값
   const [settings, setSettings] = useState({
     days: ['월', '화', '수', '목', '금'],
     totalPeriods: 6,
-    classDuration: 45, // 기본 45분
-    breakTime: 10,     // 쉬는 시간 10분
-    startTime: '09:00',// 첫 수업 시작
+    classDuration: 45, 
+    breakTime: 10,     
+    startTime: '09:00',
     lunchStart: '12:30',
     lunchEnd: '13:20',
-    lunchAfter: 4      // 점심은 4교시 후
+    lunchAfter: 4      
   });
 
-  const [modalData, setModalData] = useState(null); // { day, period, subject, room }
+  const [modalData, setModalData] = useState(null);
 
   useEffect(() => {
-    if (!timetable || timetable.type !== 'manual') {
-      setIsSettingMode(true);
-    } else if (timetable && timetable.settings) {
-      setSettings(timetable.settings);
-    }
+    if (!timetable || timetable.type !== 'manual') setIsSettingMode(true);
+    else if (timetable && timetable.settings) setSettings(timetable.settings);
   }, [timetable]);
 
   const handleSaveSettings = () => {
     if (settings.days.length === 0) return alert("최소 하루 이상의 요일을 선택해야 합니다.");
-    
-    const newTimetable = {
-      type: 'manual',
-      settings,
-      schedule: timetable?.schedule || {},
-      recentSubjects: timetable?.recentSubjects || [],
-      recentRooms: timetable?.recentRooms || []
-    };
-
-    if (timetable && timetable.id) {
-      onUpdateTimetable(timetable.id, newTimetable);
-    } else {
-      onAddTimetable(newTimetable);
-    }
+    const newTimetable = { type: 'manual', settings, schedule: timetable?.schedule || {}, recentSubjects: timetable?.recentSubjects || [], recentRooms: timetable?.recentRooms || [] };
+    if (timetable && timetable.id) onUpdateTimetable(timetable.id, newTimetable);
+    else onAddTimetable(newTimetable);
     setIsSettingMode(false);
   };
 
@@ -56,29 +41,22 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
 
   const handleDayToggle = (day) => {
     setSettings(prev => {
-      const newDays = prev.days.includes(day) 
-        ? prev.days.filter(d => d !== day) 
-        : [...prev.days, day];
-      // 요일 순서 유지
+      const newDays = prev.days.includes(day) ? prev.days.filter(d => d !== day) : [...prev.days, day];
       const order = ['월', '화', '수', '목', '금', '토', '일'];
       return { ...prev, days: newDays.sort((a, b) => order.indexOf(a) - order.indexOf(b)) };
     });
   };
 
-  // 시간 계산 함수
   const generateTimes = () => {
     const times = [];
     let [h, m] = settings.startTime.split(':').map(Number);
-    
     for (let i = 1; i <= settings.totalPeriods; i++) {
       const startStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
       let endM = m + Number(settings.classDuration);
       let endH = h + Math.floor(endM / 60);
       endM = endM % 60;
       const endStr = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
-      
       times.push({ period: i, start: startStr, end: endStr });
-      
       if (i === Number(settings.lunchAfter)) {
         const [lh, lm] = settings.lunchEnd.split(':').map(Number);
         h = lh; m = lm;
@@ -102,21 +80,10 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
   const handleSaveCell = () => {
     const key = `${modalData.period}-${modalData.day}`;
     const newSchedule = { ...timetable.schedule, [key]: { subject: modalData.subject, room: modalData.room } };
-    
-    // 빈 값이면 키 삭제
-    if (!modalData.subject.trim() && !modalData.room.trim()) {
-      delete newSchedule[key];
-    }
-
+    if (!modalData.subject.trim() && !modalData.room.trim()) delete newSchedule[key];
     const newSubjects = modalData.subject.trim() ? Array.from(new Set([modalData.subject.trim(), ...(timetable.recentSubjects || [])])).slice(0, 10) : timetable.recentSubjects;
     const newRooms = modalData.room.trim() ? Array.from(new Set([modalData.room.trim(), ...(timetable.recentRooms || [])])).slice(0, 10) : timetable.recentRooms;
-
-    onUpdateTimetable(timetable.id, {
-      ...timetable,
-      schedule: newSchedule,
-      recentSubjects: newSubjects,
-      recentRooms: newRooms
-    });
+    onUpdateTimetable(timetable.id, { ...timetable, schedule: newSchedule, recentSubjects: newSubjects, recentRooms: newRooms });
     setModalData(null);
   };
 
@@ -135,68 +102,78 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
           <h2 className="text-2xl font-bold dark:text-white flex items-center gap-2"><Settings className="text-indigo-600"/> 시간표 설정</h2>
         </div>
         
-        <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 md:p-8 overflow-y-auto">
-          <div className="max-w-2xl mx-auto space-y-8">
+        <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 md:p-8 overflow-y-auto custom-scrollbar">
+          {/* 🔥 2번 요청: 시간표 설정 UI/UX 가시성 대폭 개선 */}
+          <div className="max-w-3xl mx-auto space-y-6">
             
-            <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">1. 수업 요일 설정</label>
+            {/* 카드 1: 요일 설정 */}
+            <div className="bg-gray-50 dark:bg-gray-700/30 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+              <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-4"><Calendar className="text-indigo-500" size={20}/> 1. 수업 요일 설정</h3>
               <div className="flex flex-wrap gap-2">
                 {['월', '화', '수', '목', '금', '토', '일'].map(day => (
-                  <button key={day} onClick={() => handleDayToggle(day)} className={`px-4 py-2 rounded-xl font-bold transition border ${settings.days.includes(day) ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'}`}>
+                  <button key={day} onClick={() => handleDayToggle(day)} className={`px-5 py-2.5 rounded-xl font-bold transition border ${settings.days.includes(day) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-gray-500 border-gray-300 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400 hover:bg-gray-100'}`}>
                     {day}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">2. 하루 총 교시 수</label>
-                <select value={settings.totalPeriods} onChange={e => setSettings({...settings, totalPeriods: Number(e.target.value)})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500">
-                  {[4, 5, 6, 7, 8, 9, 10].map(n => <option key={n} value={n}>{n}교시</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">3. 점심시간 배치</label>
-                <select value={settings.lunchAfter} onChange={e => setSettings({...settings, lunchAfter: Number(e.target.value)})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500">
-                  {[3, 4, 5].map(n => <option key={n} value={n}>{n}교시 후 점심</option>)}
-                </select>
+            {/* 카드 2: 기본 형태 */}
+            <div className="bg-gray-50 dark:bg-gray-700/30 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+              <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-4"><Layout className="text-indigo-500" size={20}/> 2. 기본 형태 설정</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">하루 총 교시 수</label>
+                  <select value={settings.totalPeriods} onChange={e => setSettings({...settings, totalPeriods: Number(e.target.value)})} className="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-800 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                    {[4, 5, 6, 7, 8, 9, 10].map(n => <option key={n} value={n}>{n}교시</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">점심시간 배치</label>
+                  <select value={settings.lunchAfter} onChange={e => setSettings({...settings, lunchAfter: Number(e.target.value)})} className="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-800 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                    {[3, 4, 5].map(n => <option key={n} value={n}>{n}교시 후 점심</option>)}
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 dark:bg-gray-700/30 p-5 rounded-2xl border border-gray-100 dark:border-gray-700">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">첫 수업 시작 시간</label>
-                  <input type="time" value={settings.startTime} onChange={e => setSettings({...settings, startTime: e.target.value})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"/>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">수업 진행 시간 (분)</label>
-                  <input type="number" value={settings.classDuration} onChange={e => setSettings({...settings, classDuration: e.target.value})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"/>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">점심시간</label>
-                  <div className="flex items-center gap-2">
-                    <input type="time" value={settings.lunchStart} onChange={e => setSettings({...settings, lunchStart: e.target.value})} className="flex-1 p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"/>
-                    <span className="font-bold text-gray-400">~</span>
-                    <input type="time" value={settings.lunchEnd} onChange={e => setSettings({...settings, lunchEnd: e.target.value})} className="flex-1 p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"/>
+            {/* 카드 3: 시간 설정 */}
+            <div className="bg-gray-50 dark:bg-gray-700/30 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+              <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-4"><Bell className="text-indigo-500" size={20}/> 3. 시간표 종소리 설정</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">첫 수업 시작 시간</label>
+                    <input type="time" value={settings.startTime} onChange={e => setSettings({...settings, startTime: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-800 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"/>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">수업 진행 시간 (분)</label>
+                    <input type="number" value={settings.classDuration} onChange={e => setSettings({...settings, classDuration: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-800 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"/>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">쉬는 시간 (분)</label>
-                  <input type="number" value={settings.breakTime} onChange={e => setSettings({...settings, breakTime: e.target.value})} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"/>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">점심시간</label>
+                    <div className="flex items-center gap-2">
+                      <input type="time" value={settings.lunchStart} onChange={e => setSettings({...settings, lunchStart: e.target.value})} className="flex-1 p-3 border border-gray-300 rounded-xl dark:bg-gray-800 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"/>
+                      <span className="font-bold text-gray-400">~</span>
+                      <input type="time" value={settings.lunchEnd} onChange={e => setSettings({...settings, lunchEnd: e.target.value})} className="flex-1 p-3 border border-gray-300 rounded-xl dark:bg-gray-800 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"/>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">쉬는 시간 (분)</label>
+                    <input type="number" value={settings.breakTime} onChange={e => setSettings({...settings, breakTime: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-800 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"/>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4">
+            <div className="flex justify-end gap-3 pt-2">
               {timetable && timetable.id && (
                 <button onClick={() => setIsSettingMode(false)} className="px-6 py-3 font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition">취소</button>
               )}
               <button onClick={handleSaveSettings} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 transition flex items-center gap-2 shadow-lg shadow-indigo-200 dark:shadow-none">
-                다음 단계 <ChevronRight size={20}/>
+                완료 및 표 만들기 <ChevronRight size={20}/>
               </button>
             </div>
           </div>
@@ -220,13 +197,14 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
       </div>
 
       <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto custom-scrollbar flex flex-col">
-        <div className="min-w-[600px] flex-1">
+        <div className="min-w-[500px] flex-1">
           <table className="w-full text-center h-full table-fixed">
+            {/* 🔥 1번 요청: 표 높이, 패딩, 글자 크기 축소로 한눈에 들어오게 최적화 */}
             <thead className="bg-indigo-50 dark:bg-gray-700/50">
               <tr>
-                <th className="w-24 p-3 border-b border-r dark:border-gray-600 text-indigo-800 dark:text-indigo-200 font-bold">교시 / 시간</th>
+                <th className="w-20 p-2 border-b border-r dark:border-gray-600 text-indigo-800 dark:text-indigo-200 font-bold text-xs md:text-sm">교시</th>
                 {settings.days.map(day => (
-                  <th key={day} className="p-3 border-b border-r dark:border-gray-600 last:border-r-0 text-gray-700 dark:text-gray-200 font-extrabold">{day}</th>
+                  <th key={day} className="p-2 border-b border-r dark:border-gray-600 last:border-r-0 text-gray-700 dark:text-gray-200 font-extrabold text-sm">{day}</th>
                 ))}
               </tr>
             </thead>
@@ -236,9 +214,9 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
                 return (
                   <React.Fragment key={timeInfo.period}>
                     <tr className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-                      <td className="p-2 border-b border-r dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/50 h-20 md:h-24">
-                        <div className="font-extrabold text-sm md:text-base text-gray-800 dark:text-gray-200">{timeInfo.period}교시</div>
-                        <div className="text-[10px] md:text-xs text-gray-500 mt-1 font-medium">{timeInfo.start}<br/>~ {timeInfo.end}</div>
+                      <td className="p-1 border-b border-r dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/50 h-14 md:h-16">
+                        <div className="font-extrabold text-xs md:text-sm text-gray-800 dark:text-gray-200">{timeInfo.period}교시</div>
+                        <div className="text-[9px] md:text-[10px] text-gray-500 mt-0.5 font-medium">{timeInfo.start}<br/>~ {timeInfo.end}</div>
                       </td>
                       {settings.days.map(day => {
                         const cellData = timetable?.schedule?.[`${timeInfo.period}-${day}`];
@@ -246,16 +224,16 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
                           <td 
                             key={day} 
                             onClick={() => handleCellClick(day, timeInfo.period)}
-                            className="p-2 border-b border-r dark:border-gray-600 last:border-r-0 cursor-pointer group hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all relative"
+                            className="p-1 border-b border-r dark:border-gray-600 last:border-r-0 cursor-pointer group hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all relative"
                           >
                             {cellData ? (
                               <div className="flex flex-col items-center justify-center h-full">
-                                <span className="font-bold text-gray-800 dark:text-gray-100 text-base mb-1">{cellData.subject}</span>
-                                {cellData.room && <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{cellData.room}</span>}
+                                <span className="font-bold text-gray-800 dark:text-gray-100 text-sm mb-0.5">{cellData.subject}</span>
+                                {cellData.room && <span className="text-[10px] text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded-full border border-gray-100 dark:border-gray-600">{cellData.room}</span>}
                               </div>
                             ) : (
                               <div className="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <div className="bg-indigo-100 text-indigo-500 dark:bg-indigo-900 dark:text-indigo-300 p-2 rounded-full"><Plus size={20}/></div>
+                                <div className="bg-indigo-100 text-indigo-500 dark:bg-indigo-900 dark:text-indigo-300 p-1.5 rounded-full"><Plus size={16}/></div>
                               </div>
                             )}
                           </td>
@@ -264,9 +242,9 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
                     </tr>
                     {isLunchNext && (
                       <tr className="bg-orange-50/50 dark:bg-orange-900/10">
-                        <td colSpan={settings.days.length + 1} className="p-2 border-b dark:border-gray-600 text-center py-4">
-                          <div className="flex items-center justify-center gap-2 text-orange-600 dark:text-orange-400 font-bold">
-                            점심 시간 <span className="text-xs font-normal opacity-80 ml-2">({settings.lunchStart} ~ {settings.lunchEnd})</span>
+                        <td colSpan={settings.days.length + 1} className="p-1 border-b dark:border-gray-600 text-center py-2 md:py-3">
+                          <div className="flex items-center justify-center gap-2 text-orange-600 dark:text-orange-400 font-bold text-xs md:text-sm">
+                            점심 시간 <span className="text-[10px] font-normal opacity-80 ml-1">({settings.lunchStart} ~ {settings.lunchEnd})</span>
                           </div>
                         </td>
                       </tr>

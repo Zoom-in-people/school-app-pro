@@ -17,7 +17,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
   const todayStr = getTodayDateString();
   const todayDayName = ['일', '월', '화', '수', '목', '금', '토'][new Date().getDay()];
 
-  // 오늘 시간표 데이터 추출
   const todayClasses = [];
   if (timetable && timetable.type === 'manual' && timetable.settings) {
     for (let i = 1; i <= timetable.settings.totalPeriods; i++) {
@@ -146,7 +145,7 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           </WidgetCard>
         </div>
 
-        {/* 🔥 2번 요청 반영: 대시보드 시간표 위젯 리뉴얼 */}
+        {/* 🔥 3번 요청 반영: 대시보드 오늘의 수업 형식 변경 */}
         <div className="lg:col-span-3 h-80 lg:h-96">
           <div className="bg-indigo-600 rounded-2xl shadow-lg p-5 text-white h-full flex flex-col overflow-hidden relative group">
             <div className="flex justify-between items-center mb-4 z-10 shrink-0">
@@ -159,12 +158,16 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
                 todayClasses.length > 0 ? (
                   <div className="space-y-3">
                     {todayClasses.map((cls, idx) => (
-                      <div key={idx} className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-100 dark:border-indigo-800/50">
-                        <div className="bg-indigo-500 text-white w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm shrink-0 shadow-sm">{cls.period}</div>
-                        <div className="flex flex-col">
-                          <span className="font-bold text-gray-800 dark:text-gray-100 text-sm">{cls.subject}</span>
-                          {cls.room && <span className="text-xs text-gray-500 dark:text-gray-400">{cls.room}</span>}
+                      <div key={idx} className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 px-4 py-3 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
+                        <div className="flex items-center gap-3">
+                          <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-sm w-12">{cls.period}교시</span>
+                          <span className="font-bold text-gray-800 dark:text-gray-100 text-base">{cls.subject}</span>
                         </div>
+                        {cls.room && (
+                          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-2.5 py-1 rounded-md shadow-sm border border-gray-100 dark:border-gray-700">
+                            {cls.room}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>

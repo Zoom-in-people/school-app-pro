@@ -2,11 +2,19 @@ import React from 'react';
 import { Info, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export default function UpdateHistory() {
-  // 🔥 새로운 업데이트가 있을 때마다 배열의 맨 앞에 추가됩니다.
   const updates = [
     {
-      version: "v1.3.0 (최신)",
+      version: "v1.3.1 (최신)",
       date: "최근 업데이트",
+      changes: [
+        "나의 시간표: 표 높이 축소 및 폰트 조정을 통한 한눈에 보기 최적화",
+        "나의 시간표 설정: 카드형 레이아웃 및 아이콘 추가로 설정 화면 UI/UX 가시성 대폭 개선",
+        "대시보드 개선: 오늘의 수업 위젯 형식을 직관적인 [교시 - 과목 - 교실] 배치로 변경"
+      ]
+    },
+    {
+      version: "v1.3.0",
+      date: "이전 업데이트",
       changes: [
         "나의 시간표 전면 개편: 직접 요일/시간을 설정하고 수업을 추가하는 수동 시간표 생성기 도입",
         "상담 일지 개선: 학생 버튼 번호순 정렬 및 개별 학생 클릭 시 기록 필터링 기능 추가",
