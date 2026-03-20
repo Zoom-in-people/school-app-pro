@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Calendar as CalIcon, ChevronLeft, ChevronRight, Plus, Trash2, X, MessageSquare } from 'lucide-react';
-import { showToast, showConfirm } from '../utils/alerts'; // 🔥 알림창 가져오기
+import { showToast, showConfirm } from '../utils/alerts';
 
 const LUNAR_HOLIDAYS = {
   2024: { seol: '2024-02-10', buddha: '2024-05-15', chuseok: '2024-09-17' },
@@ -54,15 +54,23 @@ function getHolidays(year) {
     if (!h.allowSub) return;
     const day = h.date.getDay(); 
     let needsSub = false;
-    if (h.isSeolChuseok) { if (day === 0) needsSub = true; }
-    else { if (day === 0 || day === 6) needsSub = true; }
+    if (h.isSeolChuseok) { if (day === 0) needsSub = true; } // 명절은 일요일 겹칠 때만 대체
+    else { if (day === 0 || day === 6) needsSub = true; }    // 일반 공휴일은 토/일 겹칠 때 모두 대체
 
     if (needsSub) {
-      let next = new Date(h.date); next.setDate(next.getDate() + 1);
+      let next = new Date(h.date); 
+      next.setDate(next.getDate() + 1);
+      
       while (true) {
+        const nextDay = next.getDay();
         const nextKey = `${next.getFullYear()}-${next.getMonth() + 1}-${next.getDate()}`;
-        if (!holidays[nextKey]) { holidays[nextKey] = { name: `대체공휴일(${h.name})`, type: 'sub', date: next }; break; }
-        next.setDate(next.getDate() + 1);
+        
+        // 🔥 7번 요청 해결: 대체공휴일은 '이미 지정된 공휴일이 아니고', '토요일(6)이나 일요일(0)이 아닌 평일'이어야 함!
+        if (!holidays[nextKey] && nextDay !== 0 && nextDay !== 6) { 
+          holidays[nextKey] = { name: `대체공휴일(${h.name})`, type: 'sub', date: new Date(next) }; 
+          break; 
+        }
+        next.setDate(next.getDate() + 1); // 조건에 안 맞으면 다음 날로 넘김
       }
     }
   });
