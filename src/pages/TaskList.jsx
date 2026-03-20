@@ -24,7 +24,6 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
     setModalOpen(false);
   };
 
-  // 🔥 3번 요청: 업무 완료 처리 시 완료된 날짜(completedDate) 함께 저장
   const handleToggleDone = (todo) => {
     const today = new Date().toISOString().split('T')[0];
     onUpdateTodo(todo.id, { 
@@ -33,7 +32,6 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
     });
   };
 
-  // 🔥 4번 요청: 선택된 날짜에 해당하는 업무만 필터링
   const filteredTodos = todos.filter(t => {
     if (activeTab === 'completed') return t.done;
     if (activeTab === 'pending') return !t.done;
@@ -45,7 +43,6 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
     return true;
   });
 
-  // 달력 렌더링
   const renderCalendar = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth() + 1;
@@ -76,14 +73,12 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
             const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
             const isToday = dateStr === new Date().toISOString().split('T')[0];
             
-            // 해당 날짜에 포함되는 모든 업무 가져오기
             const dayTodos = todos.filter(t => {
               const start = t.startDate || t.dueDate;
               const end = t.dueDate;
               return dateStr >= start && dateStr <= end;
             });
 
-            // 렌더링 일관성을 위해 시작일 기준으로 정렬
             dayTodos.sort((a, b) => (a.startDate || a.dueDate).localeCompare(b.startDate || b.dueDate) || a.id.localeCompare(b.id));
 
             return (
@@ -100,17 +95,15 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
                     const isStart = dateStr === start;
                     const isEnd = dateStr === end;
                     
-                    // 완료 표시는 완료 날짜가 있으면 그 날짜에, 없으면 마감일에 띄움
                     const isCompletedDay = t.done && (t.completedDate === dateStr || (!t.completedDate && isEnd)); 
 
-                    // 중요도에 따른 배경색
-                    let bgClass = 'bg-indigo-500 text-white';
-                    if (t.done) bgClass = 'bg-gray-200 dark:bg-gray-700 text-gray-500 line-through';
-                    else if (t.priority === 'high') bgClass = 'bg-red-500 text-white';
-                    else if (t.priority === 'medium') bgClass = 'bg-amber-500 text-white';
-                    else bgClass = 'bg-blue-500 text-white';
+                    // 🔥 파스텔톤 배경 및 진한 글자색 적용
+                    let bgClass = 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200';
+                    if (t.done) bgClass = 'bg-gray-100 text-gray-400 line-through dark:bg-gray-800/50 dark:text-gray-500';
+                    else if (t.priority === 'high') bgClass = 'bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200';
+                    else if (t.priority === 'medium') bgClass = 'bg-orange-100 text-orange-800 dark:bg-orange-900/60 dark:text-orange-200';
+                    else bgClass = 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200';
                     
-                    // 🔥 1, 2번 요청 반영: 음수 마진(-mx-1)을 활용해 달력 칸 사이를 선으로 이어지게 만듦
                     let roundedClass = 'rounded-sm';
                     let marginClass = 'mx-0';
                     if (start !== end) {
@@ -122,7 +115,7 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
                     }
 
                     return (
-                      <div key={t.id} className={`text-[9px] font-bold leading-tight px-1 py-0.5 truncate shadow-sm ${bgClass} ${roundedClass} ${marginClass}`} title={t.title}>
+                      <div key={t.id} className={`text-[10px] font-bold leading-tight px-1.5 py-0.5 truncate ${bgClass} ${roundedClass} ${marginClass}`} title={t.title}>
                         {isStart || start === end ? t.title : '\u00A0'}
                         {isCompletedDay && ' ✅'}
                       </div>
@@ -138,7 +131,6 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
   };
 
   return (
-    // 🔥 2번 요청 반영: 특정 영역(h-full)에서만 스크롤되던 것을 풀고, 브라우저 창 전체가 스크롤되도록 구조 해제
     <div className="flex flex-col gap-4 pb-12">
       <div className="flex justify-between items-center shrink-0">
         <h2 className="text-2xl font-bold dark:text-white flex items-center gap-2">업무 리스트</h2>
@@ -155,7 +147,6 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
           완료된 업무 ({todos.filter(t => t.done).length})
         </button>
         
-        {/* 🔥 4번 요청 반영: 선택한 날짜 필터링 탭 생성 */}
         {selectedDate && (
           <button onClick={() => setActiveTab('date')} className={`px-5 py-3 font-bold transition whitespace-nowrap flex items-center gap-1 ${activeTab === 'date' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}>
             <CalIcon size={14}/> {parseInt(selectedDate.split('-')[1])}월 {parseInt(selectedDate.split('-')[2])}일 업무
@@ -163,7 +154,6 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
         )}
       </div>
 
-      {/* 리스트 테이블 */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto w-full">
         <table className="w-full text-left min-w-[600px] border-collapse">
           <thead className="bg-gray-50 dark:bg-gray-700 text-gray-500 text-sm">
