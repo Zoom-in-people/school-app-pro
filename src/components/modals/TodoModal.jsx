@@ -7,10 +7,9 @@ export default function TodoModal({ isOpen, onClose, todo, onSave }) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
-  const defaultData = { title: "", category: "", dueDate: getTodayDateString(), priority: "medium", done: false };
+  const defaultData = { title: "", category: "", startDate: getTodayDateString(), dueDate: getTodayDateString(), priority: "medium", done: false };
   const [formData, setFormData] = useState(defaultData);
 
-  // 🔥 5번 요청: 커스텀 분류 데이터 로컬스토리지 관리
   const [customCategories, setCustomCategories] = useState(() => {
     const saved = localStorage.getItem('todo_categories');
     return saved ? JSON.parse(saved) : ["행정", "수업", "상담", "행사"];
@@ -19,8 +18,11 @@ export default function TodoModal({ isOpen, onClose, todo, onSave }) {
 
   useEffect(() => {
     if (isOpen) {
-      if (todo && todo.id) setFormData(todo);
-      else setFormData({ ...defaultData, dueDate: getTodayDateString() });
+      if (todo && todo.id) {
+        setFormData({ ...todo, startDate: todo.startDate || todo.dueDate });
+      } else {
+        setFormData({ ...defaultData, startDate: getTodayDateString(), dueDate: getTodayDateString() });
+      }
     }
   }, [isOpen, todo]);
 
@@ -28,6 +30,11 @@ export default function TodoModal({ isOpen, onClose, todo, onSave }) {
 
   const handleSave = () => {
     if (!formData.title.trim()) return alert("업무명을 입력하세요.");
+    // 시작일이 마감일보다 뒤에 있으면 보정
+    if (formData.startDate > formData.dueDate) {
+      alert("시작일이 마감일보다 늦을 수 없습니다.");
+      return;
+    }
     onSave(formData);
     onClose();
   };
@@ -68,7 +75,6 @@ export default function TodoModal({ isOpen, onClose, todo, onSave }) {
             />
           </div>
 
-          {/* 🔥 5번 요청: 세련된 분류 버튼 폼 */}
           <div>
             <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">분류 선택</label>
             <div className="flex flex-wrap gap-2 mb-3">
@@ -87,17 +93,23 @@ export default function TodoModal({ isOpen, onClose, todo, onSave }) {
             </div>
           </div>
 
+          {/* 🔥 시작일 및 마감일 추가 */}
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">시작일</label>
+              <input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-indigo-500"/>
+            </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">마감일</label>
               <input type="date" value={formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-indigo-500"/>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">중요도</label>
-              <select value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-indigo-500">
-                <option value="low">일반</option><option value="medium">중요</option><option value="high">긴급</option>
-              </select>
-            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">중요도</label>
+            <select value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="low">일반</option><option value="medium">중요</option><option value="high">긴급</option>
+            </select>
           </div>
         </div>
 
