@@ -6,7 +6,8 @@ import { showToast, showConfirm } from '../utils/alerts';
 export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [targetTodo, setTargetTodo] = useState(null);
-  const [activeTab, setActiveTab] = useState('pending');
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'completed', 'date'
+  const [selectedDate, setSelectedDate] = useState(null); // 날짜 탭 용도
   
   const [expandedTaskId, setExpandedTaskId] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -23,8 +24,28 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
     setModalOpen(false);
   };
 
-  const filteredTodos = todos.filter(t => activeTab === 'completed' ? t.done : !t.done);
+  // 🔥 3번 요청: 업무 완료 처리 시 완료된 날짜(completedDate) 함께 저장
+  const handleToggleDone = (todo) => {
+    const today = new Date().toISOString().split('T')[0];
+    onUpdateTodo(todo.id, { 
+      done: !todo.done, 
+      completedDate: !todo.done ? today : null 
+    });
+  };
 
+  // 🔥 4번 요청: 선택된 날짜에 해당하는 업무만 필터링
+  const filteredTodos = todos.filter(t => {
+    if (activeTab === 'completed') return t.done;
+    if (activeTab === 'pending') return !t.done;
+    if (activeTab === 'date' && selectedDate) {
+      const start = t.startDate || t.dueDate;
+      const end = t.dueDate;
+      return selectedDate >= start && selectedDate <= end;
+    }
+    return true;
+  });
+
+  // 달력 렌더링
   const renderCalendar = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth() + 1;
@@ -45,29 +66,69 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
             <button onClick={() => setCurrentMonth(new Date(year, month, 1))} className="p-1 hover:bg-white rounded dark:hover:bg-gray-600 transition"><ChevronRight size={18}/></button>
           </div>
         </div>
-        <div className="grid grid-cols-7 gap-1 text-center text-xs">
+        <div className="grid grid-cols-7 gap-y-1 text-center text-xs">
           {['일','월','화','수','목','금','토'].map((d, i) => (
             <div key={d} className={`font-bold p-1.5 ${i===0 ? 'text-red-500' : i===6 ? 'text-blue-500' : 'text-gray-500'}`}>{d}</div>
           ))}
-          {emptyDays.map((_, i) => <div key={`empty-${i}`} className="p-2"></div>)}
+          {emptyDays.map((_, i) => <div key={`empty-${i}`} className="p-1"></div>)}
+          
           {days.map(day => {
             const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const isToday = dateStr === new Date().toISOString().split('T')[0];
             
-            // 🔥 시작일~마감일 사이에 포함되는 업무 필터링
+            // 해당 날짜에 포함되는 모든 업무 가져오기
             const dayTodos = todos.filter(t => {
               const start = t.startDate || t.dueDate;
               const end = t.dueDate;
               return dateStr >= start && dateStr <= end;
             });
-            
-            const pendingCount = dayTodos.filter(t => !t.done).length;
-            const isToday = dateStr === new Date().toISOString().split('T')[0];
-            
+
+            // 렌더링 일관성을 위해 시작일 기준으로 정렬
+            dayTodos.sort((a, b) => (a.startDate || a.dueDate).localeCompare(b.startDate || b.dueDate) || a.id.localeCompare(b.id));
+
             return (
-              <div key={day} className={`p-1 border border-gray-100 dark:border-gray-700 rounded-lg min-h-[46px] flex flex-col items-center justify-start transition hover:border-indigo-300 ${isToday ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'bg-gray-50/50 dark:bg-gray-800/50'}`}>
-                <span className={`font-bold text-[11px] ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'}`}>{day}</span>
-                {pendingCount > 0 && <span className="mt-0.5 bg-red-100 text-red-600 text-[9px] font-bold px-1.5 rounded-full truncate w-full max-w-[40px]">{pendingCount}건 진행</span>}
-                {dayTodos.length > 0 && pendingCount === 0 && <span className="mt-0.5 bg-green-100 text-green-600 text-[9px] font-bold px-1.5 rounded-full">완료</span>}
+              <div key={day} 
+                   onClick={() => { setSelectedDate(dateStr); setActiveTab('date'); }}
+                   className={`p-1 border border-gray-100 dark:border-gray-700 rounded-lg min-h-[80px] flex flex-col items-stretch transition cursor-pointer hover:border-indigo-400 ${isToday ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : 'bg-white dark:bg-gray-800'}`}>
+                
+                <span className={`text-center font-bold text-[11px] mb-1 ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'}`}>{day}</span>
+                
+                <div className="flex flex-col gap-[2px]">
+                  {dayTodos.map(t => {
+                    const start = t.startDate || t.dueDate;
+                    const end = t.dueDate;
+                    const isStart = dateStr === start;
+                    const isEnd = dateStr === end;
+                    
+                    // 완료 표시는 완료 날짜가 있으면 그 날짜에, 없으면 마감일에 띄움
+                    const isCompletedDay = t.done && (t.completedDate === dateStr || (!t.completedDate && isEnd)); 
+
+                    // 중요도에 따른 배경색
+                    let bgClass = 'bg-indigo-500 text-white';
+                    if (t.done) bgClass = 'bg-gray-200 dark:bg-gray-700 text-gray-500 line-through';
+                    else if (t.priority === 'high') bgClass = 'bg-red-500 text-white';
+                    else if (t.priority === 'medium') bgClass = 'bg-amber-500 text-white';
+                    else bgClass = 'bg-blue-500 text-white';
+                    
+                    // 🔥 1, 2번 요청 반영: 음수 마진(-mx-1)을 활용해 달력 칸 사이를 선으로 이어지게 만듦
+                    let roundedClass = 'rounded-sm';
+                    let marginClass = 'mx-0';
+                    if (start !== end) {
+                      if (isStart) { roundedClass = 'rounded-l-md rounded-r-none z-10 relative'; marginClass = 'ml-0.5 -mr-1'; }
+                      else if (isEnd) { roundedClass = 'rounded-r-md rounded-l-none z-10 relative'; marginClass = '-ml-1 mr-0.5'; }
+                      else { roundedClass = 'rounded-none z-0 relative'; marginClass = '-mx-1'; }
+                    } else {
+                      roundedClass = 'rounded-md z-10 relative'; marginClass = 'mx-0.5';
+                    }
+
+                    return (
+                      <div key={t.id} className={`text-[9px] font-bold leading-tight px-1 py-0.5 truncate shadow-sm ${bgClass} ${roundedClass} ${marginClass}`} title={t.title}>
+                        {isStart || start === end ? t.title : '\u00A0'}
+                        {isCompletedDay && ' ✅'}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             );
           })}
@@ -77,8 +138,8 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
   };
 
   return (
-    // 🔥 flex-col 속성만 남기고 제한 높이(h-full)와 overflow를 삭제하여 페이지 전체가 스크롤 되도록 변경 (하단 여백 pb-10 추가)
-    <div className="flex flex-col gap-4 pb-10">
+    // 🔥 2번 요청 반영: 특정 영역(h-full)에서만 스크롤되던 것을 풀고, 브라우저 창 전체가 스크롤되도록 구조 해제
+    <div className="flex flex-col gap-4 pb-12">
       <div className="flex justify-between items-center shrink-0">
         <h2 className="text-2xl font-bold dark:text-white flex items-center gap-2">업무 리스트</h2>
         <button onClick={() => { setTargetTodo(null); setModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 transition shadow-sm">업무 등록</button>
@@ -86,15 +147,23 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
 
       {renderCalendar()}
 
-      <div className="flex border-b dark:border-gray-700 shrink-0 mt-2">
-        <button onClick={() => setActiveTab('pending')} className={`px-6 py-3 font-bold transition ${activeTab === 'pending' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}>
+      <div className="flex border-b dark:border-gray-700 shrink-0 mt-4 overflow-x-auto custom-scrollbar">
+        <button onClick={() => setActiveTab('pending')} className={`px-5 py-3 font-bold transition whitespace-nowrap ${activeTab === 'pending' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}>
           미완료 업무 ({todos.filter(t => !t.done).length})
         </button>
-        <button onClick={() => setActiveTab('completed')} className={`px-6 py-3 font-bold transition ${activeTab === 'completed' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-400 hover:text-gray-600'}`}>
+        <button onClick={() => setActiveTab('completed')} className={`px-5 py-3 font-bold transition whitespace-nowrap ${activeTab === 'completed' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-400 hover:text-gray-600'}`}>
           완료된 업무 ({todos.filter(t => t.done).length})
         </button>
+        
+        {/* 🔥 4번 요청 반영: 선택한 날짜 필터링 탭 생성 */}
+        {selectedDate && (
+          <button onClick={() => setActiveTab('date')} className={`px-5 py-3 font-bold transition whitespace-nowrap flex items-center gap-1 ${activeTab === 'date' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}>
+            <CalIcon size={14}/> {parseInt(selectedDate.split('-')[1])}월 {parseInt(selectedDate.split('-')[2])}일 업무
+          </button>
+        )}
       </div>
 
+      {/* 리스트 테이블 */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto w-full">
         <table className="w-full text-left min-w-[600px] border-collapse">
           <thead className="bg-gray-50 dark:bg-gray-700 text-gray-500 text-sm">
@@ -102,7 +171,7 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
               <th className="p-4 w-16 text-center whitespace-nowrap border-b dark:border-gray-600">상태</th>
               <th className="p-4 whitespace-nowrap border-b dark:border-gray-600">업무 내용 (클릭 시 전체 보기)</th>
               <th className="p-4 w-28 whitespace-nowrap border-b dark:border-gray-600">분류</th>
-              <th className="p-4 w-32 whitespace-nowrap border-b dark:border-gray-600">기간</th>
+              <th className="p-4 w-40 whitespace-nowrap border-b dark:border-gray-600">기간</th>
               <th className="p-4 w-24 text-right whitespace-nowrap border-b dark:border-gray-600">관리</th>
             </tr>
           </thead>
@@ -119,7 +188,7 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
               return (
                 <tr key={todo.id} className={`border-b border-gray-100 dark:border-gray-700 transition-colors ${bgClass}`}>
                   <td className="p-4 text-center align-top pt-5">
-                    <button onClick={() => onUpdateTodo(todo.id, { done: !todo.done })} className="transition-transform hover:scale-110">
+                    <button onClick={() => handleToggleDone(todo)} className="transition-transform hover:scale-110">
                       {todo.done ? <CheckCircle className="text-green-500"/> : <Circle className="text-gray-300 hover:text-indigo-400"/>}
                     </button>
                   </td>
@@ -135,9 +204,9 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
                     {todo.category && <span className="px-2 py-1 bg-white/80 dark:bg-gray-700 rounded-md text-xs font-bold text-gray-600 dark:text-gray-300 shadow-sm border border-gray-200 dark:border-gray-600">{todo.category}</span>}
                   </td>
                   <td className="p-4 text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap align-top pt-4">
-                    <div className="flex flex-col">
-                      <span>{todo.startDate || todo.dueDate}</span>
-                      <span className="text-xs text-gray-400">~ {todo.dueDate}</span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className={todo.startDate !== todo.dueDate ? 'text-indigo-600 dark:text-indigo-400' : ''}>{todo.startDate || todo.dueDate}</span>
+                      {todo.startDate !== todo.dueDate && <span className="text-xs text-red-500">~ {todo.dueDate}</span>}
                     </div>
                   </td>
                   <td className="p-4 text-right whitespace-nowrap align-top pt-4">
@@ -155,7 +224,7 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
             {filteredTodos.length === 0 && (
               <tr>
                 <td colSpan="5" className="p-16 text-center text-gray-400">
-                  해당하는 업무가 없습니다.
+                  {activeTab === 'date' ? "이 날짜에 등록된 업무가 없습니다." : "해당하는 업무가 없습니다."}
                 </td>
               </tr>
             )}
