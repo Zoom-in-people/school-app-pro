@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 
-// Vercel 환경변수에 등록할 클라이언트 ID
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 export function useAuth() {
@@ -8,7 +7,6 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 자동 로그인 처리
     const token = localStorage.getItem('google_access_token');
     const userInfo = localStorage.getItem('google_user_info');
     if (token && userInfo) {
@@ -35,7 +33,7 @@ export function useAuth() {
             });
             const userInfo = await res.json();
             const userData = {
-              uid: userInfo.sub, // 구글 고유 ID
+              uid: userInfo.sub, 
               email: userInfo.email,
               displayName: userInfo.name,
               photoURL: userInfo.picture
@@ -52,7 +50,14 @@ export function useAuth() {
   };
 
   const logout = () => {
-    localStorage.clear(); // 로그인 정보 및 캐시 완벽 초기화
+    // 🔥 5,6번 요청 해결: 전체 초기화(clear) 대신, 로그인 관련 키값만 핀셋으로 제거하여 위젯/카테고리 설정은 영구 보존!
+    localStorage.removeItem('google_access_token');
+    localStorage.removeItem('google_user_info');
+    localStorage.removeItem('cached_file_id');
+    localStorage.removeItem('cached_folder_id');
+    localStorage.removeItem('school_app_local_db');
+    localStorage.removeItem('db_last_modified');
+    
     setUser(null);
     window.location.reload();
   };
