@@ -1,21 +1,23 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Search, Plus, MoreHorizontal, User, Download, X, Save, Trash2, Sparkles, Loader, ImageIcon, Upload } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, User, Download, X, Trash2, Sparkles, Loader, ImageIcon, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { uploadFileToStorage } from '../utils/storage';
 import EditStudentModal from '../components/modals/EditStudentModal';
 import AiGenModal from '../components/modals/AiGenModal';
 import { downloadTemplate } from '../utils/helpers';
-import { showToast, showAlert, showConfirm } from '../utils/alerts'; // 🔥 알림창 가져오기
+import { showToast, showAlert, showConfirm } from '../utils/alerts';
 
 export default function StudentManager({ 
   students = [], onAddStudent, onAddStudents, onUpdateStudent, onDeleteStudent, onUpdateStudentsMany, 
-  onSetAllStudents, apiKey, isHomeroomView, classPhotos = [], onAddClassPhoto, onUpdateClassPhoto, onDeleteClassPhoto 
+  apiKey, isHomeroomView, classPhotos = [], onAddClassPhoto, onUpdateClassPhoto, onDeleteClassPhoto 
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBatchAiModalOpen, setIsBatchAiModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
+  
   const [activeClassFilter, setActiveClassFilter] = useState(null);
+  const [activeSubjectFilter, setActiveSubjectFilter] = useState(null); // 🔥 과목 필터 상태 추가
 
   const [visibleCount, setVisibleCount] = useState(20);
   const loaderRef = useRef(null);
@@ -30,6 +32,12 @@ export default function StudentManager({
     return Array.from(classes).sort();
   }, [safeStudents]);
 
+  // 🔥 과목 목록 추출
+  const existingSubjects = useMemo(() => {
+    const subjects = new Set(safeStudents.map(s => s.creditSubject).filter(Boolean));
+    return Array.from(subjects).sort();
+  }, [safeStudents]);
+
   const filteredStudents = useMemo(() => {
     let result = safeStudents;
     if (searchTerm) {
@@ -39,17 +47,17 @@ export default function StudentManager({
         (s.uniqueness && s.uniqueness.includes(searchTerm))
       );
     }
-    if (activeClassFilter) {
-      result = result.filter(s => `${s.grade}-${s.class}` === activeClassFilter);
-    }
+    if (activeClassFilter) result = result.filter(s => `${s.grade}-${s.class}` === activeClassFilter);
+    if (activeSubjectFilter) result = result.filter(s => s.creditSubject === activeSubjectFilter); // 🔥 과목 필터 적용
+
     return result.sort((a, b) => {
       if (a.grade !== b.grade) return a.grade - b.grade;
       if (a.class !== b.class) return a.class - b.class;
       return Number(a.number) - Number(b.number);
     });
-  }, [safeStudents, searchTerm, activeClassFilter]);
+  }, [safeStudents, searchTerm, activeClassFilter, activeSubjectFilter]);
 
-  useEffect(() => { setVisibleCount(20); }, [searchTerm, activeClassFilter]);
+  useEffect(() => { setVisibleCount(20); }, [searchTerm, activeClassFilter, activeSubjectFilter]);
 
   const handleObserver = useCallback((entries) => {
     const target = entries[0];
@@ -68,30 +76,40 @@ export default function StudentManager({
     if (!file) return;
     const reader = new FileReader();
     
-    // 🔥 예쁜 팝업을 위해 비동기로 변경
     reader.onload = async (evt) => {
       const bstr = evt.target.result;
       const wb = XLSX.read(bstr, { type: 'binary' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
-      const parsedStudents = data.slice(1).map(row => ({
-        grade: String(row[0] || ""), class: String(row[1] || ""), number: String(row[2] || ""),
-        name: String(row[3] || ""), phone: String(row[4] || ""), parentPhone: String(row[5] || ""),
-        address: String(row[6] || ""), tags: row[7] ? String(row[7]).split(",").map(t=>t.trim()) : [],
-        autoActivity: String(row[8] || ""), uniqueness: String(row[9] || ""),
-        memos: row[10] ? [{ id: Date.now(), date: new Date().toISOString().split('T')[0], content: String(row[10]) }] : []
-      })).filter(s => s.name);
+      const parsedStudents = data.slice(1).map(row => {
+        // 🔥 2번 요청: 담임/교과 여부에 따라 다르게 파싱
+        if (isHomeroomView) {
+          return {
+            grade: String(row[0] || ""), class: String(row[1] || ""), number: String(row[2] || ""),
+            name: String(row[3] || ""), phone: String(row[4] || ""), parentPhone: String(row[5] || ""),
+            address: String(row[6] || ""), tags: row[7] ? String(row[7]).split(",").map(t=>t.trim()) : [],
+            autoActivity: String(row[8] || ""), uniqueness: String(row[9] || ""), creditSubject: "",
+            memos: row[10] ? [{ id: Date.now(), date: new Date().toISOString().split('T')[0], content: String(row[10]) }] : []
+          };
+        } else {
+          return {
+            grade: String(row[0] || ""), class: String(row[1] || ""), number: String(row[2] || ""),
+            name: String(row[3] || ""), creditSubject: String(row[4] || ""), tags: row[5] ? String(row[5]).split(",").map(t=>t.trim()) : [],
+            autoActivity: String(row[6] || ""), uniqueness: String(row[7] || ""),
+            aiGeneratedText: String(row[8] || "")
+          };
+        }
+      }).filter(s => s.name);
 
       const newStudents = [];
       const updateTasks = [];
       parsedStudents.forEach(parsed => {
-        const existing = safeStudents.find(s => String(s.grade) === String(parsed.grade) && String(s.class) === String(parsed.class) && String(s.number) === String(parsed.number));
+        const existing = safeStudents.find(s => String(s.grade) === String(parsed.grade) && String(s.class) === String(parsed.class) && String(s.number) === String(parsed.number) && String(s.name) === String(parsed.name));
         if (existing) updateTasks.push({ id: existing.id, fields: { ...parsed } });
         else newStudents.push(parsed);
       });
 
-      // 🔥 Confirm 팝업
       const isConfirmed = await showConfirm(
         '엑셀 분석 완료!', 
         `새 학생 ${newStudents.length}명 추가, 기존 학생 ${updateTasks.length}명 덮어쓰기를 진행할까요?`,
@@ -111,10 +129,7 @@ export default function StudentManager({
   const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (!activeClassFilter) { 
-      showToast("사진을 등록할 '반'을 먼저 선택해주세요.", 'warning'); 
-      e.target.value = ''; return; 
-    }
+    if (!activeClassFilter) { showToast("사진을 등록할 '반'을 먼저 선택해주세요.", 'warning'); e.target.value = ''; return; }
     try {
       const uploaded = await uploadFileToStorage(file, 'class_photos');
       const newPhotoData = { id: activeClassFilter, classId: activeClassFilter, url: uploaded.url, fileName: uploaded.name, fullPath: uploaded.fullPath };
@@ -122,9 +137,7 @@ export default function StudentManager({
       if (existing) onUpdateClassPhoto(existing.id, newPhotoData);
       else onAddClassPhoto(newPhotoData);
       showToast("사진이 성공적으로 업로드되었습니다!");
-    } catch (error) { 
-      showAlert("업로드 실패", error.message, 'error'); 
-    }
+    } catch (error) { showAlert("업로드 실패", error.message, 'error'); }
     e.target.value = '';
   };
 
@@ -135,12 +148,9 @@ export default function StudentManager({
     setIsModalOpen(false); setEditingStudent(null); 
     showToast('저장되었습니다.');
   };
-  
   const handleDelete = async (id) => { 
-    // 🔥 Confirm 팝업 교체
     if (await showConfirm('학생을 삭제하시겠습니까?', '입력된 태그와 상담 기록이 모두 삭제됩니다.')) {
-      onDeleteStudent(id); 
-      showToast('삭제되었습니다.');
+      onDeleteStudent(id); showToast('삭제되었습니다.');
     }
   };
 
@@ -149,17 +159,34 @@ export default function StudentManager({
   return (
     <div className="h-full flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        <div className="flex flex-col gap-3 flex-1 min-w-[250px]">
+          <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input type="text" placeholder="이름, 태그 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm w-64 focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white transition-all" />
+            <input type="text" placeholder="이름, 태그 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white transition-all" />
           </div>
-          <div className="flex gap-1 ml-2 overflow-x-auto scrollbar-hide">
-            {existingClasses.map(cls => (
-              <button key={cls} onClick={() => setActiveClassFilter(activeClassFilter === cls ? null : cls)} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors border ${activeClassFilter === cls ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100'}`}>
-                {cls}
-              </button>
-            ))}
+          
+          <div className="flex flex-wrap gap-2">
+            {/* 반 필터 */}
+            <div className="flex gap-1 overflow-x-auto scrollbar-hide bg-gray-50 dark:bg-gray-900 p-1 rounded-lg border border-gray-100 dark:border-gray-700">
+              <span className="text-xs font-bold text-gray-400 flex items-center px-2">반:</span>
+              {existingClasses.map(cls => (
+                <button key={cls} onClick={() => setActiveClassFilter(activeClassFilter === cls ? null : cls)} className={`px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap transition-colors border ${activeClassFilter === cls ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100'}`}>
+                  {cls}
+                </button>
+              ))}
+            </div>
+
+            {/* 🔥 2번 요청: 학점제 과목 필터 */}
+            {!isHomeroomView && existingSubjects.length > 0 && (
+              <div className="flex gap-1 overflow-x-auto scrollbar-hide bg-orange-50 dark:bg-orange-900/20 p-1 rounded-lg border border-orange-100 dark:border-orange-800">
+                <span className="text-xs font-bold text-orange-400 flex items-center px-2">과목:</span>
+                {existingSubjects.map(sub => (
+                  <button key={sub} onClick={() => setActiveSubjectFilter(activeSubjectFilter === sub ? null : sub)} className={`px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap transition-colors border ${activeSubjectFilter === sub ? 'bg-orange-500 text-white border-orange-500 shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-orange-200 dark:border-orange-800/50 hover:bg-orange-100'}`}>
+                    {sub}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -177,6 +204,7 @@ export default function StudentManager({
       <input type="file" ref={rosterFileInputRef} onChange={handlePhotoUpload} accept="image/*" className="hidden" />
 
       <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+        {/* 명렬표 렌더링 코드 유지 (기존과 동일) */}
         {activeClassFilter && currentClassPhoto && (
           <div className="mb-6 animate-in fade-in slide-in-from-top-4">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-indigo-100 dark:border-gray-700 overflow-hidden relative group">
@@ -220,6 +248,7 @@ export default function StudentManager({
   );
 }
 
+// StudentCard 컴포넌트에 과목 노출
 function StudentCard({ student, onEdit, onDelete, isHomeroomView, apiKey, onUpdateStudent }) {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   return (
@@ -230,7 +259,11 @@ function StudentCard({ student, onEdit, onDelete, isHomeroomView, apiKey, onUpda
             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg text-white shadow-sm ${student.gender === 'F' ? 'bg-pink-400' : 'bg-blue-400'}`}>{student.number}</div>
             <div>
               <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-1">{student.name}{isHomeroomView && student.phone && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded ml-1">📞</span>}</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{student.grade}학년 {student.class}반</p>
+              <div className="flex items-center gap-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{student.grade}학년 {student.class}반</p>
+                {/* 🔥 과목 배지 노출 */}
+                {!isHomeroomView && student.creditSubject && <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 rounded-full border border-orange-200">{student.creditSubject}</span>}
+              </div>
             </div>
           </div>
           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
@@ -263,6 +296,7 @@ function StudentCard({ student, onEdit, onDelete, isHomeroomView, apiKey, onUpda
   );
 }
 
+// BatchAiGenModal 컴포넌트 생략 (기존 파일과 완벽히 동일하므로 그대로 유지)
 function BatchAiGenModal({ isOpen, onClose, students, apiKey, onUpdateStudentsMany }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);

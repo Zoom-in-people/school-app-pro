@@ -24,11 +24,12 @@ import ExternalApps from './pages/ExternalApps';
 import UpdateHistory from './pages/UpdateHistory';
 import HowToUse from './pages/HowToUse'; 
 import RealtimeSetup from './pages/RealtimeSetup'; 
+import AiRecord from './pages/AiRecord'; 
 
 export default function App() {
   const { user, loading, login, logout } = useAuth();
   
-  // 🔥 한 줄의 코드로 UI 상태와 설정값들을 모두 가져옴
+  // 🔥 Zustand 보관소에서 상태와 액션을 한 번에 꺼내옴
   const store = useAppStore(); 
 
   useEffect(() => { 
@@ -54,7 +55,7 @@ export default function App() {
 
   const userId = user ? user.uid : null;
 
-  // 🔥 복잡한 DB 로직을 단 한 줄로 압축!
+  // 🔥 분리한 DB 훅에서 데이터 가져오기
   const db = useAppData(userId, store.currentHandbook?.id);
   const { data: handbooks, add: addHandbook, update: updateHandbook, remove: removeHandbook } = db.handbooks;
 
@@ -132,7 +133,7 @@ export default function App() {
         ${store.isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         md:relative md:translate-x-0 md:w-64 md:block
       `}>
-        {/* 🔥 Sidebar로 넘기던 수많은 Props가 삭제되었습니다! */}
+        {/* 🔥 Sidebar에 넘기던 수많은 Props가 사라지고, Sidebar 안에서 스스로 상태를 꺼내씁니다 */}
         <Sidebar user={user} logout={logout} handbooks={handbooks} />
       </div>
 
@@ -147,10 +148,12 @@ export default function App() {
             {store.activeView === 'update_history' ? <UpdateHistory />
             : store.activeView === 'how_to_use' ? <HowToUse />
             : store.activeView === 'realtime_setup' ? <RealtimeSetup />
+            : store.activeView === 'ai_record' ? <AiRecord />
             : !store.currentHandbook ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6 no-print"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => store.setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (
               <>
+                {/* 각 페이지 컴포넌트로 전달되는 Props는 기존과 100% 동일하게 유지했습니다! */}
                 {store.activeView === 'dashboard' && <Dashboard students={db.homeroomStudents.data} todos={db.todos.data} setActiveView={store.setActiveView} isHomeroom={store.currentHandbook.isHomeroom} schoolInfo={store.currentHandbook.schoolInfo || {}} attendanceLog={db.attendanceLog.data} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => db.homeroomStudents.update(id, data)} lessonGroups={db.lessonGroups.data} onUpdateLessonGroup={db.lessonGroups.update} currentHandbook={store.currentHandbook} onUpdateHandbook={handleUpdateHandbook} myTimetable={db.myTimetable.data} widgets={store.widgets} setWidgets={store.setWidgets} />}
                 {store.activeView === 'monthly' && <MonthlyEvents handbook={store.currentHandbook} isHomeroom={store.currentHandbook.isHomeroom} students={db.homeroomStudents.data} attendanceLog={db.attendanceLog.data} onUpdateAttendance={handleUpdateAttendance} events={db.events.data} onUpdateEvent={handleUpdateEvent} />}
                 {store.activeView === 'students_homeroom' && <StudentManager key="homeroom-manager" students={db.homeroomStudents.data} onAddStudent={db.homeroomStudents.add} onAddStudents={db.homeroomStudents.addMany} onUpdateStudent={db.homeroomStudents.update} onDeleteStudent={db.homeroomStudents.remove} onUpdateStudentsMany={db.homeroomStudents.updateMany} onSetAllStudents={db.homeroomStudents.setAll} apiKey={store.apiKey} isHomeroomView={true} />}
@@ -169,7 +172,6 @@ export default function App() {
         </div>
       </main>
 
-      {/* 🔥 모달창들도 Props 대신 Zustand를 바라보게 구조가 단순해짐 */}
       <SettingsModal isOpen={store.isSettingsOpen} onClose={() => store.setIsSettingsOpen(false)} settings={{ apiKey: store.apiKey, theme: store.theme, fontSize: store.fontSize }} setSettings={{ setApiKey: store.setApiKey, setTheme: store.setTheme, setFontSize: store.setFontSize }} onOpenSetupWizard={() => { store.setIsSettingsOpen(false); store.setIsSetupWizardOpen(true); }}/>
       <SetupWizardModal isOpen={store.isSetupWizardOpen} onClose={() => { store.setIsSetupWizardOpen(false); store.setHideApiPrompt(true); }} apiKey={store.apiKey} setApiKey={store.setApiKey} />
       <AddHandbookModal isOpen={store.isAddHandbookOpen} onClose={() => store.setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />

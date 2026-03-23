@@ -2,16 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, BookOpen, CheckSquare, 
   MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Grid, Info, HelpCircle, Database,
-  CloudUpload, Loader 
+  CloudUpload, Loader, Sparkles 
 } from 'lucide-react'; 
 import { backupToGoogleDrive } from '../../hooks/useGoogleDriveDB';
-import { useAppStore } from '../../store/useAppStore'; // 🔥 Zustand 도입
+import { useAppStore } from '../../store/useAppStore'; // 🔥 Zustand 스토어 불러오기
 import { showToast } from '../../utils/alerts';
 
 export default function Sidebar({ user, logout, handbooks }) {
   
-  const store = useAppStore(); // 🔥 전역 상태 꺼내오기
-
+  const store = useAppStore(); // 🔥 Zustand에서 모든 상태 꺼내기
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
   const [isBackingUp, setIsBackingUp] = useState(false); 
@@ -45,45 +44,19 @@ export default function Sidebar({ user, logout, handbooks }) {
   const sortedHandbooks = [...handbooks].sort((a, b) => b.title.localeCompare(a.title));
 
   const menuGroups = [
-    {
-      title: "메인",
+    { title: "메인", items: [{ id: 'dashboard', label: '대시보드', icon: LayoutDashboard }, { id: 'monthly', label: '월별행사/출결', icon: Calendar }] },
+    { title: "학급 관리", items: [{ id: 'students_homeroom', label: '학생 명렬표 (우리반)', icon: Users }, { id: 'consultation', label: '상담 일지', icon: MessageSquare }] },
+    { title: "수업 관리", items: [{ id: 'students_subject', label: '학생 명렬표 (교과)', icon: Users }, { id: 'lessons', label: '진도 관리', icon: BookOpen }, { id: 'my_timetable', label: '나의 시간표', icon: Clock }] },
+    { 
+      title: "행정/업무", 
       items: [
-        { id: 'dashboard', label: '대시보드', icon: LayoutDashboard },
-        { id: 'monthly', label: '월별행사/출결', icon: Calendar },
-      ]
-    },
-    {
-      title: "학급 관리",
-      items: [
-        { id: 'students_homeroom', label: '학생 명렬표 (우리반)', icon: Users },
-        { id: 'consultation', label: '상담 일지', icon: MessageSquare },
-      ]
-    },
-    {
-      title: "수업 관리",
-      items: [
-        { id: 'students_subject', label: '학생 명렬표 (교과)', icon: Users },
-        { id: 'lessons', label: '진도 관리', icon: BookOpen },
-        { id: 'my_timetable', label: '나의 시간표', icon: Clock }, 
-      ]
-    },
-    {
-      title: "행정/업무",
-      items: [
-        { id: 'tasks', label: '업무 체크리스트', icon: CheckSquare },
+        { id: 'tasks', label: '업무 체크리스트', icon: CheckSquare }, 
         { id: 'meeting_logs', label: '회의록', icon: ClipboardList }, 
-        { id: 'apps', label: '다른 교사용 앱', icon: Grid },
-      ]
+        ...(store.apiKey ? [{ id: 'ai_record', label: 'AI세특 작성', icon: Sparkles }] : []),
+        { id: 'apps', label: '다른 교사용 앱', icon: Grid }
+      ] 
     },
-    {
-      title: "설정",
-      items: [
-        { id: 'handbook_settings', label: '교무수첩 설정', icon: Settings },
-        { id: 'how_to_use', label: '사용 방법', icon: HelpCircle }, 
-        { id: 'realtime_setup', label: '실시간 버전 만들기', icon: Database }, 
-        { id: 'update_history', label: '업데이트 내역', icon: Info }, 
-      ]
-    }
+    { title: "설정", items: [{ id: 'handbook_settings', label: '교무수첩 설정', icon: Settings }, { id: 'how_to_use', label: '사용 방법', icon: HelpCircle }, { id: 'realtime_setup', label: '실시간 버전 만들기', icon: Database }, { id: 'update_history', label: '업데이트 내역', icon: Info }] }
   ];
 
   const handleMenuClick = (itemId) => {
@@ -144,7 +117,7 @@ export default function Sidebar({ user, logout, handbooks }) {
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6 custom-scrollbar">
         {menuGroups.map((group, index) => (
           <React.Fragment key={index}>
-            {group.title === "메인" && (
+            {group.title === "학급 관리" && (
               <div className="mb-6 px-1">
                 <button 
                   onClick={handleManualBackup}
