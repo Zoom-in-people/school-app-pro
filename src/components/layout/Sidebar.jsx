@@ -5,12 +5,11 @@ import {
   CloudUpload, Loader, Sparkles 
 } from 'lucide-react'; 
 import { backupToGoogleDrive } from '../../hooks/useGoogleDriveDB';
-import { useAppStore } from '../../store/useAppStore'; // 🔥 Zustand 스토어 불러오기
+import { useAppStore } from '../../store/useAppStore'; 
 import { showToast } from '../../utils/alerts';
 
 export default function Sidebar({ user, logout, handbooks }) {
-  
-  const store = useAppStore(); // 🔥 Zustand에서 모든 상태 꺼내기
+  const store = useAppStore(); 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
   const [isBackingUp, setIsBackingUp] = useState(false); 
@@ -52,8 +51,10 @@ export default function Sidebar({ user, logout, handbooks }) {
       items: [
         { id: 'tasks', label: '업무 체크리스트', icon: CheckSquare }, 
         { id: 'meeting_logs', label: '회의록', icon: ClipboardList }, 
-        ...(store.apiKey ? [{ id: 'ai_record', label: 'AI세특 작성', icon: Sparkles }] : []),
-        { id: 'apps', label: '다른 교사용 앱', icon: Grid }
+        // 🔥 1번 요청: 항상 보이도록 수정
+        { id: 'ai_record', label: 'AI세특 작성', icon: Sparkles },
+        // 🔥 3번 요청: 메뉴 이름 변경
+        { id: 'apps', label: '다른 교사용 사이트', icon: Grid }
       ] 
     },
     { title: "설정", items: [{ id: 'handbook_settings', label: '교무수첩 설정', icon: Settings }, { id: 'how_to_use', label: '사용 방법', icon: HelpCircle }, { id: 'realtime_setup', label: '실시간 버전 만들기', icon: Database }, { id: 'update_history', label: '업데이트 내역', icon: Info }] }
@@ -117,7 +118,8 @@ export default function Sidebar({ user, logout, handbooks }) {
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6 custom-scrollbar">
         {menuGroups.map((group, index) => (
           <React.Fragment key={index}>
-            {group.title === "학급 관리" && (
+            {/* 🔥 2번 요청: 메인 그룹 위쪽으로 수동 저장 버튼 복귀 */}
+            {group.title === "메인" && (
               <div className="mb-6 px-1">
                 <button 
                   onClick={handleManualBackup}

@@ -28,6 +28,8 @@ function getHolidays(year) {
   addHoliday(new Date(year, 2, 1), '삼일절', true);
   addHoliday(new Date(year, 4, 5), '어린이날', true);
   addHoliday(new Date(year, 5, 6), '현충일', true);
+  // 🔥 5번 요청: 제헌절 추가 (대체휴일 없음)
+  addHoliday(new Date(year, 6, 17), '제헌절', false);
   addHoliday(new Date(year, 7, 15), '광복절', true);
   addHoliday(new Date(year, 9, 3), '개천절', true);
   addHoliday(new Date(year, 9, 9), '한글날', true);
@@ -54,8 +56,8 @@ function getHolidays(year) {
     if (!h.allowSub) return;
     const day = h.date.getDay(); 
     let needsSub = false;
-    if (h.isSeolChuseok) { if (day === 0) needsSub = true; } // 명절은 일요일 겹칠 때만 대체
-    else { if (day === 0 || day === 6) needsSub = true; }    // 일반 공휴일은 토/일 겹칠 때 모두 대체
+    if (h.isSeolChuseok) { if (day === 0) needsSub = true; } 
+    else { if (day === 0 || day === 6) needsSub = true; }    
 
     if (needsSub) {
       let next = new Date(h.date); 
@@ -65,12 +67,11 @@ function getHolidays(year) {
         const nextDay = next.getDay();
         const nextKey = `${next.getFullYear()}-${next.getMonth() + 1}-${next.getDate()}`;
         
-        // 🔥 7번 요청 해결: 대체공휴일은 '이미 지정된 공휴일이 아니고', '토요일(6)이나 일요일(0)이 아닌 평일'이어야 함!
         if (!holidays[nextKey] && nextDay !== 0 && nextDay !== 6) { 
           holidays[nextKey] = { name: `대체공휴일(${h.name})`, type: 'sub', date: new Date(next) }; 
           break; 
         }
-        next.setDate(next.getDate() + 1); // 조건에 안 맞으면 다음 날로 넘김
+        next.setDate(next.getDate() + 1); 
       }
     }
   });
@@ -190,7 +191,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
   const openEditEvent = (evt, e) => { e.stopPropagation(); setTargetEvent(evt); setEventForm({ title: evt.title, startDate: evt.startDate, endDate: evt.endDate }); setIsEventModalOpen(true); };
   
   const handleSaveEvent = () => { 
-    // 🔥 예쁜 토스트 경고
     if (!eventForm.title) return showToast("일정 내용을 입력해주세요.", "warning"); 
     
     if (targetEvent) onUpdateEvent(targetEvent.id, eventForm); 
@@ -201,7 +201,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
   };
   
   const handleDeleteEvent = async (id) => { 
-    // 🔥 예쁜 삭제 확인창
     if(await showConfirm("일정을 삭제하시겠습니까?", "선택한 일정이 달력에서 제거됩니다.")) {
       onUpdateEvent(id, null); 
       showToast('삭제되었습니다.');
@@ -289,8 +288,15 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                   <th rowSpan="2" className="p-2 border border-gray-200 dark:border-gray-600 sticky left-0 bg-gray-100 dark:bg-gray-700 z-10 w-20 shadow-sm">이름</th>
                   {daysArray.map(d => {
                     const isSunday = (firstDayOfMonth + d - 1) % 7 === 0;
+                    const isSaturday = (firstDayOfMonth + d - 1) % 7 === 6;
                     const isHoliday = !!getHolidayInfo(d);
-                    return <th key={d} rowSpan="2" className={`p-1 border border-gray-200 dark:border-gray-600 min-w-[24px] ${isSunday || isHoliday ? 'text-red-500 bg-red-50 dark:bg-red-900/20' : ''}`}>{d}</th>
+                    
+                    // 🔥 4번 요청: 토요일의 경우 파란색 표시 적용
+                    let headerClass = '';
+                    if (isSunday || isHoliday) headerClass = 'text-red-500 bg-red-50 dark:bg-red-900/20';
+                    else if (isSaturday) headerClass = 'text-blue-500 bg-blue-50 dark:bg-blue-900/20';
+
+                    return <th key={d} rowSpan="2" className={`p-1 border border-gray-200 dark:border-gray-600 min-w-[24px] ${headerClass}`}>{d}</th>
                   })}
                   <th colSpan="4" className="p-1 border dark:border-gray-600 bg-red-50 text-red-600 font-bold border-l-2 border-red-200">결석</th>
                   <th colSpan="4" className="p-1 border dark:border-gray-600 bg-yellow-50 text-yellow-600 font-bold border-l-2 border-yellow-200">지각</th>
@@ -325,12 +331,17 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                       {daysArray.map(day => {
                         const log = getLog(student.id, day);
                         let content = ""; 
-                        let colorClass = "hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer";
-                        let hasNote = false;
-
+                        
                         const isSunday = (firstDayOfMonth + day - 1) % 7 === 0;
+                        const isSaturday = (firstDayOfMonth + day - 1) % 7 === 6;
                         const holidayInfo = getHolidayInfo(day);
+                        
+                        // 🔥 4번 요청: 토요일의 경우 파란색 표시 적용
+                        let colorClass = "hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer";
                         if (isSunday || holidayInfo) colorClass = "bg-red-50/50 dark:bg-red-900/10 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30";
+                        else if (isSaturday) colorClass = "bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30";
+
+                        let hasNote = false;
 
                         if (log && log.type) { 
                           content = log.type.slice(0, 1);
@@ -378,6 +389,7 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
         </div>
       )}
 
+      {/* 이벤트/출결 입력 팝업 생략 (동일함) */}
       {isEventModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-sm shadow-xl">
