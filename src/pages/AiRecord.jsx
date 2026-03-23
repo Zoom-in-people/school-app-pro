@@ -3,7 +3,6 @@ import { Sparkles, Copy, Loader, Settings, BookOpen, UserCheck, Edit3, Send, Che
 import { useAppStore } from '../store/useAppStore';
 import { showToast, showAlert } from '../utils/alerts';
 
-// 🔥 요청 반영: 생기부 맞춤형 6대 역량 카테고리 및 50+ 키워드 대폭 확장
 const CHARACTERISTIC_CATEGORIES = {
   "학업 및 탐구 역량": [
     "자기주도적 학습", "학업 열정", "지적 호기심", "깊이 있는 탐구", "정보 활용 능력",
@@ -64,10 +63,9 @@ export default function AiRecord() {
 
   const handleGenerate = async () => {
     if (!apiKey) {
-      showAlert("API 키 누락", "설정 메뉴에서 Gemini API 키를 먼저 등록해주세요.", "error");
+      showAlert("API 키 누락", "교무수첩 설정 메뉴에서 Gemini API 키를 먼저 등록해주세요.", "error");
       return;
     }
-    // 🔥 이 부분만 필수 검사! 특성 태그(selectedTags)는 선택 사항입니다.
     if (!observation.trim()) {
       showToast("학생 관찰 사실 및 활동 내용을 필수로 입력해주세요.", "warning");
       return;
@@ -156,9 +154,12 @@ export default function AiRecord() {
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-xl flex items-center justify-between shadow-sm shrink-0">
           <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold">
             <AlertTriangle size={20} />
-            <span>설정에서 API키를 입력해주세요.</span>
+            <span>API 키가 등록되지 않았습니다. AI 기능을 사용하려면 키를 입력해주세요.</span>
           </div>
-          <button onClick={() => store.setIsSettingsOpen(true)} className="text-xs bg-red-100 hover:bg-red-200 dark:bg-red-800 dark:hover:bg-red-700 text-red-700 dark:text-red-300 px-3 py-1.5 rounded-lg font-bold transition">설정 열기</button>
+          {/* 🔥 1번 요청 해결: setIsSettingsOpen 대신 setIsHandbookSettingsOpen 호출 */}
+          <button onClick={() => store.setIsHandbookSettingsOpen(true)} className="text-xs bg-red-100 hover:bg-red-200 dark:bg-red-800 dark:hover:bg-red-700 text-red-700 dark:text-red-300 px-3 py-1.5 rounded-lg font-bold transition">
+            교무수첩 설정 열기
+          </button>
         </div>
       )}
 
@@ -207,7 +208,6 @@ export default function AiRecord() {
               <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                 <Sparkles size={14}/> 4. 학생 행동 양식 및 특성 <span className="text-gray-400 text-xs font-normal">(선택적 다중 클릭)</span>
               </label>
-              {/* 🔥 그리드 레이아웃 적용하여 깔끔하게 정리 */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                 {Object.entries(CHARACTERISTIC_CATEGORIES).map(([category, tags]) => (
                   <div key={category} className="bg-gray-50 dark:bg-gray-900/50 p-3.5 rounded-xl border border-gray-100 dark:border-gray-700">
