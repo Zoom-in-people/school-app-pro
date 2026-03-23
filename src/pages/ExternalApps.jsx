@@ -1,5 +1,6 @@
 import React from 'react';
-import { Grid, ExternalLink, GraduationCap, Map, Book, FileText, Database } from 'lucide-react';
+// 🔥 아래 줄에 MessageSquare 가 추가되었습니다!
+import { Grid, ExternalLink, GraduationCap, Map, Book, FileText, Database, MessageSquare } from 'lucide-react';
 
 export default function ExternalApps() {
   const apps = [
@@ -19,7 +20,6 @@ export default function ExternalApps() {
       icon: <Database size={24} />,
       color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
     },
-    // 🔥 3번 요청: 우리나라 교육과정 추가
     {
       id: 'ncic',
       name: '우리나라 교육과정',
@@ -28,7 +28,6 @@ export default function ExternalApps() {
       icon: <Book size={24} />,
       color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
     },
-    // 🔥 3번 요청: 생활기록부 종합 지원포털 추가
     {
       id: 'star',
       name: '생활기록부 지원포털',
