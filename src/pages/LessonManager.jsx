@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Settings, X, BookOpen, CheckCircle, HelpCircle, Calendar } from 'lucide-react';
-import { showToast, showConfirm } from '../utils/alerts'; // 🔥 알림창 가져오기
+import { Plus, Trash2, Settings, X, BookOpen, CheckCircle, HelpCircle, Calendar, Edit2 } from 'lucide-react';
+import { showToast, showConfirm } from '../utils/alerts';
 
+// SettingsModal 코드는 기존과 동일 생략... (위쪽 코드 참조)
 const SettingsModal = ({ group, onClose, onSave }) => {
   const [localGroup, setLocalGroup] = useState(JSON.parse(JSON.stringify(group)));
   const [newItem, setNewItem] = useState("");
@@ -14,7 +15,6 @@ const SettingsModal = ({ group, onClose, onSave }) => {
   const removeProgressItem = (idx) => { setLocalGroup(prev => ({...prev, progressItems: prev.progressItems.filter((_, i) => i !== idx)})); };
   const addClass = () => {
     let className = classMode === 'standard' ? `${grade}학년 ${cls}반` : customName.trim();
-    // 🔥 예쁜 토스트 알림 적용
     if (!className) return showToast("이름을 입력하세요.", "warning");
     if (localGroup.classes.some(c => c.name === className)) return showToast("이미 추가된 교실입니다.", "warning");
     
@@ -54,6 +54,7 @@ const SettingsModal = ({ group, onClose, onSave }) => {
   );
 };
 
+
 export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup, onDeleteGroup }) {
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -75,9 +76,17 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
       showToast('새 그룹이 생성되었습니다.');
     }
   };
+  
+  // 🔥 4번 요청 해결: 이름 수정 기능 추가
+  const handleEditGroupName = (group) => {
+    const newName = prompt("변경할 그룹 이름을 입력하세요", group.name);
+    if (newName && newName.trim()) {
+      onUpdateGroup(group.id, { ...group, name: newName.trim() });
+      showToast('그룹 이름이 변경되었습니다.');
+    }
+  };
 
   const handleDeleteGroup = async (id) => {
-    // 🔥 예쁜 삭제 확인창 적용
     if (await showConfirm("수업 그룹을 삭제하시겠습니까?", "등록된 모든 진도 데이터가 삭제됩니다.")) {
       onDeleteGroup(id);
       if (selectedGroupId === id) setSelectedGroupId(null);
@@ -104,11 +113,20 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2 border-b border-gray-100 dark:border-gray-700 mb-6">
+      <div className="flex gap-2 overflow-x-auto pb-3 border-b border-gray-100 dark:border-gray-700 mb-6 custom-scrollbar">
         {lessonGroups && lessonGroups.map(group => (
-          <div key={group.id} className="relative group/tab">
-            <button onClick={() => setSelectedGroupId(group.id)} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition ${selectedGroupId === group.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100'}`}>{group.name}</button>
-            {selectedGroupId === group.id && <button onClick={() => handleDeleteGroup(group.id)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover/tab:opacity-100 transition shadow-sm"><X size={10}/></button>}
+          <div key={group.id} className="relative group/tab mt-2">
+            <button onClick={() => setSelectedGroupId(group.id)} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition ${selectedGroupId === group.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100'}`}>
+              {group.name}
+            </button>
+            
+            {/* 🔥 4번 요청 해결: 탭 우측 상단에 이름 수정(파란색) / 삭제(빨간색) 듀얼 버튼 생성 */}
+            {selectedGroupId === group.id && (
+              <div className="absolute -top-2 -right-2 flex gap-0.5 opacity-0 group-hover/tab:opacity-100 transition duration-200">
+                <button onClick={(e) => { e.stopPropagation(); handleEditGroupName(group); }} className="bg-blue-500 text-white rounded-full p-1 shadow-sm hover:bg-blue-600 transition" title="이름 수정"><Edit2 size={12}/></button>
+                <button onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group.id); }} className="bg-red-500 text-white rounded-full p-1 shadow-sm hover:bg-red-600 transition" title="그룹 삭제"><X size={12}/></button>
+              </div>
+            )}
           </div>
         ))}
         {(!lessonGroups || lessonGroups.length === 0) && <div className="text-sm text-gray-400 py-2">등록된 수업 그룹이 없습니다.</div>}
@@ -117,9 +135,9 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
       {activeGroup ? (
         <div className="flex-1 flex flex-col">
           <div className="flex justify-end mb-4">
-            <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-1 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-indigo-600 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg"><Settings size={16}/> 수업 설정</button>
+            <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-1 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-indigo-600 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600"><Settings size={16}/> 수업 설정</button>
           </div>
-          <div className="overflow-x-auto border rounded-xl border-gray-200 dark:border-gray-700">
+          <div className="overflow-x-auto border rounded-xl border-gray-200 dark:border-gray-700 custom-scrollbar">
             <table className="w-full text-sm text-center border-collapse">
               <thead className="bg-indigo-50 dark:bg-gray-700 text-indigo-900 dark:text-gray-200 font-bold">
                 <tr>
@@ -144,7 +162,7 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
                               <span className="text-[10px] text-gray-500 dark:text-gray-400">{displayDate}</span>
                             </div>
                           ) : (
-                            <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-gray-600 mx-auto"></div>
+                            <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-gray-600 mx-auto transition-colors hover:border-indigo-400"></div>
                           )}
                         </td>
                       );
@@ -163,8 +181,8 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
         <div className="fixed inset-0 bg-black/20 z-[110] flex items-center justify-center" onClick={() => setDatePopup({ ...datePopup, isOpen: false })}>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-xl w-64" onClick={e => e.stopPropagation()}>
             <h4 className="font-bold mb-3 dark:text-white">진도 완료일 선택</h4>
-            <input type="date" value={datePopup.currentDate} onChange={e => setDatePopup({...datePopup, currentDate: e.target.value})} className="w-full p-2 border rounded mb-3 dark:bg-gray-700 dark:text-white"/>
-            <div className="flex justify-between"><button onClick={() => handleSaveStatus(null)} className="text-red-500 text-sm hover:underline">취소(미완료)</button><button onClick={() => handleSaveStatus(datePopup.currentDate)} className="bg-indigo-600 text-white px-3 py-1 rounded text-sm font-bold">완료 처리</button></div>
+            <input type="date" value={datePopup.currentDate} onChange={e => setDatePopup({...datePopup, currentDate: e.target.value})} className="w-full p-2 border rounded mb-3 dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"/>
+            <div className="flex justify-between"><button onClick={() => handleSaveStatus(null)} className="text-red-500 text-sm hover:underline font-bold">취소(미완료)</button><button onClick={() => handleSaveStatus(datePopup.currentDate)} className="bg-indigo-600 text-white px-3 py-1.5 rounded text-sm font-bold shadow-sm">완료 처리</button></div>
           </div>
         </div>
       )}
@@ -177,7 +195,7 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
               <div><p className="font-bold text-indigo-600">1. 표 행/열 전환 안내</p><p>교실은 우측으로 길게 추가되고, 진도 항목은 아래쪽으로 추가됩니다.</p></div>
               <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg"><p className="font-bold">💡 팁</p><p>완료 여부를 체크하고 싶은 빈 동그라미 칸을 클릭하세요.</p></div>
             </div>
-            <button onClick={() => setIsHelpOpen(false)} className="w-full mt-6 bg-gray-200 dark:bg-gray-700 py-2 rounded-lg font-bold">닫기</button>
+            <button onClick={() => setIsHelpOpen(false)} className="w-full mt-6 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 py-2.5 rounded-lg font-bold transition">닫기</button>
           </div>
         </div>
       )}

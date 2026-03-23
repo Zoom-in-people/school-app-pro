@@ -1,8 +1,19 @@
 import React from 'react';
-import { HelpCircle, LayoutDashboard, Calendar, Users, MessageSquare, BookOpen, CheckSquare, Clock, Save } from 'lucide-react';
+import { HelpCircle, LayoutDashboard, Calendar, Users, MessageSquare, BookOpen, CheckSquare, Clock, Save, Smartphone } from 'lucide-react'; // 🔥 아이콘 추가
 
 export default function HowToUse() {
   const manuals = [
+    // 🔥 3번 요청 해결: 스마트폰 앱처럼 추가하는 방법 1순위로 배치
+    {
+      title: "스마트폰 어플(앱)처럼 사용하기",
+      icon: <Smartphone className="text-indigo-500" />,
+      desc: "매번 인터넷을 켜서 들어올 필요 없이 진짜 앱처럼 사용해보세요!",
+      points: [
+        "안드로이드 (크롬 브라우저): 우측 상단의 [점 3개(⋮)] 메뉴를 누른 후, [홈 화면에 추가] 또는 [앱 설치]를 선택하세요.",
+        "아이폰 (사파리 브라우저): 화면 하단 중앙의 [공유하기(네모에 화살표)] 버튼을 누른 후, 화면을 살짝 내려서 [홈 화면에 추가]를 선택하세요.",
+        "이제 핸드폰 배경화면에 생긴 교무수첩 아이콘을 누르면, 주소창이 사라진 진짜 앱 화면으로 1초 만에 바로 접속됩니다!"
+      ]
+    },
     {
       title: "대시보드 한눈에 보기",
       icon: <LayoutDashboard className="text-indigo-500" />,
