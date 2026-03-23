@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, GraduationCap, Search, Sparkles } from 'lucide-react';
+import { X, Save, Trash2, GraduationCap, Search, Sparkles, ExternalLink } from 'lucide-react';
 import { NEIS_API_KEY, OFFICE_CODES } from '../../constants/data';
-import { showToast, showAlert, showConfirm } from '../../utils/alerts'; // 🔥 알림창 가져오기
+import { showToast, showAlert, showConfirm } from '../../utils/alerts';
 
 export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpdate, onDelete, apiKey, setApiKey }) {
   const [formData, setFormData] = useState({ 
@@ -90,7 +90,6 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
   };
 
   const handleDelete = async () => {
-    // 🔥 예쁜 Confirm 알림창으로 교체!
     const isConfirmed = await showConfirm(
       '정말로 삭제하시겠습니까?', 
       '⚠️ 입력한 모든 학생 정보와 상담 기록이 영구적으로 삭제됩니다.', 
@@ -171,7 +170,13 @@ export default function HandbookSettingsModal({ isOpen, onClose, handbook, onUpd
             </div>
 
             <div className="pt-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
-              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1"><Sparkles className="text-yellow-500" size={16}/> Gemini API Key (선택)</label>
+              {/* 🔥 구글 AI 스튜디오 링크 추가 */}
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1"><Sparkles className="text-yellow-500" size={16}/> Gemini API Key (선택)</label>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 flex items-center gap-1 hover:underline font-bold">
+                  <ExternalLink size={12}/> API 키 발급/확인
+                </a>
+              </div>
               <input type="password" value={localApiKey} onChange={(e) => setLocalApiKey(e.target.value)} placeholder="AI 기능을 사용하려면 API 키를 입력하세요" className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-yellow-500 outline-none transition text-sm" />
               <p className="text-[10px] text-gray-400">학생 명렬표의 AI 세특 일괄 생성 기능에 사용됩니다.</p>
             </div>
