@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Clock, Settings, Plus, Save, Trash2, X, ChevronRight, Calendar, Layout, Bell, FileSpreadsheet, Upload, Download } from 'lucide-react';
-import * as XLSX from 'xlsx'; // 🔥 엑셀 라이브러리 임포트
+import * as XLSX from 'xlsx';
 import { showToast, showAlert } from '../utils/alerts';
 
 export default function MyTimetable({ timetableData = [], onAddTimetable, onUpdateTimetable, onDeleteTimetable }) {
   const timetable = timetableData && timetableData.length > 0 ? timetableData[0] : null;
 
   const [isSettingMode, setIsSettingMode] = useState(false);
-  const [xlsxModalOpen, setXlsxModalOpen] = useState(false); // 🔥 엑셀 모달 상태
+  const [xlsxModalOpen, setXlsxModalOpen] = useState(false);
   const xlsxInputRef = useRef(null);
 
   const [settings, setSettings] = useState({
@@ -93,7 +93,7 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
     setModalData(null);
   };
 
-  // 🔥 1번 요청: NEIS 형식 엑셀 파서
+  // 🔥 NEIS 양식("월요일", 병합된 빈칸 등) 완벽 대응 파서
   const handleTimetableUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -106,30 +106,51 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
 
       let headerRowIdx = -1;
       let daysCols = {}; 
+
+      // 1. 헤더 줄 찾기 (NEIS 양식의 '월요일', '화요일' 등 감지)
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
-        if (row.includes('월') && row.includes('화')) {
+        if (!row) continue;
+        
+        // 해당 줄에 '월'이나 '월요일', '화'나 '화요일'이 포함되어 있는지 유연하게 검사
+        const hasMon = row.some(val => typeof val === 'string' && (val.includes('월요일') || val === '월'));
+        const hasTue = row.some(val => typeof val === 'string' && (val.includes('화요일') || val === '화'));
+        
+        if (hasMon && hasTue) {
           headerRowIdx = i;
+          // 발견된 요일들의 정확한 열(Column) 인덱스 매핑
           row.forEach((val, colIdx) => {
-            if (['월','화','수','목','금','토','일'].includes(val)) daysCols[val] = colIdx;
+            if (typeof val === 'string') {
+              const text = val.trim();
+              if (text.includes('월')) daysCols['월'] = colIdx;
+              else if (text.includes('화')) daysCols['화'] = colIdx;
+              else if (text.includes('수')) daysCols['수'] = colIdx;
+              else if (text.includes('목')) daysCols['목'] = colIdx;
+              else if (text.includes('금')) daysCols['금'] = colIdx;
+              else if (text.includes('토')) daysCols['토'] = colIdx;
+              else if (text.includes('일')) daysCols['일'] = colIdx;
+            }
           });
           break;
         }
       }
 
       if (headerRowIdx === -1) {
-        showAlert("형식 오류", "시간표 양식을 인식할 수 없습니다. 양식의 첫 줄에 요일(월, 화, 수...)이 있어야 합니다.", "error");
+        showAlert("형식 오류", "시간표 양식을 인식할 수 없습니다. 파일 안에 '월요일', '화요일' 등 요일이 포함되어 있어야 합니다.", "error");
         return;
       }
 
       const newSchedule = { ...timetable?.schedule };
       let maxPeriod = 0;
 
+      // 2. 데이터 추출
       for (let i = headerRowIdx + 1; i < data.length; i++) {
         const row = data[i];
         if (!row || row.length === 0) continue;
         
-        const periodMatch = String(row[0] || row[1] || "").match(/\d+/); 
+        // NEIS 양식은 첫번째나 두번째 열에 '1교시' 형태의 정보가 존재함
+        const periodCell = String(row[0] || row[1] || "");
+        const periodMatch = periodCell.match(/\d+/); 
         if (!periodMatch) continue;
         const period = parseInt(periodMatch[0]);
         if (period > maxPeriod) maxPeriod = period;
@@ -137,18 +158,29 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
         Object.entries(daysCols).forEach(([day, colIdx]) => {
           const subjectRaw = row[colIdx];
           if (subjectRaw && typeof subjectRaw === 'string') {
-            const parts = subjectRaw.split('\n').map(s => s.trim()).filter(Boolean);
-            const subject = parts[0] || "";
-            const room = parts.length > 1 ? parts[1] : "";
-            if (subject) newSchedule[`${period}-${day}`] = { subject, room };
+            const cleanSubject = subjectRaw.trim();
+            if (cleanSubject) {
+              // 한 줄로 적혀있든 줄바꿈이 있든 처리
+              const parts = cleanSubject.split('\n').map(s => s.trim()).filter(Boolean);
+              const subject = parts[0] || "";
+              const room = parts.length > 1 ? parts[1] : "";
+              
+              if (subject) {
+                newSchedule[`${period}-${day}`] = { subject, room };
+              }
+            }
           }
         });
       }
 
       const days = Object.keys(daysCols);
+      const order = ['월', '화', '수', '목', '금', '토', '일'];
+      const sortedDays = days.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+
+      // 3. 현재 설정에 요일과 교시 수 업데이트 반영
       const newSettings = { 
          ...settings, 
-         days: days.length > 0 ? days : settings.days,
+         days: sortedDays.length > 0 ? sortedDays : settings.days,
          totalPeriods: maxPeriod > settings.totalPeriods ? maxPeriod : settings.totalPeriods
       };
 
@@ -158,7 +190,7 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
       else onAddTimetable(newTimetable);
       
       setXlsxModalOpen(false);
-      showToast("시간표 엑셀 업로드가 완료되었습니다.");
+      showToast("시간표 엑셀이 성공적으로 연동되었습니다!", "success");
     };
     reader.readAsBinaryString(file);
     e.target.value = '';
@@ -183,7 +215,6 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
   if (isSettingMode) {
     return (
       <div className="h-full flex flex-col gap-4">
-        {/* 기존 설정 화면 UI 코드는 100% 동일 생략 (보내드린 전체 파일 덮어쓰시면 됩니다!) */}
         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border dark:border-gray-700">
           <h2 className="text-2xl font-bold dark:text-white flex items-center gap-2"><Settings className="text-indigo-600"/> 시간표 설정</h2>
         </div>
@@ -263,7 +294,6 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
       <div className="flex flex-wrap justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 shrink-0">
         <h2 className="text-2xl font-bold dark:text-white flex items-center gap-2"><Clock className="text-indigo-600"/> 나의 시간표</h2>
         <div className="flex gap-2">
-          {/* 🔥 1번 요청: XLSX 팝업 버튼 추가 */}
           <button onClick={() => setXlsxModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition flex items-center gap-2 shadow-sm"><FileSpreadsheet size={18}/> XLSX 연동</button>
           <div className="w-px h-8 bg-gray-200 dark:bg-gray-700 mx-1"></div>
           <button onClick={() => setIsSettingMode(true)} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center gap-2 shadow-sm"><Settings size={18}/> 시간표 설정</button>
@@ -362,7 +392,6 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
         </div>
       )}
 
-      {/* 🔥 1번 요청: 엑셀 파싱 및 안내 모달 */}
       {xlsxModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95">
@@ -389,7 +418,7 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
                 <Download size={20}/> 현재 시간표 양식 다운로드
               </button>
             </div>
-            <input type="file" ref={xlsxInputRef} onChange={handleTimetableUpload} accept=".xlsx, .xls" className="hidden" />
+            <input type="file" ref={xlsxInputRef} onChange={handleTimetableUpload} accept=".xlsx, .xls, .csv" className="hidden" />
           </div>
         </div>
       )}
