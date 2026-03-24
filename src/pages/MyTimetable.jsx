@@ -93,7 +93,7 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
     setModalData(null);
   };
 
-  // 🔥 NEIS 양식("월요일", 병합된 빈칸 등) 완벽 대응 파서
+  // 🔥 업그레이드된 시간표 엑셀 파싱 로직
   const handleTimetableUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -107,18 +107,16 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
       let headerRowIdx = -1;
       let daysCols = {}; 
 
-      // 1. 헤더 줄 찾기 (NEIS 양식의 '월요일', '화요일' 등 감지)
+      // 1. 요일이 적힌 머리글(Header) 찾기
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
         if (!row) continue;
         
-        // 해당 줄에 '월'이나 '월요일', '화'나 '화요일'이 포함되어 있는지 유연하게 검사
         const hasMon = row.some(val => typeof val === 'string' && (val.includes('월요일') || val === '월'));
         const hasTue = row.some(val => typeof val === 'string' && (val.includes('화요일') || val === '화'));
         
         if (hasMon && hasTue) {
           headerRowIdx = i;
-          // 발견된 요일들의 정확한 열(Column) 인덱스 매핑
           row.forEach((val, colIdx) => {
             if (typeof val === 'string') {
               const text = val.trim();
@@ -142,13 +140,15 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
 
       const newSchedule = { ...timetable?.schedule };
       let maxPeriod = 0;
+      
+      // 요일별 데이터 존재 여부 추적 (주말 삭제 기능용)
+      const hasData = { '월': false, '화': false, '수': false, '목': false, '금': false, '토': false, '일': false };
 
-      // 2. 데이터 추출
+      // 2. 시간표 본문 파싱
       for (let i = headerRowIdx + 1; i < data.length; i++) {
         const row = data[i];
         if (!row || row.length === 0) continue;
         
-        // NEIS 양식은 첫번째나 두번째 열에 '1교시' 형태의 정보가 존재함
         const periodCell = String(row[0] || row[1] || "");
         const periodMatch = periodCell.match(/\d+/); 
         if (!periodMatch) continue;
@@ -160,27 +160,42 @@ export default function MyTimetable({ timetableData = [], onAddTimetable, onUpda
           if (subjectRaw && typeof subjectRaw === 'string') {
             const cleanSubject = subjectRaw.trim();
             if (cleanSubject) {
-              // 한 줄로 적혀있든 줄바꿈이 있든 처리
-              const parts = cleanSubject.split('\n').map(s => s.trim()).filter(Boolean);
-              const subject = parts[0] || "";
-              const room = parts.length > 1 ? parts[1] : "";
+              let subject = cleanSubject;
+              let room = "";
+              
+              // 🔥 나이스 양식 분리 정규식: "n학년-과목명(m)"
+              // 예: "2학년-과학(7)" -> match[1]: 2, match[2]: 과학, match[3]: 7
+              const match = cleanSubject.match(/(\d+)학년-(.+?)\((\d+)\)/);
+              
+              if (match) {
+                const grade = match[1];
+                subject = match[2].trim();
+                const cls = match[3];
+                room = `${grade}-${cls}`; // 장소(반) 칸에 '2-7' 형태로 예쁘게 저장
+              } else {
+                // 나이스 패턴이 아닌 일반 수동 양식일 경우의 대비책
+                const parts = cleanSubject.split('\n').map(s => s.trim()).filter(Boolean);
+                subject = parts[0] || "";
+                room = parts.length > 1 ? parts[1] : "";
+              }
               
               if (subject) {
                 newSchedule[`${period}-${day}`] = { subject, room };
+                hasData[day] = true; // 해당 요일에 데이터가 있음을 마킹
               }
             }
           }
         });
       }
 
-      const days = Object.keys(daysCols);
-      const order = ['월', '화', '수', '목', '금', '토', '일'];
-      const sortedDays = days.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+      // 3. 토, 일요일 데이터 유무에 따른 동적 설정
+      let finalDays = ['월', '화', '수', '목', '금']; // 기본 평일은 무조건 고정
+      if (hasData['토']) finalDays.push('토'); // 데이터가 있을 때만 토요일 추가
+      if (hasData['일']) finalDays.push('일'); // 데이터가 있을 때만 일요일 추가
 
-      // 3. 현재 설정에 요일과 교시 수 업데이트 반영
       const newSettings = { 
          ...settings, 
-         days: sortedDays.length > 0 ? sortedDays : settings.days,
+         days: finalDays, // 업데이트된 요일 반영
          totalPeriods: maxPeriod > settings.totalPeriods ? maxPeriod : settings.totalPeriods
       };
 
