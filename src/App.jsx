@@ -43,7 +43,6 @@ export default function App() {
     else root.classList.remove('dark');
   }, [store.theme]);
 
-  // 🔥 pt 단위로 글자 크기를 정확하게 적용
   useEffect(() => {
     const root = document.documentElement;
     let size = parseInt(store.fontSize);
@@ -129,12 +128,11 @@ export default function App() {
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300 print:h-auto print:bg-white print:text-black">
       {store.isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm no-print" onClick={() => store.setIsSidebarOpen(false)} />}
 
-      {/* 🔥 PC 화면에서 아이콘 모드(w-20)와 열림 모드(w-64)를 부드럽게 토글 */}
+      {/* 🔥 md:relative와 shrink-0를 추가하여 PC화면에서 내용과 겹치지 않고 밀어내도록 수정 */}
       <div className={`
-        no-print fixed inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-2xl md:shadow-none
-        transform transition-all duration-300 ease-in-out
+        no-print fixed md:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-2xl md:shadow-none
+        transform transition-all duration-300 ease-in-out shrink-0
         ${store.isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-20'}
-        md:block
       `}>
         <Sidebar user={user} logout={logout} handbooks={handbooks} />
       </div>

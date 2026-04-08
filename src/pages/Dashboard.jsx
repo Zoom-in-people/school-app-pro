@@ -75,10 +75,10 @@ export default function Dashboard({
   const earlyCount = todayLogs.filter(l => l.type?.includes('조')).length;
   const otherCount = todayLogs.filter(l => l.type === '기타').length;
 
-  // 2. 업무 현황: 완료된 건 제외하고 '진행 중'인 것만 표시
-  const pendingTasks = todos?.filter(t => !t.completed) || [];
+  // 🔥 2. 업무 현황 수정: 완료된 속성은 completed가 아니라 'done'이었습니다.
+  const pendingTasks = todos?.filter(t => !t.done) || [];
 
-  // 3. 시간표 버그 완벽 수정 (배열 인덱스 문제 해결)
+  // 3. 시간표
   const currentTimetable = Array.isArray(myTimetable) && myTimetable.length > 0 ? myTimetable[0] : (myTimetable || null);
   const todayTimetable = [];
   if (currentTimetable?.schedule) {
