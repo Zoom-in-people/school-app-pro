@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { Menu, LogIn, Plus } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
-import { useAppStore } from './store/useAppStore'; // 🔥 Zustand 스토어 도입
-import { useAppData } from './hooks/useAppData';   // 🔥 DB 훅 분리
+import { useAppStore } from './store/useAppStore'; 
+import { useAppData } from './hooks/useAppData';   
 import { showToast } from './utils/alerts';
 
 import Sidebar from './components/layout/Sidebar';
@@ -25,12 +25,10 @@ import UpdateHistory from './pages/UpdateHistory';
 import HowToUse from './pages/HowToUse'; 
 import RealtimeSetup from './pages/RealtimeSetup'; 
 import AiRecord from './pages/AiRecord'; 
-import SchoolSchedule from './pages/SchoolSchedule';
+import SchoolSchedule from './pages/SchoolSchedule'; 
 
 export default function App() {
   const { user, loading, login, logout } = useAuth();
-  
-  // 🔥 Zustand 보관소에서 상태와 액션을 한 번에 꺼내옴
   const store = useAppStore(); 
 
   useEffect(() => { 
@@ -45,18 +43,21 @@ export default function App() {
     else root.classList.remove('dark');
   }, [store.theme]);
 
+  // 🔥 pt 단위로 글자 크기를 정확하게 적용
   useEffect(() => {
     const root = document.documentElement;
-    if (store.fontSize === 'xsmall') root.style.fontSize = '75%';
-    else if (store.fontSize === 'small') root.style.fontSize = '87.5%';
-    else if (store.fontSize === 'large') root.style.fontSize = '112.5%';
-    else if (store.fontSize === 'xlarge') root.style.fontSize = '125%';
-    else root.style.fontSize = '100%';
+    let size = parseInt(store.fontSize);
+    if (isNaN(size)) {
+      if (store.fontSize === 'xsmall') size = 12;
+      else if (store.fontSize === 'small') size = 14;
+      else if (store.fontSize === 'large') size = 18;
+      else if (store.fontSize === 'xlarge') size = 20;
+      else size = 16;
+    }
+    root.style.fontSize = `${size}px`;
   }, [store.fontSize]);
 
   const userId = user ? user.uid : null;
-
-  // 🔥 분리한 DB 훅에서 데이터 가져오기
   const db = useAppData(userId, store.currentHandbook?.id);
   const { data: handbooks, add: addHandbook, update: updateHandbook, remove: removeHandbook } = db.handbooks;
 
@@ -128,13 +129,13 @@ export default function App() {
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300 print:h-auto print:bg-white print:text-black">
       {store.isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm no-print" onClick={() => store.setIsSidebarOpen(false)} />}
 
+      {/* 🔥 PC 화면에서 아이콘 모드(w-20)와 열림 모드(w-64)를 부드럽게 토글 */}
       <div className={`
-        no-print fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-2xl md:shadow-none
-        transform transition-transform duration-300 ease-in-out
-        ${store.isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        md:relative md:translate-x-0 md:w-64 md:block
+        no-print fixed inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-2xl md:shadow-none
+        transform transition-all duration-300 ease-in-out
+        ${store.isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-20'}
+        md:block
       `}>
-        {/* 🔥 Sidebar에 넘기던 수많은 Props가 사라지고, Sidebar 안에서 스스로 상태를 꺼내씁니다 */}
         <Sidebar user={user} logout={logout} handbooks={handbooks} />
       </div>
 
@@ -150,13 +151,12 @@ export default function App() {
             : store.activeView === 'how_to_use' ? <HowToUse />
             : store.activeView === 'realtime_setup' ? <RealtimeSetup />
             : store.activeView === 'ai_record' ? <AiRecord />
-            : store.activeView === 'school_schedule' ? <SchoolSchedule handbook={store.currentHandbook} /> // 🔥 새로 추가
+            : store.activeView === 'school_schedule' ? <SchoolSchedule handbook={store.currentHandbook} />
             : !store.currentHandbook ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6 no-print"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => store.setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (
               <>
-                {/* 각 페이지 컴포넌트로 전달되는 Props는 기존과 100% 동일하게 유지했습니다! */}
-                {store.activeView === 'dashboard' && <Dashboard students={db.homeroomStudents.data} todos={db.todos.data} setActiveView={store.setActiveView} isHomeroom={store.currentHandbook.isHomeroom} schoolInfo={store.currentHandbook.schoolInfo || {}} attendanceLog={db.attendanceLog.data} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => db.homeroomStudents.update(id, data)} lessonGroups={db.lessonGroups.data} onUpdateLessonGroup={db.lessonGroups.update} currentHandbook={store.currentHandbook} onUpdateHandbook={handleUpdateHandbook} myTimetable={db.myTimetable.data} widgets={store.widgets} setWidgets={store.setWidgets} />}
+                {store.activeView === 'dashboard' && <Dashboard students={db.homeroomStudents.data} todos={db.todos.data} setActiveView={store.setActiveView} isHomeroom={store.currentHandbook.isHomeroom} schoolInfo={store.currentHandbook.schoolInfo || {}} attendanceLog={db.attendanceLog.data} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => db.homeroomStudents.update(id, data)} lessonGroups={db.lessonGroups.data} myTimetable={db.myTimetable.data} widgets={store.widgets} setWidgets={store.setWidgets} />}
                 {store.activeView === 'monthly' && <MonthlyEvents handbook={store.currentHandbook} isHomeroom={store.currentHandbook.isHomeroom} students={db.homeroomStudents.data} attendanceLog={db.attendanceLog.data} onUpdateAttendance={handleUpdateAttendance} events={db.events.data} onUpdateEvent={handleUpdateEvent} />}
                 {store.activeView === 'students_homeroom' && <StudentManager key="homeroom-manager" students={db.homeroomStudents.data} onAddStudent={db.homeroomStudents.add} onAddStudents={db.homeroomStudents.addMany} onUpdateStudent={db.homeroomStudents.update} onDeleteStudent={db.homeroomStudents.remove} onUpdateStudentsMany={db.homeroomStudents.updateMany} onSetAllStudents={db.homeroomStudents.setAll} apiKey={store.apiKey} isHomeroomView={true} />}
                 {store.activeView === 'students_subject' && <StudentManager key="subject-manager" students={db.subjectStudents.data} onAddStudent={db.subjectStudents.add} onAddStudents={db.subjectStudents.addMany} onUpdateStudent={db.subjectStudents.update} onDeleteStudent={db.subjectStudents.remove} onUpdateStudentsMany={db.subjectStudents.updateMany} onSetAllStudents={db.subjectStudents.setAll} apiKey={store.apiKey} isHomeroomView={false} classPhotos={db.classPhotos.data} onAddClassPhoto={db.classPhotos.add} onUpdateClassPhoto={db.classPhotos.update} onDeleteClassPhoto={db.classPhotos.remove} />}

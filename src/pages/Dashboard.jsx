@@ -13,8 +13,7 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 export default function Dashboard({ 
   students, todos, setActiveView, schoolInfo, isHomeroom, 
-  attendanceLog, onUpdateAttendance, onUpdateStudent, 
-  lessonGroups, myTimetable, widgets, setWidgets 
+  attendanceLog, myTimetable, lessonGroups, widgets, setWidgets 
 }) {
   const [isWidgetModalOpen, setIsWidgetModalOpen] = useState(false); 
   const currentWidgets = widgets || { attendance: true, tasks: true, timetable: true, classTimetable: true, lunch: true, lessons: true };
@@ -76,10 +75,8 @@ export default function Dashboard({
   const earlyCount = todayLogs.filter(l => l.type?.includes('조')).length;
   const otherCount = todayLogs.filter(l => l.type === '기타').length;
 
-  // 2. 업무 통계 복구
-  const allTasks = todos || [];
-  const completedTasks = allTasks.filter(t => t.completed).length;
-  const pendingTasks = allTasks.filter(t => !t.completed);
+  // 2. 업무 현황: 완료된 건 제외하고 '진행 중'인 것만 표시
+  const pendingTasks = todos?.filter(t => !t.completed) || [];
 
   // 3. 시간표 버그 완벽 수정 (배열 인덱스 문제 해결)
   const currentTimetable = Array.isArray(myTimetable) && myTimetable.length > 0 ? myTimetable[0] : (myTimetable || null);
@@ -167,15 +164,6 @@ export default function Dashboard({
           {currentWidgets.tasks && (
             <div key="tasks" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
               <WidgetHeader title={`나의 업무 (${pendingTasks.length}개 남음)`} icon={<CheckSquare size={16}/>} colorClass="text-green-500" linkAction={() => setActiveView('tasks')} linkText="전체보기" />
-              <div className="px-4 py-2 border-b border-gray-50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800 shrink-0">
-                 <div className="flex justify-between text-[10px] font-bold text-gray-500 mb-1">
-                   <span>진행률</span>
-                   <span>{allTasks.length > 0 ? Math.round((completedTasks / allTasks.length) * 100) : 0}%</span>
-                 </div>
-                 <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                   <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${allTasks.length > 0 ? (completedTasks / allTasks.length) * 100 : 0}%` }}></div>
-                 </div>
-              </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
                 {pendingTasks.length > 0 ? pendingTasks.map(t => (
                   <div key={t.id} className="p-3 bg-white dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2 shadow-sm hover:border-green-300 transition">
@@ -196,10 +184,10 @@ export default function Dashboard({
               <WidgetHeader title={`나의 수업 (${todayDay}요일)`} icon={<Clock size={16}/>} colorClass="text-blue-500" linkAction={() => setActiveView('my_timetable')} linkText="시간표로" />
               <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
                 {todayTimetable.length > 0 ? todayTimetable.map(cls => (
-                  <div key={cls.period} className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50 hover:bg-blue-100 transition shadow-sm">
-                    <span className="font-extrabold text-blue-600 dark:text-blue-400 w-10 shrink-0 text-center">{cls.period}교시</span>
-                    <div className="flex-1 font-bold text-gray-800 dark:text-gray-200 truncate">{cls.subject}</div>
-                    {cls.room && <span className="text-xs font-bold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded-lg shadow-sm border border-gray-100 dark:border-gray-600 shrink-0">{cls.room}</span>}
+                  <div key={cls.period} className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50 hover:bg-blue-100 transition shadow-sm min-w-0">
+                    <span className="font-extrabold text-blue-600 dark:text-blue-400 w-12 shrink-0 text-center whitespace-nowrap">{cls.period}교시</span>
+                    <div className="flex-1 font-bold text-gray-800 dark:text-gray-200 truncate min-w-0">{cls.subject}</div>
+                    {cls.room && <span className="text-xs font-bold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded-lg shadow-sm border border-gray-100 dark:border-gray-600 shrink-0 whitespace-nowrap">{cls.room}</span>}
                   </div>
                 )) : (
                   <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
@@ -239,22 +227,29 @@ export default function Dashboard({
             <div key="lessons" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
               <WidgetHeader title="진도 현황 요약" icon={<BookOpen size={16}/>} colorClass="text-pink-500" linkAction={() => setActiveView('lessons')} linkText="전체보기" />
               <div className="flex-1 overflow-y-auto p-3 grid grid-cols-1 gap-2 custom-scrollbar">
-                {lessonGroups?.length > 0 ? lessonGroups.map(grp => {
-                   const total = grp.lessons?.length || 0;
-                   const completed = grp.lessons?.filter(l => l.completed).length || 0;
-                   const percent = total > 0 ? Math.round((completed/total)*100) : 0;
-                   return (
-                    <div key={grp.id} className="p-3 bg-white dark:bg-gray-700/30 rounded-xl border border-pink-100 dark:border-pink-900/30 shadow-sm flex flex-col gap-2 hover:border-pink-300 transition">
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-gray-800 dark:text-gray-200 truncate pr-2">{grp.name}</span>
-                        <span className="text-[10px] font-black text-pink-600 dark:text-pink-400 bg-pink-50 dark:bg-pink-900/30 px-2 py-1 rounded">{percent}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-600 rounded-full overflow-hidden">
-                        <div className="h-full bg-pink-400 transition-all" style={{ width: `${percent}%` }}></div>
-                      </div>
+                {lessonGroups?.length > 0 ? lessonGroups.map(grp => (
+                  <div key={grp.id} className="p-3 bg-white dark:bg-gray-700/30 rounded-xl border border-pink-100 dark:border-pink-900/30 shadow-sm flex flex-col gap-2 hover:border-pink-300 transition">
+                    <span className="font-bold text-gray-800 dark:text-gray-200 truncate border-b border-gray-100 dark:border-gray-600 pb-2">{grp.name}</span>
+                    <div className="space-y-2 mt-1">
+                      {grp.classes?.map(cls => {
+                        const completedIdx = [...grp.progressItems].reverse().findIndex(item => grp.status[`${cls.id}_${item}`]);
+                        const lastCompleted = completedIdx >= 0 ? grp.progressItems[grp.progressItems.length - 1 - completedIdx] : '없음';
+                        const firstPendingIdx = grp.progressItems.findIndex(item => !grp.status[`${cls.id}_${item}`]);
+                        const nextPending = firstPendingIdx >= 0 ? grp.progressItems[firstPendingIdx] : '모두 완료';
+                        return (
+                          <div key={cls.id} className="flex justify-between items-center text-xs">
+                            <span className="font-bold text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded truncate w-16">{cls.name}</span>
+                            <div className="flex items-center gap-2 flex-1 justify-end truncate">
+                              <span className="text-gray-500 dark:text-gray-400 shrink-0">완료: <span className="font-bold text-pink-600 dark:text-pink-400">{lastCompleted}</span></span>
+                              <span className="text-gray-300 dark:text-gray-600 shrink-0">|</span>
+                              <span className="text-gray-500 dark:text-gray-400 shrink-0">예정: <span className="font-bold text-indigo-600 dark:text-indigo-400">{nextPending}</span></span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                }) : (
+                  </div>
+                )) : (
                   <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
                     <BookOpen size={32} className="opacity-20"/>
                     <p className="text-sm font-bold">등록된 진도 그룹이 없습니다.</p>
@@ -313,7 +308,7 @@ export default function Dashboard({
             
             <div className="shrink-0 flex flex-col gap-2">
               <button onClick={() => setIsWidgetModalOpen(false)} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 transition shadow-md">
-                설정 완료
+                설정 닫기
               </button>
             </div>
           </div>

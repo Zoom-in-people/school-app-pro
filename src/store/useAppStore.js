@@ -5,11 +5,11 @@ import { INITIAL_WIDGETS } from '../constants/data';
 export const useAppStore = create(
   persist(
     (set) => ({
-      // 1. UI 상태 (새로고침 시 날아가는 휘발성 상태들)
       activeView: 'dashboard',
       setActiveView: (view) => set({ activeView: view, isSidebarOpen: false }),
 
-      isSidebarOpen: false,
+      // 🔥 사이드바 토글 상태 (기본적으로 열림)
+      isSidebarOpen: true,
       setIsSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
 
       isSettingsOpen: false,
@@ -27,7 +27,6 @@ export const useAppStore = create(
       currentHandbook: null,
       setCurrentHandbook: (handbook) => set({ currentHandbook: handbook }),
 
-      // 교무수첩 선택 시 작동할 액션
       selectHandbook: (handbook) => set({
         currentHandbook: handbook,
         lastHandbookId: handbook.id,
@@ -35,7 +34,6 @@ export const useAppStore = create(
         isSidebarOpen: false
       }),
 
-      // 2. 환경 설정 (로컬 스토리지에 영구 저장되는 상태들)
       apiKey: '',
       setApiKey: (apiKey) => set({ apiKey }),
 
@@ -45,7 +43,8 @@ export const useAppStore = create(
       theme: 'light',
       setTheme: (theme) => set({ theme }),
 
-      fontSize: 'normal',
+      // 🔥 폰트 사이즈 기본값을 숫자로 변경
+      fontSize: 16,
       setFontSize: (fontSize) => set({ fontSize }),
 
       widgets: INITIAL_WIDGETS,
@@ -55,7 +54,7 @@ export const useAppStore = create(
       setLastHandbookId: (lastHandbookId) => set({ lastHandbookId }),
     }),
     {
-      name: 'school-app-storage', // 로컬 스토리지에 저장될 키 이름
+      name: 'school-app-storage',
       partialize: (state) => ({
         apiKey: state.apiKey,
         hideApiPrompt: state.hideApiPrompt,
@@ -63,7 +62,7 @@ export const useAppStore = create(
         fontSize: state.fontSize,
         widgets: state.widgets,
         lastHandbookId: state.lastHandbookId,
-      }), // 이 값들만 영구 저장 (나머지 UI 팝업 열림/닫힘은 제외)
+      }),
     }
   )
 );
