@@ -43,8 +43,15 @@ export default function Sidebar({ user, logout, handbooks }) {
   const sortedHandbooks = [...handbooks].sort((a, b) => b.title.localeCompare(a.title));
 
   const menuGroups = [
-    { title: "메인", items: [{ id: 'dashboard', label: '대시보드', icon: LayoutDashboard }, { id: 'monthly', label: '월별행사/출결', icon: Calendar }] },
-    { title: "학급 관리", items: [{ id: 'students_homeroom', label: '학생 명렬표 (우리반)', icon: Users }, { id: 'consultation', label: '상담 일지', icon: MessageSquare }] },
+    {
+      title: "메인",
+      items: [
+        { id: 'dashboard', label: '대시보드', icon: LayoutDashboard },
+        { id: 'monthly', label: '월별행사/출결', icon: Calendar },
+        { id: 'school_schedule', label: '학사일정 (NEIS)', icon: Calendar }, // 🔥 새로 추가
+      ]
+    },
+        { title: "학급 관리", items: [{ id: 'students_homeroom', label: '학생 명렬표 (우리반)', icon: Users }, { id: 'consultation', label: '상담 일지', icon: MessageSquare }] },
     { title: "수업 관리", items: [{ id: 'students_subject', label: '학생 명렬표 (교과)', icon: Users }, { id: 'lessons', label: '진도 관리', icon: BookOpen }, { id: 'my_timetable', label: '나의 시간표', icon: Clock }] },
     { 
       title: "행정/업무", 

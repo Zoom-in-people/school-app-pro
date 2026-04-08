@@ -25,6 +25,7 @@ import UpdateHistory from './pages/UpdateHistory';
 import HowToUse from './pages/HowToUse'; 
 import RealtimeSetup from './pages/RealtimeSetup'; 
 import AiRecord from './pages/AiRecord'; 
+import SchoolSchedule from './pages/SchoolSchedule';
 
 export default function App() {
   const { user, loading, login, logout } = useAuth();
@@ -149,6 +150,7 @@ export default function App() {
             : store.activeView === 'how_to_use' ? <HowToUse />
             : store.activeView === 'realtime_setup' ? <RealtimeSetup />
             : store.activeView === 'ai_record' ? <AiRecord />
+            : store.activeView === 'school_schedule' ? <SchoolSchedule handbook={store.currentHandbook} /> // 🔥 새로 추가
             : !store.currentHandbook ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6 no-print"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => store.setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (

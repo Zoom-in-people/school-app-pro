@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Users, AlertTriangle, BookOpen, ClipboardList, MessageSquare, CheckCircle, X, Clock, Settings2 } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import MemoLogModal from '../components/modals/MemoLogModal';
+import ClassTimetableWidget from '../components/widgets/ClassTimetableWidget';
 
 export default function Dashboard({ students, todos, setActiveView, schoolInfo, isHomeroom, attendanceLog, onUpdateAttendance, onUpdateStudent, lessonGroups, onUpdateLessonGroup, myTimetable, widgets, setWidgets }) {
   const [memoModalOpen, setMemoModalOpen] = useState(false);
@@ -9,8 +10,7 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
   const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, note: "" });
   const [isWidgetModalOpen, setIsWidgetModalOpen] = useState(false); // 🔥 위젯 설정 모달
 
-  const currentWidgets = widgets || { attendance: true, tasks: true, timetable: true, lunch: true, lessons: true };
-
+const currentWidgets = widgets || { attendance: true, tasks: true, timetable: true, classTimetable: true, lunch: true, lessons: true };
   const toggleWidget = (key) => {
     setWidgets({ ...currentWidgets, [key]: !currentWidgets[key] });
   };
@@ -212,6 +212,13 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
             <LunchWidget schoolInfo={schoolInfo || {}} />
           </div>
         )}
+        {currentWidgets.classTimetable && (
+          <div className="lg:col-span-3 h-80 lg:h-96 print:h-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 h-full overflow-hidden transition hover:shadow-md print-break-inside-avoid p-0">
+              <ClassTimetableWidget schoolInfo={schoolInfo} />
+            </div>
+          </div>
+        )}
 
         {currentWidgets.lessons && (
           <div className="lg:col-span-12 h-96 print:h-auto">
@@ -271,6 +278,10 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
                   <input type="checkbox" checked={currentWidgets.attendance} onChange={() => toggleWidget('attendance')} className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"/>
                 </label>
               )}
+              <label className="flex items-center justify-between p-4 border border-gray-100 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition">
+                <span className="font-bold text-gray-700 dark:text-gray-200">각 반 시간표 (NEIS)</span>
+                <input type="checkbox" checked={currentWidgets.classTimetable} onChange={() => toggleWidget('classTimetable')} className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"/>
+              </label>
               <label className="flex items-center justify-between p-4 border border-gray-100 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition">
                 <span className="font-bold text-gray-700 dark:text-gray-200">업무 체크리스트</span>
                 <input type="checkbox" checked={currentWidgets.tasks} onChange={() => toggleWidget('tasks')} className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"/>
