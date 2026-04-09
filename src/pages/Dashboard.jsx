@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import ClassTimetableWidget from '../components/widgets/ClassTimetableWidget'; 
+import SchoolScheduleWidget from '../components/widgets/SchoolScheduleWidget'; // 🔥 신규 위젯 추가
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -16,7 +17,9 @@ export default function Dashboard({
   attendanceLog, myTimetable, lessonGroups, widgets, setWidgets 
 }) {
   const [isWidgetModalOpen, setIsWidgetModalOpen] = useState(false); 
-  const currentWidgets = widgets || { attendance: true, tasks: true, timetable: true, classTimetable: true, lunch: true, lessons: true };
+  
+  // 🔥 schoolSchedule 위젯 상태 추가
+  const currentWidgets = widgets || { attendance: true, tasks: true, timetable: true, classTimetable: true, lunch: true, lessons: true, schoolSchedule: true };
 
   const defaultLayouts = {
     lg: [
@@ -24,8 +27,9 @@ export default function Dashboard({
       { i: 'tasks', x: 0, y: 2, w: 4, h: 4, minW: 3, minH: 3 },
       { i: 'timetable', x: 4, y: 2, w: 4, h: 4, minW: 3, minH: 3 },
       { i: 'classTimetable', x: 8, y: 2, w: 4, h: 4, minW: 3, minH: 3 },
-      { i: 'lunch', x: 0, y: 6, w: 6, h: 4, minW: 4, minH: 3 },
-      { i: 'lessons', x: 6, y: 6, w: 6, h: 4, minW: 4, minH: 3 }
+      { i: 'lunch', x: 0, y: 6, w: 4, h: 4, minW: 3, minH: 3 },
+      { i: 'schoolSchedule', x: 4, y: 6, w: 4, h: 4, minW: 3, minH: 3 }, // 🔥 신규 위젯 레이아웃 추가
+      { i: 'lessons', x: 8, y: 6, w: 4, h: 4, minW: 3, minH: 3 }
     ],
     md: [
       { i: 'attendance', x: 0, y: 0, w: 10, h: 2, minW: 5, minH: 2 },
@@ -33,7 +37,8 @@ export default function Dashboard({
       { i: 'timetable', x: 5, y: 2, w: 5, h: 4, minW: 3, minH: 3 },
       { i: 'classTimetable', x: 0, y: 6, w: 5, h: 4, minW: 3, minH: 3 },
       { i: 'lunch', x: 5, y: 6, w: 5, h: 4, minW: 3, minH: 3 },
-      { i: 'lessons', x: 0, y: 10, w: 10, h: 4, minW: 4, minH: 3 }
+      { i: 'schoolSchedule', x: 0, y: 10, w: 5, h: 4, minW: 3, minH: 3 }, // 🔥 신규 위젯 레이아웃 추가
+      { i: 'lessons', x: 5, y: 10, w: 5, h: 4, minW: 3, minH: 3 }
     ],
     sm: [
       { i: 'attendance', x: 0, y: 0, w: 6, h: 2 },
@@ -41,7 +46,8 @@ export default function Dashboard({
       { i: 'timetable', x: 0, y: 6, w: 6, h: 4 },
       { i: 'classTimetable', x: 0, y: 10, w: 6, h: 4 },
       { i: 'lunch', x: 0, y: 14, w: 6, h: 4 },
-      { i: 'lessons', x: 0, y: 18, w: 6, h: 4 }
+      { i: 'schoolSchedule', x: 0, y: 18, w: 6, h: 4 }, // 🔥 신규 위젯 레이아웃 추가
+      { i: 'lessons', x: 0, y: 22, w: 6, h: 4 }
     ]
   };
 
@@ -62,23 +68,19 @@ export default function Dashboard({
 
   const toggleWidget = (key) => setWidgets({ ...currentWidgets, [key]: !currentWidgets[key] });
 
-  // ------------------ 풍부해진 데이터 처리 ------------------
   const d = new Date();
   const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   const todayDay = days[d.getDay()];
 
-  // 1. 출결 통계 복구
   const todayLogs = attendanceLog?.filter(log => log.date === todayStr) || [];
   const absentCount = todayLogs.filter(l => l.type?.includes('결')).length;
   const lateCount = todayLogs.filter(l => l.type?.includes('지')).length;
   const earlyCount = todayLogs.filter(l => l.type?.includes('조')).length;
   const otherCount = todayLogs.filter(l => l.type === '기타').length;
 
-  // 🔥 2. 업무 현황 수정: 완료된 속성은 completed가 아니라 'done'이었습니다.
   const pendingTasks = todos?.filter(t => !t.done) || [];
 
-  // 3. 시간표
   const currentTimetable = Array.isArray(myTimetable) && myTimetable.length > 0 ? myTimetable[0] : (myTimetable || null);
   const todayTimetable = [];
   if (currentTimetable?.schedule) {
@@ -88,7 +90,6 @@ export default function Dashboard({
     }
   }
 
-  // ------------------ 위젯 헤더 컴포넌트 ------------------
   const WidgetHeader = ({ title, icon, colorClass, linkAction, linkText }) => (
     <div className="drag-handle cursor-move bg-gray-50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center shrink-0 group">
       <h3 className="font-bold flex items-center gap-2 text-gray-800 dark:text-white text-sm">
@@ -223,6 +224,16 @@ export default function Dashboard({
             </div>
           )}
 
+          {/* 🔥 새로 추가된 학사일정 위젯 연결 */}
+          {currentWidgets.schoolSchedule && (
+            <div key="schoolSchedule" className="rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden relative">
+              <div className="drag-handle cursor-move absolute top-3 right-3 z-50 p-2 bg-black/40 hover:bg-black/70 text-white rounded-lg opacity-0 group-hover:opacity-100 transition backdrop-blur-sm" title="드래그하여 이동">
+                <GripHorizontal size={16} />
+              </div>
+              <SchoolScheduleWidget schoolInfo={schoolInfo} />
+            </div>
+          )}
+
           {currentWidgets.lessons && (
             <div key="lessons" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
               <WidgetHeader title="진도 현황 요약" icon={<BookOpen size={16}/>} colorClass="text-pink-500" linkAction={() => setActiveView('lessons')} linkText="전체보기" />
@@ -299,6 +310,11 @@ export default function Dashboard({
               <label className="flex items-center justify-between p-4 border border-gray-100 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition">
                 <span className="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2"><BookOpen size={16} className="text-orange-500"/> 오늘의 급식</span>
                 <input type="checkbox" checked={currentWidgets.lunch} onChange={() => toggleWidget('lunch')} className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"/>
+              </label>
+              {/* 🔥 신규 위젯 체크박스 */}
+              <label className="flex items-center justify-between p-4 border border-gray-100 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition">
+                <span className="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2"><Calendar size={16} className="text-teal-500"/> 이번 달 학사일정</span>
+                <input type="checkbox" checked={currentWidgets.schoolSchedule} onChange={() => toggleWidget('schoolSchedule')} className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"/>
               </label>
               <label className="flex items-center justify-between p-4 border border-gray-100 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition">
                 <span className="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2"><LayoutDashboard size={16} className="text-pink-500"/> 진도 현황</span>

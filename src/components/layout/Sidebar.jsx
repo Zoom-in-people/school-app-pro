@@ -45,7 +45,8 @@ export default function Sidebar({ user, logout, handbooks }) {
   const sortedHandbooks = [...handbooks].sort((a, b) => b.title.localeCompare(a.title));
 
   const menuGroups = [
-    { title: "메인", items: [{ id: 'dashboard', label: '대시보드', icon: LayoutDashboard }, { id: 'monthly', label: '월별행사/출결', icon: Calendar }, { id: 'school_schedule', label: '학사일정 (NEIS)', icon: Calendar }] },
+    // 🔥 월별행사/학사일정 통합으로 인한 불필요한 학사일정(NEIS) 개별 메뉴 삭제
+    { title: "메인", items: [{ id: 'dashboard', label: '대시보드', icon: LayoutDashboard }, { id: 'monthly', label: '월별행사/출결', icon: Calendar }] },
     { title: "학급 관리", items: [{ id: 'students_homeroom', label: '학생 명렬표 (우리반)', icon: Users }, { id: 'consultation', label: '상담 일지', icon: MessageSquare }] },
     { title: "수업 관리", items: [{ id: 'students_subject', label: '학생 명렬표 (교과)', icon: Users }, { id: 'lessons', label: '진도 관리', icon: BookOpen }, { id: 'my_timetable', label: '나의 시간표', icon: Clock }] },
     { title: "행정/업무", items: [{ id: 'tasks', label: '업무 체크리스트', icon: CheckSquare }, { id: 'meeting_logs', label: '회의록', icon: ClipboardList }, { id: 'ai_record', label: 'AI세특 작성', icon: Sparkles }, { id: 'apps', label: '다른 교사용 사이트', icon: Grid }] },
@@ -60,7 +61,6 @@ export default function Sidebar({ user, logout, handbooks }) {
   return (
     <aside className="bg-white dark:bg-gray-800 h-full flex flex-col border-r border-gray-200 dark:border-gray-700 transition-colors duration-300">
       
-      {/* 🔹 상단 프로필 및 토글 버튼 영역 */}
       <div className={`p-4 border-b border-gray-200 dark:border-gray-700 flex items-center ${isSidebarOpen ? 'justify-between' : 'justify-center flex-col gap-3'}`}>
         <div className={`flex items-center gap-3 ${isSidebarOpen ? 'flex-1 min-w-0' : ''}`}>
           {user?.photoURL ? (

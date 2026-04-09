@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Calendar as CalIcon, ChevronLeft, ChevronRight, Plus, Trash2, X, MessageSquare, Clock } from 'lucide-react';
 import { showToast, showConfirm } from '../utils/alerts';
+import { fetchNeisSchedule } from '../utils/neisApi'; // 🔥 NEIS API 추가
 
 const LUNAR_HOLIDAYS = {
   2024: { seol: '2024-02-10', buddha: '2024-05-15', chuseok: '2024-09-17' },
@@ -77,7 +78,6 @@ function getHolidays(year) {
   return holidays;
 }
 
-// 🔥 2번 요청 해결: 버튼을 눌렀을 때 바로 닫히지 않도록 상태 선택기 컴포넌트 신설
 const StatusButton = ({ label, value, current, onClick, color, span }) => {
   const isSelected = current === value;
   let baseClass = "p-2 rounded font-bold transition text-xs ";
@@ -124,18 +124,33 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
     return idx >= 0 ? idx : 0;
   });
 
-  // 🔥 2번 요청 해결: 팝업창 내에서 상태를 보존하기 위해 'type' 속성 추가
   const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, date: null, note: "", period: "", type: "" });
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [targetEvent, setTargetEvent] = useState(null);
   const [eventForm, setEventForm] = useState({ title: "", startDate: "", endDate: "" });
 
-  if (!handbook) return <div className="p-10 text-center text-gray-500">학기 정보가 없습니다.</div>;
-  if (months.length === 0) return <div className="p-10 text-center text-red-500">기간 설정 오류</div>;
+  // 🔥 NEIS 학사일정 통합 상태
+  const [neisEvents, setNeisEvents] = useState([]);
 
   const currentMonthDate = months[selectedMonthIndex] || new Date();
   const currentYear = currentMonthDate.getFullYear();
   const currentMonth = currentMonthDate.getMonth() + 1;
+
+  // 🔥 이번 달 NEIS 학사일정 자동 로드
+  useEffect(() => {
+    const loadNeis = async () => {
+      if (!handbook?.schoolInfo?.code) return;
+      const fromDate = `${currentYear}${String(currentMonth).padStart(2, '0')}01`;
+      const lastDay = new Date(currentYear, currentMonth, 0).getDate();
+      const toDate = `${currentYear}${String(currentMonth).padStart(2, '0')}${String(lastDay).padStart(2, '0')}`;
+      const data = await fetchNeisSchedule(handbook.schoolInfo.officeCode, handbook.schoolInfo.code, fromDate, toDate);
+      setNeisEvents(data);
+    };
+    loadNeis();
+  }, [currentYear, currentMonth, handbook?.schoolInfo?.code]);
+
+  if (!handbook) return <div className="p-10 text-center text-gray-500">학기 정보가 없습니다.</div>;
+  if (months.length === 0) return <div className="p-10 text-center text-red-500">기간 설정 오류</div>;
 
   const holidayMap = useMemo(() => getHolidays(currentYear), [currentYear]);
   const getHolidayInfo = (day) => holidayMap[`${currentYear}-${currentMonth}-${day}`];
@@ -161,6 +176,11 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
       const end = new Date(e.endDate + 'T23:59:59');
       return targetDate >= start && targetDate <= end;
     });
+  };
+
+  const getNeisEventsForDay = (day) => {
+    const targetDateStr = `${currentYear}${String(currentMonth).padStart(2, '0')}${String(day).padStart(2, '0')}`;
+    return neisEvents.filter(e => e.date === targetDateStr);
   };
 
   const getLog = (studentId, day) => {
@@ -214,10 +234,8 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
   
   const handleSaveEvent = () => { 
     if (!eventForm.title) return showToast("일정 내용을 입력해주세요.", "warning"); 
-    
     if (targetEvent) onUpdateEvent(targetEvent.id, eventForm); 
     else onUpdateEvent(null, eventForm); 
-    
     setIsEventModalOpen(false); 
     showToast('일정이 저장되었습니다.');
   };
@@ -251,7 +269,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
     });
   };
 
-  // 🔥 2번 요청 해결: 바로 저장하고 닫히는 대신, 최종 '확인' 버튼을 눌렀을 때만 상태값들을 모아서 저장
   const saveAttendance = (typeAction) => {
     const { studentId, date, note, period, type } = attPopup;
     if (!studentId || !date) return;
@@ -283,7 +300,7 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 min-h-[600px] flex flex-col">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
         <h3 className="text-xl md:text-2xl font-bold dark:text-white flex items-center gap-2">
-          <CalIcon className="text-indigo-500 w-6 h-6 md:w-8 md:h-8" /> 월별 일정
+          <CalIcon className="text-indigo-500 w-6 h-6 md:w-8 md:h-8" /> 월별행사 / 학사일정
         </h3>
         
         <div className="flex items-center gap-2 w-full sm:w-auto bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
@@ -295,7 +312,7 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
         </div>
         
         <button onClick={() => openAddEvent(1)} className="bg-indigo-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-sm md:text-base font-bold hover:bg-indigo-700 flex items-center gap-2 shrink-0">
-          <Plus size={18}/> <span className="hidden sm:inline">일정 추가</span><span className="sm:hidden">추가</span>
+          <Plus size={18}/> <span className="hidden sm:inline">행사 직접 추가</span><span className="sm:hidden">추가</span>
         </button>
       </div>
 
@@ -307,27 +324,38 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
           {emptyDays.map(i => <div key={`empty-${i}`} className="border-b border-r border-gray-100 dark:border-gray-700/50 bg-gray-50/30 dark:bg-gray-900/20"></div>)}
           {daysArray.map(day => {
             const dayEvents = getEventsForDay(day);
+            const dayNeisEvents = getNeisEventsForDay(day); // 🔥 해당 일자 NEIS 이벤트 가져오기
             const attSummary = isHomeroom ? getAttendanceSummary(day) : null;
             const isSunday = (firstDayOfMonth + day - 1) % 7 === 0;
             const isSaturday = (firstDayOfMonth + day - 1) % 7 === 6;
             const holidayInfo = getHolidayInfo(day);
-            const isRedDay = isSunday || !!holidayInfo;
+            const isRedDay = isSunday || !!holidayInfo || dayNeisEvents.some(e => e.holiday); // NEIS 휴업일 포함
 
             return (
-              <div key={day} onClick={() => openAddEvent(day)} className="min-h-[100px] border-b border-r border-gray-100 dark:border-gray-700 p-1 relative hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer group">
-                <div className="flex justify-between items-start mb-1">
+              <div key={day} onClick={() => openAddEvent(day)} className="min-h-[100px] border-b border-r border-gray-100 dark:border-gray-700 p-1 relative hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer group flex flex-col">
+                <div className="flex justify-between items-start mb-1 shrink-0">
                   <div className="flex flex-col items-start">
                     <span className={`text-sm font-bold p-1 rounded-full w-7 h-7 flex items-center justify-center ${isRedDay ? 'text-red-500' : isSaturday ? 'text-blue-500' : 'dark:text-gray-300'}`}>{day}</span>
                     {holidayInfo && <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-1 rounded truncate max-w-[70px]" title={holidayInfo.name}>{holidayInfo.name}</span>}
                   </div>
                   {attSummary && <span className="text-[10px] font-bold text-gray-600 bg-gray-100 dark:bg-gray-600 dark:text-gray-200 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-500 shadow-sm mr-1">{attSummary}</span>}
                 </div>
-                <div className="mt-1 space-y-1">
+                <div className="mt-1 space-y-1 flex-1 overflow-y-auto custom-scrollbar pr-0.5">
+                  
+                  {/* 🔥 NEIS 학사일정 렌더링 (초록색 톤 + 아이콘) */}
+                  {dayNeisEvents.map((evt, idx) => (
+                    <div key={`neis-${idx}`} className={`text-[11px] font-bold px-1.5 py-1 rounded truncate ${evt.holiday ? 'bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/30 dark:border-red-800/50' : 'bg-teal-50 text-teal-700 border border-teal-100 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800/50'}`}>
+                      🏛️ {evt.name}
+                    </div>
+                  ))}
+
+                  {/* 사용자가 직접 추가한 월별행사 렌더링 (보라색 톤) */}
                   {dayEvents.map(evt => (
-                    <div key={evt.id} onClick={(e) => openEditEvent(evt, e)} className="text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 px-2 py-1 rounded truncate hover:opacity-80 flex justify-between items-center group/evt">
+                    <div key={evt.id} onClick={(e) => openEditEvent(evt, e)} className="text-[11px] bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 px-1.5 py-1 rounded truncate hover:opacity-80 flex justify-between items-center group/evt">
                       <span className="truncate">{evt.title}</span><button onClick={(e) => { e.stopPropagation(); handleDeleteEvent(evt.id); }} className="opacity-0 group-hover/evt:opacity-100 text-indigo-900 dark:text-indigo-100"><Trash2 size={10}/></button>
                     </div>
                   ))}
+                  
                 </div>
               </div>
             );
@@ -335,10 +363,11 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
         </div>
       </div>
 
+      {/* 하단 출결 표 렌더링 부분 생략 (동일함) */}
       {isHomeroom && (
         <div className="flex-1 flex flex-col mt-4 border-t pt-6 dark:border-gray-700">
           <h4 className="font-bold text-lg mb-4 flex items-center gap-2 dark:text-white"><div className="w-2 h-6 bg-indigo-500 rounded"></div>우리 반 출결 현황 ({currentMonth}월)</h4>
-          <div className="overflow-x-auto border rounded-xl border-gray-200 dark:border-gray-700">
+          <div className="overflow-x-auto border rounded-xl border-gray-200 dark:border-gray-700 custom-scrollbar">
             <table className="w-full text-xs text-center border-collapse whitespace-nowrap">
               <thead className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                 <tr>
@@ -347,8 +376,11 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                     const isSunday = (firstDayOfMonth + d - 1) % 7 === 0;
                     const isSaturday = (firstDayOfMonth + d - 1) % 7 === 6;
                     const isHoliday = !!getHolidayInfo(d);
+                    const dayNeisEvents = getNeisEventsForDay(d);
+                    const isRedDay = isSunday || isHoliday || dayNeisEvents.some(e => e.holiday);
+                    
                     let headerClass = '';
-                    if (isSunday || isHoliday) headerClass = 'text-red-500 bg-red-50 dark:bg-red-900/20';
+                    if (isRedDay) headerClass = 'text-red-500 bg-red-50 dark:bg-red-900/20';
                     else if (isSaturday) headerClass = 'text-blue-500 bg-blue-50 dark:bg-blue-900/20';
 
                     return <th key={d} rowSpan="2" className={`p-1 border border-gray-200 dark:border-gray-600 min-w-[24px] ${headerClass}`}>{d}</th>
@@ -390,9 +422,11 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                         const isSunday = (firstDayOfMonth + day - 1) % 7 === 0;
                         const isSaturday = (firstDayOfMonth + day - 1) % 7 === 6;
                         const holidayInfo = getHolidayInfo(day);
+                        const dayNeisEvents = getNeisEventsForDay(day);
+                        const isRedDay = isSunday || holidayInfo || dayNeisEvents.some(e => e.holiday);
                         
                         let colorClass = "hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer";
-                        if (isSunday || holidayInfo) colorClass = "bg-red-50/50 dark:bg-red-900/10 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30";
+                        if (isRedDay) colorClass = "bg-red-50/50 dark:bg-red-900/10 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30";
                         else if (isSaturday) colorClass = "bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30";
 
                         let hasNote = false;
@@ -443,6 +477,26 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
         </div>
       )}
 
+      {/* 이벤트 입력 팝업 */}
+      {isEventModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-sm shadow-xl">
+            <h3 className="font-bold text-lg mb-4 dark:text-white">{targetEvent ? "일정 수정" : "일정 추가"}</h3>
+            <div className="space-y-3">
+              <input type="text" value={eventForm.title} onChange={e => setEventForm({...eventForm, title: e.target.value})} placeholder="일정 내용" className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"/>
+              <div className="flex gap-2">
+                 <div className="flex-1"><label className="text-xs text-gray-500 block mb-1">시작일</label><input type="date" value={eventForm.startDate} onChange={e => setEventForm({...eventForm, startDate: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white outline-none"/></div>
+                 <div className="flex-1"><label className="text-xs text-gray-500 block mb-1">종료일</label><input type="date" value={eventForm.endDate} onChange={e => setEventForm({...eventForm, endDate: e.target.value})} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white outline-none"/></div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => setIsEventModalOpen(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg transition font-bold">취소</button>
+              <button onClick={handleSaveEvent} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition shadow-sm">저장</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 출결 입력 팝업 */}
       {attPopup.isOpen && (
         <div className="fixed inset-0 bg-black/20 z-[100] flex items-center justify-center" onClick={() => setAttPopup({isOpen: false, studentId: null, date: null, note: "", period: "", type: ""})}>
@@ -468,7 +522,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
               <input type="text" value={attPopup.note} onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} placeholder="예: 독감, 병원 진료" className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-indigo-500"/>
             </div>
 
-            {/* 🔥 2번 요청 해결: 버튼 클릭 시 상태만 변경되도록 커스텀 컴포넌트 활용 */}
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div className="text-center font-bold text-red-500 col-span-3 pb-1 border-b">결석</div>
@@ -491,7 +544,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
               </div>
             </div>
 
-            {/* 수동 저장/초기화 하단 버튼 */}
             <div className="flex gap-2 mt-4 pt-3 border-t dark:border-gray-700">
               <button onClick={() => saveAttendance('reset')} className="flex-1 p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300 font-bold transition text-xs">초기화</button>
               <button onClick={() => setAttPopup({isOpen: false, studentId: null, date: null, note: "", period: "", type: ""})} className="flex-1 p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300 font-bold transition text-xs">취소</button>
