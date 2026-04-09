@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, BookOpen, CheckSquare, 
-  MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Grid, Info, HelpCircle, Database,
-  CloudUpload, Loader, Sparkles, Menu 
+  MessageSquare, Settings, LogOut, ChevronDown, Plus, ClipboardList, Clock, Sparkles, CloudUpload, Loader, Menu 
 } from 'lucide-react'; 
 import { backupToGoogleDrive } from '../../hooks/useGoogleDriveDB';
 import { useAppStore } from '../../store/useAppStore'; 
@@ -44,23 +43,16 @@ export default function Sidebar({ user, logout, handbooks }) {
 
   const sortedHandbooks = [...handbooks].sort((a, b) => b.title.localeCompare(a.title));
 
+  // 🔥 외부앱, 업데이트, 안내, 설정 등의 개별 메뉴 삭제 완료
   const menuGroups = [
-    // 🔥 월별행사/학사일정 통합으로 인한 불필요한 학사일정(NEIS) 개별 메뉴 삭제
     { title: "메인", items: [{ id: 'dashboard', label: '대시보드', icon: LayoutDashboard }, { id: 'monthly', label: '월별행사/출결', icon: Calendar }] },
     { title: "학급 관리", items: [{ id: 'students_homeroom', label: '학생 명렬표 (우리반)', icon: Users }, { id: 'consultation', label: '상담 일지', icon: MessageSquare }] },
     { title: "수업 관리", items: [{ id: 'students_subject', label: '학생 명렬표 (교과)', icon: Users }, { id: 'lessons', label: '진도 관리', icon: BookOpen }, { id: 'my_timetable', label: '나의 시간표', icon: Clock }] },
-    { title: "행정/업무", items: [{ id: 'tasks', label: '업무 체크리스트', icon: CheckSquare }, { id: 'meeting_logs', label: '회의록', icon: ClipboardList }, { id: 'ai_record', label: 'AI세특 작성', icon: Sparkles }, { id: 'apps', label: '다른 교사용 사이트', icon: Grid }] },
-    { title: "설정", items: [{ id: 'handbook_settings', label: '교무수첩 설정', icon: Settings }, { id: 'how_to_use', label: '사용 방법', icon: HelpCircle }, { id: 'realtime_setup', label: '실시간 버전 만들기', icon: Database }, { id: 'update_history', label: '업데이트 내역', icon: Info }] }
+    { title: "행정/업무", items: [{ id: 'tasks', label: '업무 체크리스트', icon: CheckSquare }, { id: 'meeting_logs', label: '회의록', icon: ClipboardList }, { id: 'ai_record', label: 'AI세특 작성', icon: Sparkles }] }
   ];
-
-  const handleMenuClick = (itemId) => {
-    if (itemId === 'handbook_settings') store.setIsHandbookSettingsOpen(true); 
-    else store.setActiveView(itemId); 
-  };
 
   return (
     <aside className="bg-white dark:bg-gray-800 h-full flex flex-col border-r border-gray-200 dark:border-gray-700 transition-colors duration-300">
-      
       <div className={`p-4 border-b border-gray-200 dark:border-gray-700 flex items-center ${isSidebarOpen ? 'justify-between' : 'justify-center flex-col gap-3'}`}>
         <div className={`flex items-center gap-3 ${isSidebarOpen ? 'flex-1 min-w-0' : ''}`}>
           {user?.photoURL ? (
@@ -144,7 +136,7 @@ export default function Sidebar({ user, logout, handbooks }) {
                   const isActive = store.activeView === item.id;
                   const highlight = isActive && item.id !== 'handbook_settings';
                   return (
-                    <button key={item.id} onClick={() => handleMenuClick(item.id)} title={!isSidebarOpen ? item.label : ''} className={`w-full flex items-center gap-2.5 py-2 rounded-lg transition-all duration-200 font-medium text-sm ${isSidebarOpen ? 'px-3' : 'px-0 justify-center'} ${highlight ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                    <button key={item.id} onClick={() => store.setActiveView(item.id)} title={!isSidebarOpen ? item.label : ''} className={`w-full flex items-center gap-2.5 py-2 rounded-lg transition-all duration-200 font-medium text-sm ${isSidebarOpen ? 'px-3' : 'px-0 justify-center'} ${highlight ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                       <item.icon size={18} className={highlight ? 'text-white' : 'text-gray-500 dark:text-gray-400 shrink-0'} />
                       {isSidebarOpen && <span className="truncate">{item.label}</span>}
                     </button>
@@ -156,7 +148,12 @@ export default function Sidebar({ user, logout, handbooks }) {
         ))}
       </nav>
 
-      <div className="p-3 border-t border-gray-200 dark:border-gray-700 shrink-0">
+      {/* 🔥 하단에 통합 설정 버튼 추가 완료 */}
+      <div className="p-3 border-t border-gray-200 dark:border-gray-700 shrink-0 space-y-2">
+        <button onClick={() => store.setActiveView('unified_settings')} title={!isSidebarOpen ? '통합 설정' : ''} className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold transition text-sm ${store.activeView === 'unified_settings' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'} ${isSidebarOpen ? 'px-4' : 'px-0'}`}>
+          <Settings size={18} className="shrink-0" />
+          {isSidebarOpen && <span>통합 설정</span>}
+        </button>
         <button onClick={logout} title={!isSidebarOpen ? '로그아웃' : ''} className={`w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition text-sm ${isSidebarOpen ? 'px-4' : 'px-0'}`}>
           <LogOut size={16} className="shrink-0" />
           {isSidebarOpen && <span>로그아웃</span>}

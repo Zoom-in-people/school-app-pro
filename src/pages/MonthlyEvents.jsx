@@ -1,82 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Calendar as CalIcon, ChevronLeft, ChevronRight, Plus, Trash2, X, MessageSquare, Clock } from 'lucide-react';
 import { showToast, showConfirm } from '../utils/alerts';
-import { fetchNeisSchedule } from '../utils/neisApi'; // 🔥 NEIS API 추가
-
-const LUNAR_HOLIDAYS = {
-  2024: { seol: '2024-02-10', buddha: '2024-05-15', chuseok: '2024-09-17' },
-  2025: { seol: '2025-01-29', buddha: '2025-05-05', chuseok: '2025-10-06' },
-  2026: { seol: '2026-02-17', buddha: '2026-05-24', chuseok: '2026-09-25' },
-  2027: { seol: '2027-02-06', buddha: '2027-05-13', chuseok: '2027-09-15' },
-  2028: { seol: '2028-01-26', buddha: '2028-05-02', chuseok: '2028-10-03' },
-  2029: { seol: '2029-02-13', buddha: '2029-05-20', chuseok: '2029-09-22' },
-  2030: { seol: '2030-02-03', buddha: '2030-05-09', chuseok: '2030-09-12' },
-  2031: { seol: '2031-01-23', buddha: '2031-05-28', chuseok: '2031-10-01' },
-  2032: { seol: '2032-02-11', buddha: '2032-05-16', chuseok: '2032-09-19' },
-  2033: { seol: '2033-01-31', buddha: '2033-05-06', chuseok: '2033-09-08' },
-  2034: { seol: '2034-02-19', buddha: '2034-05-25', chuseok: '2034-09-27' },
-  2035: { seol: '2035-02-08', buddha: '2035-05-15', chuseok: '2035-09-16' },
-};
-
-function getHolidays(year) {
-  const holidays = {};
-  const addHoliday = (dateObj, name, allowSub = false, isSeolChuseok = false) => {
-    const key = `${dateObj.getFullYear()}-${dateObj.getMonth() + 1}-${dateObj.getDate()}`;
-    holidays[key] = { name, type: 'public', allowSub, isSeolChuseok, date: dateObj };
-  };
-
-  addHoliday(new Date(year, 0, 1), '신정');
-  addHoliday(new Date(year, 2, 1), '삼일절', true);
-  addHoliday(new Date(year, 4, 5), '어린이날', true);
-  addHoliday(new Date(year, 5, 6), '현충일', true);
-  addHoliday(new Date(year, 6, 17), '제헌절', false);
-  addHoliday(new Date(year, 7, 15), '광복절', true);
-  addHoliday(new Date(year, 9, 3), '개천절', true);
-  addHoliday(new Date(year, 9, 9), '한글날', true);
-  addHoliday(new Date(year, 11, 25), '크리스마스', true);
-
-  const hData = LUNAR_HOLIDAYS[year];
-  if (hData) {
-    const parseH = (dStr) => new Date(dStr + "T00:00:00");
-    const seol = parseH(hData.seol);
-    const pSeol = new Date(seol); pSeol.setDate(seol.getDate() - 1);
-    const nSeol = new Date(seol); nSeol.setDate(seol.getDate() + 1);
-    addHoliday(pSeol, '설날 연휴', true, true); addHoliday(seol, '설날', true, true); addHoliday(nSeol, '설날 연휴', true, true);
-    
-    addHoliday(parseH(hData.buddha), '부처님오신날', true);
-
-    const chuseok = parseH(hData.chuseok);
-    const pChu = new Date(chuseok); pChu.setDate(chuseok.getDate() - 1);
-    const nChu = new Date(chuseok); nChu.setDate(chuseok.getDate() + 1);
-    addHoliday(pChu, '추석 연휴', true, true); addHoliday(chuseok, '추석', true, true); addHoliday(nChu, '추석 연휴', true, true);
-  }
-
-  const tempHolidays = { ...holidays };
-  Object.values(tempHolidays).forEach(h => {
-    if (!h.allowSub) return;
-    const day = h.date.getDay(); 
-    let needsSub = false;
-    if (h.isSeolChuseok) { if (day === 0) needsSub = true; } 
-    else { if (day === 0 || day === 6) needsSub = true; }    
-
-    if (needsSub) {
-      let next = new Date(h.date); 
-      next.setDate(next.getDate() + 1);
-      
-      while (true) {
-        const nextDay = next.getDay();
-        const nextKey = `${next.getFullYear()}-${next.getMonth() + 1}-${next.getDate()}`;
-        
-        if (!holidays[nextKey] && nextDay !== 0 && nextDay !== 6) { 
-          holidays[nextKey] = { name: `대체공휴일(${h.name})`, type: 'sub', date: new Date(next) }; 
-          break; 
-        }
-        next.setDate(next.getDate() + 1); 
-      }
-    }
-  });
-  return holidays;
-}
+import { fetchNeisSchedule } from '../utils/neisApi';
 
 const StatusButton = ({ label, value, current, onClick, color, span }) => {
   const isSelected = current === value;
@@ -129,14 +54,12 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
   const [targetEvent, setTargetEvent] = useState(null);
   const [eventForm, setEventForm] = useState({ title: "", startDate: "", endDate: "" });
 
-  // 🔥 NEIS 학사일정 통합 상태
   const [neisEvents, setNeisEvents] = useState([]);
 
   const currentMonthDate = months[selectedMonthIndex] || new Date();
   const currentYear = currentMonthDate.getFullYear();
   const currentMonth = currentMonthDate.getMonth() + 1;
 
-  // 🔥 이번 달 NEIS 학사일정 자동 로드
   useEffect(() => {
     const loadNeis = async () => {
       if (!handbook?.schoolInfo?.code) return;
@@ -151,9 +74,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
 
   if (!handbook) return <div className="p-10 text-center text-gray-500">학기 정보가 없습니다.</div>;
   if (months.length === 0) return <div className="p-10 text-center text-red-500">기간 설정 오류</div>;
-
-  const holidayMap = useMemo(() => getHolidays(currentYear), [currentYear]);
-  const getHolidayInfo = (day) => holidayMap[`${currentYear}-${currentMonth}-${day}`];
 
   const firstDayOfMonth = new Date(currentYear, currentMonth - 1, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
@@ -324,32 +244,30 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
           {emptyDays.map(i => <div key={`empty-${i}`} className="border-b border-r border-gray-100 dark:border-gray-700/50 bg-gray-50/30 dark:bg-gray-900/20"></div>)}
           {daysArray.map(day => {
             const dayEvents = getEventsForDay(day);
-            const dayNeisEvents = getNeisEventsForDay(day); // 🔥 해당 일자 NEIS 이벤트 가져오기
+            const dayNeisEvents = getNeisEventsForDay(day);
             const attSummary = isHomeroom ? getAttendanceSummary(day) : null;
             const isSunday = (firstDayOfMonth + day - 1) % 7 === 0;
             const isSaturday = (firstDayOfMonth + day - 1) % 7 === 6;
-            const holidayInfo = getHolidayInfo(day);
-            const isRedDay = isSunday || !!holidayInfo || dayNeisEvents.some(e => e.holiday); // NEIS 휴업일 포함
+            
+            // NEIS 일정에 포함된 휴업일(holiday)만 체크하여 빨간색으로 표시
+            const isRedDay = isSunday || dayNeisEvents.some(e => e.holiday); 
 
             return (
               <div key={day} onClick={() => openAddEvent(day)} className="min-h-[100px] border-b border-r border-gray-100 dark:border-gray-700 p-1 relative hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer group flex flex-col">
                 <div className="flex justify-between items-start mb-1 shrink-0">
                   <div className="flex flex-col items-start">
                     <span className={`text-sm font-bold p-1 rounded-full w-7 h-7 flex items-center justify-center ${isRedDay ? 'text-red-500' : isSaturday ? 'text-blue-500' : 'dark:text-gray-300'}`}>{day}</span>
-                    {holidayInfo && <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-1 rounded truncate max-w-[70px]" title={holidayInfo.name}>{holidayInfo.name}</span>}
                   </div>
                   {attSummary && <span className="text-[10px] font-bold text-gray-600 bg-gray-100 dark:bg-gray-600 dark:text-gray-200 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-500 shadow-sm mr-1">{attSummary}</span>}
                 </div>
                 <div className="mt-1 space-y-1 flex-1 overflow-y-auto custom-scrollbar pr-0.5">
                   
-                  {/* 🔥 NEIS 학사일정 렌더링 (초록색 톤 + 아이콘) */}
                   {dayNeisEvents.map((evt, idx) => (
                     <div key={`neis-${idx}`} className={`text-[11px] font-bold px-1.5 py-1 rounded truncate ${evt.holiday ? 'bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/30 dark:border-red-800/50' : 'bg-teal-50 text-teal-700 border border-teal-100 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800/50'}`}>
                       🏛️ {evt.name}
                     </div>
                   ))}
 
-                  {/* 사용자가 직접 추가한 월별행사 렌더링 (보라색 톤) */}
                   {dayEvents.map(evt => (
                     <div key={evt.id} onClick={(e) => openEditEvent(evt, e)} className="text-[11px] bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 px-1.5 py-1 rounded truncate hover:opacity-80 flex justify-between items-center group/evt">
                       <span className="truncate">{evt.title}</span><button onClick={(e) => { e.stopPropagation(); handleDeleteEvent(evt.id); }} className="opacity-0 group-hover/evt:opacity-100 text-indigo-900 dark:text-indigo-100"><Trash2 size={10}/></button>
@@ -363,7 +281,6 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
         </div>
       </div>
 
-      {/* 하단 출결 표 렌더링 부분 생략 (동일함) */}
       {isHomeroom && (
         <div className="flex-1 flex flex-col mt-4 border-t pt-6 dark:border-gray-700">
           <h4 className="font-bold text-lg mb-4 flex items-center gap-2 dark:text-white"><div className="w-2 h-6 bg-indigo-500 rounded"></div>우리 반 출결 현황 ({currentMonth}월)</h4>
@@ -375,9 +292,8 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                   {daysArray.map(d => {
                     const isSunday = (firstDayOfMonth + d - 1) % 7 === 0;
                     const isSaturday = (firstDayOfMonth + d - 1) % 7 === 6;
-                    const isHoliday = !!getHolidayInfo(d);
                     const dayNeisEvents = getNeisEventsForDay(d);
-                    const isRedDay = isSunday || isHoliday || dayNeisEvents.some(e => e.holiday);
+                    const isRedDay = isSunday || dayNeisEvents.some(e => e.holiday);
                     
                     let headerClass = '';
                     if (isRedDay) headerClass = 'text-red-500 bg-red-50 dark:bg-red-900/20';
@@ -421,9 +337,8 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                         
                         const isSunday = (firstDayOfMonth + day - 1) % 7 === 0;
                         const isSaturday = (firstDayOfMonth + day - 1) % 7 === 6;
-                        const holidayInfo = getHolidayInfo(day);
                         const dayNeisEvents = getNeisEventsForDay(day);
-                        const isRedDay = isSunday || holidayInfo || dayNeisEvents.some(e => e.holiday);
+                        const isRedDay = isSunday || dayNeisEvents.some(e => e.holiday);
                         
                         let colorClass = "hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer";
                         if (isRedDay) colorClass = "bg-red-50/50 dark:bg-red-900/10 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30";
@@ -445,7 +360,7 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                             key={day} 
                             className={`border border-gray-100 dark:border-gray-700 ${colorClass} relative`} 
                             onClick={() => openAttPopup(student.id, day)}
-                            title={hasNote ? log.note : (holidayInfo ? holidayInfo.name : "")}
+                            title={hasNote ? log.note : (dayNeisEvents.some(e=>e.holiday) ? dayNeisEvents.find(e=>e.holiday).name : "")}
                           >
                             {content}
                             {hasNote && <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>}
