@@ -6,20 +6,20 @@ export const useAppStore = create(
   persist(
     (set) => ({
       activeView: 'dashboard',
-      setActiveView: (view) => set({ activeView: view, isSidebarOpen: false }),
+      // 🔥 4번 요청 해결: 메뉴 변경 시 사이드바가 강제로 닫히는 동작(isSidebarOpen: false) 모두 제거
+      setActiveView: (view) => set({ activeView: view }),
 
-      // 🔥 사이드바 토글 상태 (기본적으로 열림)
       isSidebarOpen: true,
       setIsSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
 
       isSettingsOpen: false,
-      setIsSettingsOpen: (isOpen) => set({ isSettingsOpen: isOpen, isSidebarOpen: false }),
+      setIsSettingsOpen: (isOpen) => set({ isSettingsOpen: isOpen }),
 
       isAddHandbookOpen: false,
-      setIsAddHandbookOpen: (isOpen) => set({ isAddHandbookOpen: isOpen, isSidebarOpen: false }),
+      setIsAddHandbookOpen: (isOpen) => set({ isAddHandbookOpen: isOpen }),
 
       isHandbookSettingsOpen: false,
-      setIsHandbookSettingsOpen: (isOpen) => set({ isHandbookSettingsOpen: isOpen, isSidebarOpen: false }),
+      setIsHandbookSettingsOpen: (isOpen) => set({ isHandbookSettingsOpen: isOpen }),
 
       isSetupWizardOpen: false,
       setIsSetupWizardOpen: (isOpen) => set({ isSetupWizardOpen: isOpen }),
@@ -30,8 +30,7 @@ export const useAppStore = create(
       selectHandbook: (handbook) => set({
         currentHandbook: handbook,
         lastHandbookId: handbook.id,
-        activeView: 'dashboard',
-        isSidebarOpen: false
+        activeView: 'dashboard'
       }),
 
       apiKey: '',
@@ -43,7 +42,6 @@ export const useAppStore = create(
       theme: 'light',
       setTheme: (theme) => set({ theme }),
 
-      // 🔥 폰트 사이즈 기본값을 숫자로 변경
       fontSize: 16,
       setFontSize: (fontSize) => set({ fontSize }),
 

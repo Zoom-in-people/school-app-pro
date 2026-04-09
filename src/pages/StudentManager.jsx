@@ -17,7 +17,7 @@ export default function StudentManager({
   const [editingStudent, setEditingStudent] = useState(null);
   
   const [activeClassFilter, setActiveClassFilter] = useState(null);
-  const [activeSubjectFilter, setActiveSubjectFilter] = useState(null); // 🔥 과목 필터 상태 추가
+  const [activeSubjectFilter, setActiveSubjectFilter] = useState(null);
 
   const [visibleCount, setVisibleCount] = useState(20);
   const loaderRef = useRef(null);
@@ -32,7 +32,6 @@ export default function StudentManager({
     return Array.from(classes).sort();
   }, [safeStudents]);
 
-  // 🔥 과목 목록 추출
   const existingSubjects = useMemo(() => {
     const subjects = new Set(safeStudents.map(s => s.creditSubject).filter(Boolean));
     return Array.from(subjects).sort();
@@ -48,7 +47,7 @@ export default function StudentManager({
       );
     }
     if (activeClassFilter) result = result.filter(s => `${s.grade}-${s.class}` === activeClassFilter);
-    if (activeSubjectFilter) result = result.filter(s => s.creditSubject === activeSubjectFilter); // 🔥 과목 필터 적용
+    if (activeSubjectFilter) result = result.filter(s => s.creditSubject === activeSubjectFilter);
 
     return result.sort((a, b) => {
       if (a.grade !== b.grade) return a.grade - b.grade;
@@ -57,7 +56,14 @@ export default function StudentManager({
     });
   }, [safeStudents, searchTerm, activeClassFilter, activeSubjectFilter]);
 
-  useEffect(() => { setVisibleCount(20); }, [searchTerm, activeClassFilter, activeSubjectFilter]);
+  // 🔥 2번 요청 해결: 필터가 활성화되어 있으면 무한스크롤을 해제하고 해당 그룹을 모두 보여주도록 수정
+  useEffect(() => { 
+    if (activeClassFilter || activeSubjectFilter || searchTerm) {
+      setVisibleCount(1000); 
+    } else {
+      setVisibleCount(20); 
+    }
+  }, [searchTerm, activeClassFilter, activeSubjectFilter]);
 
   const handleObserver = useCallback((entries) => {
     const target = entries[0];
@@ -83,7 +89,6 @@ export default function StudentManager({
       const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
       const parsedStudents = data.slice(1).map(row => {
-        // 🔥 2번 요청: 담임/교과 여부에 따라 다르게 파싱
         if (isHomeroomView) {
           return {
             grade: String(row[0] || ""), class: String(row[1] || ""), number: String(row[2] || ""),
@@ -166,7 +171,6 @@ export default function StudentManager({
           </div>
           
           <div className="flex flex-wrap gap-2">
-            {/* 반 필터 */}
             <div className="flex gap-1 overflow-x-auto scrollbar-hide bg-gray-50 dark:bg-gray-900 p-1 rounded-lg border border-gray-100 dark:border-gray-700">
               <span className="text-xs font-bold text-gray-400 flex items-center px-2">반:</span>
               {existingClasses.map(cls => (
@@ -176,7 +180,6 @@ export default function StudentManager({
               ))}
             </div>
 
-            {/* 🔥 2번 요청: 학점제 과목 필터 */}
             {!isHomeroomView && existingSubjects.length > 0 && (
               <div className="flex gap-1 overflow-x-auto scrollbar-hide bg-orange-50 dark:bg-orange-900/20 p-1 rounded-lg border border-orange-100 dark:border-orange-800">
                 <span className="text-xs font-bold text-orange-400 flex items-center px-2">과목:</span>
@@ -204,7 +207,6 @@ export default function StudentManager({
       <input type="file" ref={rosterFileInputRef} onChange={handlePhotoUpload} accept="image/*" className="hidden" />
 
       <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-        {/* 명렬표 렌더링 코드 유지 (기존과 동일) */}
         {activeClassFilter && currentClassPhoto && (
           <div className="mb-6 animate-in fade-in slide-in-from-top-4">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-indigo-100 dark:border-gray-700 overflow-hidden relative group">
@@ -248,7 +250,6 @@ export default function StudentManager({
   );
 }
 
-// StudentCard 컴포넌트에 과목 노출
 function StudentCard({ student, onEdit, onDelete, isHomeroomView, apiKey, onUpdateStudent }) {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   return (
@@ -261,7 +262,6 @@ function StudentCard({ student, onEdit, onDelete, isHomeroomView, apiKey, onUpda
               <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-1">{student.name}{isHomeroomView && student.phone && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded ml-1">📞</span>}</h3>
               <div className="flex items-center gap-1">
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{student.grade}학년 {student.class}반</p>
-                {/* 🔥 과목 배지 노출 */}
                 {!isHomeroomView && student.creditSubject && <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 rounded-full border border-orange-200">{student.creditSubject}</span>}
               </div>
             </div>
@@ -296,7 +296,6 @@ function StudentCard({ student, onEdit, onDelete, isHomeroomView, apiKey, onUpda
   );
 }
 
-// BatchAiGenModal 컴포넌트 생략 (기존 파일과 완벽히 동일하므로 그대로 유지)
 function BatchAiGenModal({ isOpen, onClose, students, apiKey, onUpdateStudentsMany }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Settings, X, BookOpen, CheckCircle, HelpCircle, Calendar, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Settings, X, BookOpen, CheckCircle, HelpCircle, Calendar, Edit2, Pencil } from 'lucide-react';
 import { showToast, showConfirm } from '../utils/alerts';
 
-// SettingsModal 코드는 기존과 동일 생략... (위쪽 코드 참조)
 const SettingsModal = ({ group, onClose, onSave }) => {
   const [localGroup, setLocalGroup] = useState(JSON.parse(JSON.stringify(group)));
   const [newItem, setNewItem] = useState("");
@@ -54,6 +53,38 @@ const SettingsModal = ({ group, onClose, onSave }) => {
   );
 };
 
+// 🔥 1번 요청 해결: 인라인 수정 전용 컴포넌트 신설
+function InlineEditableItem({ text, onSave }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [val, setVal] = useState(text);
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (val.trim() && val !== text) onSave(val.trim());
+    else setVal(text);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleBlur();
+    if (e.key === 'Escape') { setVal(text); setIsEditing(false); }
+  };
+
+  if (isEditing) {
+    return (
+      <input 
+        type="text" value={val} onChange={e => setVal(e.target.value)} onBlur={handleBlur} onKeyDown={handleKeyDown} 
+        className="w-full bg-indigo-50 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 font-bold p-1 rounded outline-none border border-indigo-200" autoFocus 
+      />
+    );
+  }
+  
+  return (
+    <div onClick={() => setIsEditing(true)} className="group/edit cursor-pointer flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 p-1 -mx-1 rounded transition">
+      <span>{text}</span>
+      <Pencil size={12} className="opacity-0 group-hover/edit:opacity-100 text-indigo-500 transition-opacity" />
+    </div>
+  );
+}
 
 export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup, onDeleteGroup }) {
   const [selectedGroupId, setSelectedGroupId] = useState(null);
@@ -77,7 +108,6 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
     }
   };
   
-  // 🔥 4번 요청 해결: 이름 수정 기능 추가
   const handleEditGroupName = (group) => {
     const newName = prompt("변경할 그룹 이름을 입력하세요", group.name);
     if (newName && newName.trim()) {
@@ -92,6 +122,17 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
       if (selectedGroupId === id) setSelectedGroupId(null);
       showToast('삭제되었습니다.');
     }
+  };
+
+  // 🔥 인라인 수정 내용을 DB에 반영하는 함수
+  const handleInlineItemEdit = (idx, newValue) => {
+    if (!activeGroup) return;
+    const newItems = [...activeGroup.progressItems];
+    newItems[idx] = newValue;
+    
+    // (선택) 만약 상태(status) 키도 같이 바꿔주고 싶다면 해당 로직 추가 필요 (지금은 단순 이름 변경만 지원)
+    onUpdateGroup(activeGroup.id, { progressItems: newItems });
+    showToast('진도 이름이 수정되었습니다.');
   };
 
   const handleSaveStatus = (date) => {
@@ -119,8 +160,6 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
             <button onClick={() => setSelectedGroupId(group.id)} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition ${selectedGroupId === group.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100'}`}>
               {group.name}
             </button>
-            
-            {/* 🔥 4번 요청 해결: 탭 우측 상단에 이름 수정(파란색) / 삭제(빨간색) 듀얼 버튼 생성 */}
             {selectedGroupId === group.id && (
               <div className="absolute -top-2 -right-2 flex gap-0.5 opacity-0 group-hover/tab:opacity-100 transition duration-200">
                 <button onClick={(e) => { e.stopPropagation(); handleEditGroupName(group); }} className="bg-blue-500 text-white rounded-full p-1 shadow-sm hover:bg-blue-600 transition" title="이름 수정"><Edit2 size={12}/></button>
@@ -135,7 +174,7 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
       {activeGroup ? (
         <div className="flex-1 flex flex-col">
           <div className="flex justify-end mb-4">
-            <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-1 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-indigo-600 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600"><Settings size={16}/> 수업 설정</button>
+            <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-1 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-indigo-600 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600"><Settings size={16}/> 상세 설정</button>
           </div>
           <div className="overflow-x-auto border rounded-xl border-gray-200 dark:border-gray-700 custom-scrollbar">
             <table className="w-full text-sm text-center border-collapse">
@@ -150,7 +189,10 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
               <tbody>
                 {activeGroup.progressItems.length > 0 ? activeGroup.progressItems.map((item, idx) => (
                   <tr key={idx} className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                    <td className="p-3 border border-gray-100 dark:border-gray-700 font-bold sticky left-0 bg-white dark:bg-gray-800 z-10 shadow-sm text-left">{item}</td>
+                    <td className="p-3 border border-gray-100 dark:border-gray-700 font-bold sticky left-0 bg-white dark:bg-gray-800 z-10 shadow-sm text-left">
+                      {/* 🔥 1번 요청 해결: 인라인 에디팅 컴포넌트 렌더링 */}
+                      <InlineEditableItem text={item} onSave={(newVal) => handleInlineItemEdit(idx, newVal)} />
+                    </td>
                     {activeGroup.classes.map(cls => {
                       const statusDate = activeGroup.status[`${cls.id}_${item}`];
                       const displayDate = (typeof statusDate === 'string' && statusDate.length >= 5) ? statusDate.slice(5) : "";
@@ -192,7 +234,8 @@ export default function LessonManager({ lessonGroups, onAddGroup, onUpdateGroup,
           <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl max-w-md">
             <h3 className="font-bold text-xl mb-4 flex items-center gap-2 dark:text-white"><HelpCircle/> 사용 가이드</h3>
             <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
-              <div><p className="font-bold text-indigo-600">1. 표 행/열 전환 안내</p><p>교실은 우측으로 길게 추가되고, 진도 항목은 아래쪽으로 추가됩니다.</p></div>
+              <div><p className="font-bold text-indigo-600">1. 진도 이름 바로 수정</p><p>표 왼쪽의 진도 이름을 클릭하면 상세 설정에 들어가지 않고도 바로 이름을 고칠 수 있습니다.</p></div>
+              <div><p className="font-bold text-indigo-600">2. 표 행/열 전환 안내</p><p>교실은 우측으로 길게 추가되고, 진도 항목은 아래쪽으로 추가됩니다.</p></div>
               <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg"><p className="font-bold">💡 팁</p><p>완료 여부를 체크하고 싶은 빈 동그라미 칸을 클릭하세요.</p></div>
             </div>
             <button onClick={() => setIsHelpOpen(false)} className="w-full mt-6 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 py-2.5 rounded-lg font-bold transition">닫기</button>
