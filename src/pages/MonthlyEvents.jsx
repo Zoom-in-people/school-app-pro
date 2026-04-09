@@ -77,6 +77,28 @@ function getHolidays(year) {
   return holidays;
 }
 
+// 🔥 2번 요청 해결: 버튼을 눌렀을 때 바로 닫히지 않도록 상태 선택기 컴포넌트 신설
+const StatusButton = ({ label, value, current, onClick, color, span }) => {
+  const isSelected = current === value;
+  let baseClass = "p-2 rounded font-bold transition text-xs ";
+  if (span === 3) baseClass += "col-span-3 ";
+  
+  if (isSelected) {
+    if (color === 'red') baseClass += "bg-red-500 text-white shadow-md";
+    if (color === 'yellow') baseClass += "bg-yellow-500 text-white shadow-md";
+    if (color === 'green') baseClass += "bg-green-500 text-white shadow-md";
+    if (color === 'blue') baseClass += "bg-blue-500 text-white shadow-md";
+    if (color === 'purple') baseClass += "bg-purple-500 text-white shadow-md";
+  } else {
+    if (color === 'red') baseClass += "bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-100 dark:border-red-800";
+    if (color === 'yellow') baseClass += "bg-yellow-50 hover:bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-100 dark:border-yellow-800";
+    if (color === 'green') baseClass += "bg-green-50 hover:bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-100 dark:border-green-800";
+    if (color === 'blue') baseClass += "bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-100 dark:border-blue-800";
+    if (color === 'purple') baseClass += "bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border border-purple-100 dark:border-purple-800";
+  }
+  return <button onClick={() => onClick(value)} className={baseClass}>{label}</button>;
+};
+
 export default function MonthlyEvents({ handbook, isHomeroom, students, attendanceLog, onUpdateAttendance, events, onUpdateEvent }) {
   const getMonthsInRange = (startDate, endDate) => {
     if (!startDate || !endDate) return [];
@@ -102,8 +124,8 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
     return idx >= 0 ? idx : 0;
   });
 
-  // 🔥 3번 요청: 팝업창에 '관련 교시(period)' 상태 추가
-  const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, date: null, note: "", period: "" });
+  // 🔥 2번 요청 해결: 팝업창 내에서 상태를 보존하기 위해 'type' 속성 추가
+  const [attPopup, setAttPopup] = useState({ isOpen: false, studentId: null, date: null, note: "", period: "", type: "" });
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [targetEvent, setTargetEvent] = useState(null);
   const [eventForm, setEventForm] = useState({ title: "", startDate: "", endDate: "" });
@@ -211,20 +233,27 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
     const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const existingLog = attendanceLog?.find(l => l.studentId === studentId && l.date === dateStr);
     
-    // 기존 메모에서 혹시 '[N교시]' 패턴이 있으면 분리해서 보여주기 위한 로직
     let parsedNote = existingLog ? (existingLog.note || "") : "";
     let parsedPeriod = "";
-    if (parsedNote.match(/^\[\d+교시\]/)) {
-      parsedPeriod = parsedNote.split('] ')[0].replace('[', '') + ']';
-      parsedNote = parsedNote.replace(/^\[\d+교시\]\s*/, '');
+    const match = parsedNote.match(/^\[(.*?)\]\s*(.*)$/);
+    if (match && match[1].includes('교시')) {
+      parsedPeriod = match[1];
+      parsedNote = match[2];
     }
 
-    setAttPopup({ isOpen: true, studentId, date: dateStr, note: parsedNote, period: parsedPeriod });
+    setAttPopup({ 
+      isOpen: true, 
+      studentId, 
+      date: dateStr, 
+      note: parsedNote, 
+      period: parsedPeriod,
+      type: existingLog ? (existingLog.type || "") : ""
+    });
   };
 
-  // 🔥 교시 정보를 메모(note) 앞부분에 [N교시] 형태로 병합하여 저장
-  const saveAttendance = (type) => {
-    const { studentId, date, note, period } = attPopup;
+  // 🔥 2번 요청 해결: 바로 저장하고 닫히는 대신, 최종 '확인' 버튼을 눌렀을 때만 상태값들을 모아서 저장
+  const saveAttendance = (typeAction) => {
+    const { studentId, date, note, period, type } = attPopup;
     if (!studentId || !date) return;
     const existing = attendanceLog?.find(l => l.studentId === studentId && l.date === date);
     
@@ -233,13 +262,21 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
       finalNote = `[${period}] ${finalNote}`.trim();
     }
 
-    if (type === 'reset') { if (existing) onUpdateAttendance(existing.id, null); }
-    else { 
-      const data = { studentId, date, type, note: finalNote }; 
-      if (existing) onUpdateAttendance(existing.id, { ...existing, type, note: finalNote }); 
+    if (typeAction === 'reset') { 
+      if (existing) onUpdateAttendance(existing.id, null); 
+      showToast('출결이 초기화되었습니다.');
+    } else { 
+      const finalType = typeAction || type;
+      if (!finalType) {
+        showToast("출결 상태(결석/지각/조퇴 등)를 선택해주세요.", "warning");
+        return;
+      }
+      const data = { studentId, date, type: finalType, note: finalNote }; 
+      if (existing) onUpdateAttendance(existing.id, { ...existing, type: finalType, note: finalNote }); 
       else onUpdateAttendance(null, data); 
+      showToast('저장되었습니다.');
     }
-    setAttPopup({ isOpen: false, studentId: null, date: null, note: "", period: "" });
+    setAttPopup({ isOpen: false, studentId: null, date: null, note: "", period: "", type: "" });
   };
 
   return (
@@ -408,51 +445,57 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
 
       {/* 출결 입력 팝업 */}
       {attPopup.isOpen && (
-        <div className="fixed inset-0 bg-black/20 z-[100] flex items-center justify-center" onClick={() => setAttPopup({isOpen: false, studentId: null, date: null, note: "", period: ""})}>
+        <div className="fixed inset-0 bg-black/20 z-[100] flex items-center justify-center" onClick={() => setAttPopup({isOpen: false, studentId: null, date: null, note: "", period: "", type: ""})}>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-xl w-72" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-3"><h4 className="font-bold dark:text-white">출결 / 메모 입력</h4><button onClick={() => setAttPopup({isOpen: false, studentId: null, date: null, note: "", period: ""})}><X size={16}/></button></div>
+            <div className="flex justify-between items-center mb-3"><h4 className="font-bold dark:text-white">출결 / 메모 입력</h4><button onClick={() => setAttPopup({isOpen: false, studentId: null, date: null, note: "", period: "", type: ""})} className="text-gray-400 hover:text-gray-700"><X size={16}/></button></div>
             
-            {/* 🔥 3번 요청: 교시 선택 드롭다운 추가 */}
             <div className="flex items-center gap-2 mb-2">
               <Clock size={14} className="text-gray-500" />
               <select 
                 value={attPopup.period} 
                 onChange={(e) => setAttPopup({...attPopup, period: e.target.value})} 
-                className="flex-1 p-1.5 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none"
+                className="flex-1 p-1.5 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="">관련 교시 (선택)</option>
                 {[1, 2, 3, 4, 5, 6, 7].map(p => (
-                  <option key={p} value={`${p}교시`}>{p}교시 이후</option>
+                  <option key={p} value={`${p}교시 이후`}>{p}교시 이후</option>
                 ))}
               </select>
             </div>
 
             <div className="mb-3">
               <div className="flex items-center gap-1 mb-1 text-xs font-bold text-gray-500 dark:text-gray-400"><MessageSquare size={12}/> 사유 (선택)</div>
-              <input type="text" value={attPopup.note} onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} placeholder="예: 독감, 병원 진료" className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none"/>
+              <input type="text" value={attPopup.note} onChange={(e) => setAttPopup({...attPopup, note: e.target.value})} placeholder="예: 독감, 병원 진료" className="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-indigo-500"/>
             </div>
 
+            {/* 🔥 2번 요청 해결: 버튼 클릭 시 상태만 변경되도록 커스텀 컴포넌트 활용 */}
             <div className="space-y-3">
-              <button onClick={() => saveAttendance('reset')} className="w-full p-2 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold transition">출석 (초기화)</button>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div className="text-center font-bold text-red-500 col-span-3 pb-1 border-b">결석</div>
-                <button onClick={() => saveAttendance('병결')} className="p-2 bg-red-50 hover:bg-red-100 text-red-700 rounded transition">병결</button>
-                <button onClick={() => saveAttendance('미결')} className="p-2 bg-red-100 hover:bg-red-200 text-red-800 font-bold rounded transition">미인정</button>
-                <button onClick={() => saveAttendance('인결')} className="p-2 bg-green-50 hover:bg-green-100 text-green-700 rounded transition">인정</button>
+                <StatusButton label="병결" value="병결" current={attPopup.type} onClick={(v) => setAttPopup({...attPopup, type: v})} color="red" />
+                <StatusButton label="미인정" value="미결" current={attPopup.type} onClick={(v) => setAttPopup({...attPopup, type: v})} color="red" />
+                <StatusButton label="인정" value="인결" current={attPopup.type} onClick={(v) => setAttPopup({...attPopup, type: v})} color="green" />
                 
                 <div className="text-center font-bold text-yellow-500 col-span-3 pb-1 border-b mt-2">지각</div>
-                <button onClick={() => saveAttendance('병지')} className="p-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded transition">병지</button>
-                <button onClick={() => saveAttendance('미지')} className="p-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-bold rounded transition">미인정</button>
-                <button onClick={() => saveAttendance('인지')} className="p-2 bg-green-50 hover:bg-green-100 text-green-700 rounded transition">인정</button>
+                <StatusButton label="병지" value="병지" current={attPopup.type} onClick={(v) => setAttPopup({...attPopup, type: v})} color="yellow" />
+                <StatusButton label="미인정" value="미지" current={attPopup.type} onClick={(v) => setAttPopup({...attPopup, type: v})} color="yellow" />
+                <StatusButton label="인정" value="인지" current={attPopup.type} onClick={(v) => setAttPopup({...attPopup, type: v})} color="green" />
                 
                 <div className="text-center font-bold text-blue-500 col-span-3 pb-1 border-b mt-2">조퇴</div>
-                <button onClick={() => saveAttendance('병조')} className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded transition">병조</button>
-                <button onClick={() => saveAttendance('미조')} className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded transition">미인정</button>
-                <button onClick={() => saveAttendance('인조')} className="p-2 bg-green-50 hover:bg-green-100 text-green-700 rounded transition">인정</button>
+                <StatusButton label="병조" value="병조" current={attPopup.type} onClick={(v) => setAttPopup({...attPopup, type: v})} color="blue" />
+                <StatusButton label="미인정" value="미조" current={attPopup.type} onClick={(v) => setAttPopup({...attPopup, type: v})} color="blue" />
+                <StatusButton label="인정" value="인조" current={attPopup.type} onClick={(v) => setAttPopup({...attPopup, type: v})} color="green" />
                 
                 <div className="text-center font-bold text-purple-500 col-span-3 pb-1 border-b mt-2">기타</div>
-                <button onClick={() => saveAttendance('기타')} className="p-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded col-span-3 transition">기타 사유</button>
+                <StatusButton label="기타 사유" value="기타" current={attPopup.type} onClick={(v) => setAttPopup({...attPopup, type: v})} color="purple" span={3} />
               </div>
+            </div>
+
+            {/* 수동 저장/초기화 하단 버튼 */}
+            <div className="flex gap-2 mt-4 pt-3 border-t dark:border-gray-700">
+              <button onClick={() => saveAttendance('reset')} className="flex-1 p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300 font-bold transition text-xs">초기화</button>
+              <button onClick={() => setAttPopup({isOpen: false, studentId: null, date: null, note: "", period: "", type: ""})} className="flex-1 p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300 font-bold transition text-xs">취소</button>
+              <button onClick={() => saveAttendance()} className="flex-[2] p-2 bg-indigo-600 hover:bg-indigo-700 rounded text-white font-bold transition text-xs shadow-sm">확인(저장)</button>
             </div>
           </div>
         </div>

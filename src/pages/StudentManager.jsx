@@ -20,7 +20,6 @@ export default function StudentManager({
   const [activeSubjectFilter, setActiveSubjectFilter] = useState(null);
 
   const [visibleCount, setVisibleCount] = useState(20);
-  const loaderRef = useRef(null);
   
   const fileInputRef = useRef(null);
   const rosterFileInputRef = useRef(null);
@@ -56,7 +55,6 @@ export default function StudentManager({
     });
   }, [safeStudents, searchTerm, activeClassFilter, activeSubjectFilter]);
 
-  // 🔥 2번 요청 해결: 필터가 활성화되어 있으면 무한스크롤을 해제하고 해당 그룹을 모두 보여주도록 수정
   useEffect(() => { 
     if (activeClassFilter || activeSubjectFilter || searchTerm) {
       setVisibleCount(1000); 
@@ -65,17 +63,19 @@ export default function StudentManager({
     }
   }, [searchTerm, activeClassFilter, activeSubjectFilter]);
 
-  const handleObserver = useCallback((entries) => {
-    const target = entries[0];
-    if (target.isIntersecting) setVisibleCount((prev) => prev + 20);
+  // 🔥 1번 요청 해결: IntersectionObserver의 연결이 끊어지지 않도록 강제하는 콜백 Ref 구조로 전면 교체
+  const observer = useRef(null);
+  const loaderRef = useCallback((node) => {
+    if (observer.current) observer.current.disconnect();
+    if (node) {
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => prev + 20);
+        }
+      }, { root: null, rootMargin: "20px", threshold: 0 });
+      observer.current.observe(node);
+    }
   }, []);
-
-  useEffect(() => {
-    const option = { root: null, rootMargin: "20px", threshold: 0 };
-    const observer = new IntersectionObserver(handleObserver, option);
-    if (loaderRef.current) observer.observe(loaderRef.current);
-    return () => observer.disconnect();
-  }, [handleObserver]);
 
   const handleExcelUpload = (e) => {
     const file = e.target.files[0];
