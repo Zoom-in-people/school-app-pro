@@ -23,7 +23,6 @@ import MeetingLogs from './pages/MeetingLogs';
 import MyTimetable from './pages/MyTimetable';
 import AiRecord from './pages/AiRecord'; 
 
-// 🔥 모달로 동작할 UnifiedSettings 가져오기
 import UnifiedSettings from './pages/UnifiedSettings';
 
 export default function App() {
@@ -36,22 +35,32 @@ export default function App() {
     }
   }, [user, store.apiKey, store.hideApiPrompt]);
 
+  // 🔥 테마 시스템 모드 연동
   useEffect(() => {
     const root = document.documentElement;
-    if (store.theme === 'dark') root.classList.add('dark');
-    else root.classList.remove('dark');
+    const applyTheme = (theme) => {
+      if (theme === 'dark') root.classList.add('dark');
+      else if (theme === 'light') root.classList.remove('dark');
+      else {
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) root.classList.add('dark');
+        else root.classList.remove('dark');
+      }
+    };
+    applyTheme(store.theme);
+    
+    if (store.theme === 'system' && window.matchMedia) {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = () => applyTheme('system');
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
+    }
   }, [store.theme]);
 
+  // 폰트 사이즈 적용
   useEffect(() => {
     const root = document.documentElement;
     let size = parseInt(store.fontSize);
-    if (isNaN(size)) {
-      if (store.fontSize === 'xsmall') size = 12;
-      else if (store.fontSize === 'small') size = 14;
-      else if (store.fontSize === 'large') size = 18;
-      else if (store.fontSize === 'xlarge') size = 20;
-      else size = 16;
-    }
+    if (isNaN(size) || size < 10) size = 16;
     root.style.fontSize = `${size}px`;
   }, [store.fontSize]);
 
@@ -101,6 +110,7 @@ export default function App() {
       }
     }
     store.setIsHandbookSettingsOpen(false);
+    store.setIsUnifiedSettingsOpen(false);
   };
 
   const handleUpdateAttendance = (id, data) => { if (id && !data) db.attendanceLog.remove(id); else if (id && data) db.attendanceLog.update(id, data); else db.attendanceLog.add(data); };
@@ -144,7 +154,6 @@ export default function App() {
         <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto print:p-0 print:overflow-visible print:h-auto">
           <div className="max-w-7xl mx-auto h-full print:max-w-full">
             
-            {/* 🔥 라우팅 단순화 (통합 설정이 빠짐) */}
             {store.activeView === 'ai_record' ? <AiRecord />
             : !store.currentHandbook ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6 no-print"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => store.setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
@@ -167,12 +176,19 @@ export default function App() {
         </div>
       </main>
 
-      {/* 🔥 모달 렌더링 영역 */}
-      <UnifiedSettings isOpen={store.isUnifiedSettingsOpen} onClose={() => store.setIsUnifiedSettingsOpen(false)} store={store} />
-      <SettingsModal isOpen={store.isSettingsOpen} onClose={() => store.setIsSettingsOpen(false)} settings={{ apiKey: store.apiKey, theme: store.theme, fontSize: store.fontSize }} setSettings={{ setApiKey: store.setApiKey, setTheme: store.setTheme, setFontSize: store.setFontSize }} onOpenSetupWizard={() => { store.setIsSettingsOpen(false); store.setIsSetupWizardOpen(true); }}/>
+      {/* 🔥 모든 설정을 통합한 팝업창 모달 연결 */}
+      <UnifiedSettings 
+        isOpen={store.isUnifiedSettingsOpen} 
+        onClose={() => store.setIsUnifiedSettingsOpen(false)} 
+        store={store} 
+        handbook={store.currentHandbook}
+        onUpdateHandbook={handleUpdateHandbook}
+        onDeleteHandbook={handleDeleteHandbook}
+      />
+      
       <SetupWizardModal isOpen={store.isSetupWizardOpen} onClose={() => { store.setIsSetupWizardOpen(false); store.setHideApiPrompt(true); }} apiKey={store.apiKey} setApiKey={store.setApiKey} />
       <AddHandbookModal isOpen={store.isAddHandbookOpen} onClose={() => store.setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
-      <HandbookSettingsModal isOpen={store.isHandbookSettingsOpen} onClose={() => store.setIsHandbookSettingsOpen(false)} handbook={store.currentHandbook} onUpdate={handleUpdateHandbook} onDelete={handleDeleteHandbook} apiKey={store.apiKey} setApiKey={store.setApiKey} />
+      {/* SettingsModal과 HandbookSettingsModal은 렌더링에서 제거해도 무방합니다. */}
     </div>
   );
 }
