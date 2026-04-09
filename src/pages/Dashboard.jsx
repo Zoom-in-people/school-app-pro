@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import LunchWidget from '../components/widgets/LunchWidget';
 import ClassTimetableWidget from '../components/widgets/ClassTimetableWidget'; 
-import SchoolScheduleWidget from '../components/widgets/SchoolScheduleWidget'; // 🔥 신규 위젯 추가
+import SchoolScheduleWidget from '../components/widgets/SchoolScheduleWidget';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -18,7 +18,6 @@ export default function Dashboard({
 }) {
   const [isWidgetModalOpen, setIsWidgetModalOpen] = useState(false); 
   
-  // 🔥 schoolSchedule 위젯 상태 추가
   const currentWidgets = widgets || { attendance: true, tasks: true, timetable: true, classTimetable: true, lunch: true, lessons: true, schoolSchedule: true };
 
   const defaultLayouts = {
@@ -28,7 +27,7 @@ export default function Dashboard({
       { i: 'timetable', x: 4, y: 2, w: 4, h: 4, minW: 3, minH: 3 },
       { i: 'classTimetable', x: 8, y: 2, w: 4, h: 4, minW: 3, minH: 3 },
       { i: 'lunch', x: 0, y: 6, w: 4, h: 4, minW: 3, minH: 3 },
-      { i: 'schoolSchedule', x: 4, y: 6, w: 4, h: 4, minW: 3, minH: 3 }, // 🔥 신규 위젯 레이아웃 추가
+      { i: 'schoolSchedule', x: 4, y: 6, w: 4, h: 4, minW: 3, minH: 3 },
       { i: 'lessons', x: 8, y: 6, w: 4, h: 4, minW: 3, minH: 3 }
     ],
     md: [
@@ -37,7 +36,7 @@ export default function Dashboard({
       { i: 'timetable', x: 5, y: 2, w: 5, h: 4, minW: 3, minH: 3 },
       { i: 'classTimetable', x: 0, y: 6, w: 5, h: 4, minW: 3, minH: 3 },
       { i: 'lunch', x: 5, y: 6, w: 5, h: 4, minW: 3, minH: 3 },
-      { i: 'schoolSchedule', x: 0, y: 10, w: 5, h: 4, minW: 3, minH: 3 }, // 🔥 신규 위젯 레이아웃 추가
+      { i: 'schoolSchedule', x: 0, y: 10, w: 5, h: 4, minW: 3, minH: 3 },
       { i: 'lessons', x: 5, y: 10, w: 5, h: 4, minW: 3, minH: 3 }
     ],
     sm: [
@@ -46,7 +45,7 @@ export default function Dashboard({
       { i: 'timetable', x: 0, y: 6, w: 6, h: 4 },
       { i: 'classTimetable', x: 0, y: 10, w: 6, h: 4 },
       { i: 'lunch', x: 0, y: 14, w: 6, h: 4 },
-      { i: 'schoolSchedule', x: 0, y: 18, w: 6, h: 4 }, // 🔥 신규 위젯 레이아웃 추가
+      { i: 'schoolSchedule', x: 0, y: 18, w: 6, h: 4 }, 
       { i: 'lessons', x: 0, y: 22, w: 6, h: 4 }
     ]
   };
@@ -224,13 +223,16 @@ export default function Dashboard({
             </div>
           )}
 
-          {/* 🔥 새로 추가된 학사일정 위젯 연결 */}
+          {/* 🔥 학사일정 위젯의 타이틀바 디자인 적용 */}
           {currentWidgets.schoolSchedule && (
-            <div key="schoolSchedule" className="rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden relative">
-              <div className="drag-handle cursor-move absolute top-3 right-3 z-50 p-2 bg-black/40 hover:bg-black/70 text-white rounded-lg opacity-0 group-hover:opacity-100 transition backdrop-blur-sm" title="드래그하여 이동">
-                <GripHorizontal size={16} />
+            <div key="schoolSchedule" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden relative">
+              <div className="drag-handle cursor-move bg-teal-50 dark:bg-teal-900/30 px-4 py-3 flex justify-between items-center shrink-0 border-b border-teal-100 dark:border-teal-800/50 group">
+                <h3 className="font-bold flex items-center gap-2 text-teal-700 dark:text-teal-400 text-sm"><Calendar size={16}/> 이번 달 학사일정</h3>
+                <GripHorizontal size={16} className="text-teal-400/50 group-hover:text-teal-600 transition-colors" />
               </div>
-              <SchoolScheduleWidget schoolInfo={schoolInfo} />
+              <div className="flex-1 h-full relative">
+                <SchoolScheduleWidget schoolInfo={schoolInfo} />
+              </div>
             </div>
           )}
 
@@ -311,7 +313,6 @@ export default function Dashboard({
                 <span className="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2"><BookOpen size={16} className="text-orange-500"/> 오늘의 급식</span>
                 <input type="checkbox" checked={currentWidgets.lunch} onChange={() => toggleWidget('lunch')} className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"/>
               </label>
-              {/* 🔥 신규 위젯 체크박스 */}
               <label className="flex items-center justify-between p-4 border border-gray-100 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition">
                 <span className="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2"><Calendar size={16} className="text-teal-500"/> 이번 달 학사일정</span>
                 <input type="checkbox" checked={currentWidgets.schoolSchedule} onChange={() => toggleWidget('schoolSchedule')} className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"/>
