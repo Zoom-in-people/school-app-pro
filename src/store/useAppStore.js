@@ -6,7 +6,6 @@ export const useAppStore = create(
   persist(
     (set) => ({
       activeView: 'dashboard',
-      // 🔥 4번 요청 해결: 메뉴 변경 시 사이드바가 강제로 닫히는 동작(isSidebarOpen: false) 모두 제거
       setActiveView: (view) => set({ activeView: view }),
 
       isSidebarOpen: true,
@@ -23,6 +22,10 @@ export const useAppStore = create(
 
       isSetupWizardOpen: false,
       setIsSetupWizardOpen: (isOpen) => set({ isSetupWizardOpen: isOpen }),
+
+      // 🔥 통합 설정 팝업을 위한 상태 추가
+      isUnifiedSettingsOpen: false,
+      setIsUnifiedSettingsOpen: (isOpen) => set({ isUnifiedSettingsOpen: isOpen }),
 
       currentHandbook: null,
       setCurrentHandbook: (handbook) => set({ currentHandbook: handbook }),

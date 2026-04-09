@@ -43,7 +43,6 @@ export default function Sidebar({ user, logout, handbooks }) {
 
   const sortedHandbooks = [...handbooks].sort((a, b) => b.title.localeCompare(a.title));
 
-  // 🔥 외부앱, 업데이트, 안내, 설정 등의 개별 메뉴 삭제 완료
   const menuGroups = [
     { title: "메인", items: [{ id: 'dashboard', label: '대시보드', icon: LayoutDashboard }, { id: 'monthly', label: '월별행사/출결', icon: Calendar }] },
     { title: "학급 관리", items: [{ id: 'students_homeroom', label: '학생 명렬표 (우리반)', icon: Users }, { id: 'consultation', label: '상담 일지', icon: MessageSquare }] },
@@ -148,9 +147,9 @@ export default function Sidebar({ user, logout, handbooks }) {
         ))}
       </nav>
 
-      {/* 🔥 하단에 통합 설정 버튼 추가 완료 */}
+      {/* 🔥 클릭 시 새로운 팝업창 모달이 열리도록 변경 */}
       <div className="p-3 border-t border-gray-200 dark:border-gray-700 shrink-0 space-y-2">
-        <button onClick={() => store.setActiveView('unified_settings')} title={!isSidebarOpen ? '통합 설정' : ''} className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold transition text-sm ${store.activeView === 'unified_settings' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'} ${isSidebarOpen ? 'px-4' : 'px-0'}`}>
+        <button onClick={() => store.setIsUnifiedSettingsOpen(true)} title={!isSidebarOpen ? '통합 설정' : ''} className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold transition text-sm ${store.isUnifiedSettingsOpen ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'} ${isSidebarOpen ? 'px-4' : 'px-0'}`}>
           <Settings size={18} className="shrink-0" />
           {isSidebarOpen && <span>통합 설정</span>}
         </button>

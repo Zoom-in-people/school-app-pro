@@ -10,6 +10,7 @@ import SettingsModal from './components/modals/SettingsModal';
 import SetupWizardModal from './components/modals/SetupWizardModal';
 import AddHandbookModal from './components/modals/AddHandbookModal';
 import HandbookSettingsModal from './components/modals/HandbookSettingsModal';
+
 import Dashboard from './pages/Dashboard';
 import StudentManager from './pages/StudentManager';
 import ConsultationLog from './pages/ConsultationLog';
@@ -20,12 +21,10 @@ import LessonManager from './pages/LessonManager';
 import MonthlyEvents from './pages/MonthlyEvents';
 import MeetingLogs from './pages/MeetingLogs';
 import MyTimetable from './pages/MyTimetable';
-import ExternalApps from './pages/ExternalApps';
-import UpdateHistory from './pages/UpdateHistory';
-import HowToUse from './pages/HowToUse'; 
-import RealtimeSetup from './pages/RealtimeSetup'; 
 import AiRecord from './pages/AiRecord'; 
-import SchoolSchedule from './pages/SchoolSchedule'; 
+
+// 🔥 모달로 동작할 UnifiedSettings 가져오기
+import UnifiedSettings from './pages/UnifiedSettings';
 
 export default function App() {
   const { user, loading, login, logout } = useAuth();
@@ -128,7 +127,6 @@ export default function App() {
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300 print:h-auto print:bg-white print:text-black">
       {store.isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm no-print" onClick={() => store.setIsSidebarOpen(false)} />}
 
-      {/* 🔥 md:relative와 shrink-0를 추가하여 PC화면에서 내용과 겹치지 않고 밀어내도록 수정 */}
       <div className={`
         no-print fixed md:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-2xl md:shadow-none
         transform transition-all duration-300 ease-in-out shrink-0
@@ -145,19 +143,17 @@ export default function App() {
 
         <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto print:p-0 print:overflow-visible print:h-auto">
           <div className="max-w-7xl mx-auto h-full print:max-w-full">
-            {store.activeView === 'update_history' ? <UpdateHistory />
-            : store.activeView === 'how_to_use' ? <HowToUse />
-            : store.activeView === 'realtime_setup' ? <RealtimeSetup />
-            : store.activeView === 'ai_record' ? <AiRecord />
-            : store.activeView === 'school_schedule' ? <SchoolSchedule handbook={store.currentHandbook} />
+            
+            {/* 🔥 라우팅 단순화 (통합 설정이 빠짐) */}
+            {store.activeView === 'ai_record' ? <AiRecord />
             : !store.currentHandbook ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6 no-print"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => store.setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (
               <>
-                {store.activeView === 'dashboard' && <Dashboard students={db.homeroomStudents.data} todos={db.todos.data} setActiveView={store.setActiveView} isHomeroom={store.currentHandbook.isHomeroom} schoolInfo={store.currentHandbook.schoolInfo || {}} attendanceLog={db.attendanceLog.data} onUpdateAttendance={handleUpdateAttendance} onUpdateStudent={(id, data) => db.homeroomStudents.update(id, data)} lessonGroups={db.lessonGroups.data} myTimetable={db.myTimetable.data} widgets={store.widgets} setWidgets={store.setWidgets} />}
+                {store.activeView === 'dashboard' && <Dashboard students={db.homeroomStudents.data} todos={db.todos.data} setActiveView={store.setActiveView} isHomeroom={store.currentHandbook.isHomeroom} schoolInfo={store.currentHandbook.schoolInfo || {}} attendanceLog={db.attendanceLog.data} myTimetable={db.myTimetable.data} lessonGroups={db.lessonGroups.data} widgets={store.widgets} setWidgets={store.setWidgets} />}
                 {store.activeView === 'monthly' && <MonthlyEvents handbook={store.currentHandbook} isHomeroom={store.currentHandbook.isHomeroom} students={db.homeroomStudents.data} attendanceLog={db.attendanceLog.data} onUpdateAttendance={handleUpdateAttendance} events={db.events.data} onUpdateEvent={handleUpdateEvent} />}
-                {store.activeView === 'students_homeroom' && <StudentManager key="homeroom-manager" students={db.homeroomStudents.data} onAddStudent={db.homeroomStudents.add} onAddStudents={db.homeroomStudents.addMany} onUpdateStudent={db.homeroomStudents.update} onDeleteStudent={db.homeroomStudents.remove} onUpdateStudentsMany={db.homeroomStudents.updateMany} onSetAllStudents={db.homeroomStudents.setAll} apiKey={store.apiKey} isHomeroomView={true} />}
-                {store.activeView === 'students_subject' && <StudentManager key="subject-manager" students={db.subjectStudents.data} onAddStudent={db.subjectStudents.add} onAddStudents={db.subjectStudents.addMany} onUpdateStudent={db.subjectStudents.update} onDeleteStudent={db.subjectStudents.remove} onUpdateStudentsMany={db.subjectStudents.updateMany} onSetAllStudents={db.subjectStudents.setAll} apiKey={store.apiKey} isHomeroomView={false} classPhotos={db.classPhotos.data} onAddClassPhoto={db.classPhotos.add} onUpdateClassPhoto={db.classPhotos.update} onDeleteClassPhoto={db.classPhotos.remove} />}
+                {store.activeView === 'students_homeroom' && <StudentManager key="homeroom-manager" students={db.homeroomStudents.data} onAddStudent={db.homeroomStudents.add} onAddStudents={db.homeroomStudents.addMany} onUpdateStudent={db.homeroomStudents.update} onDeleteStudent={db.homeroomStudents.remove} onUpdateStudentsMany={db.homeroomStudents.updateMany} apiKey={store.apiKey} isHomeroomView={true} />}
+                {store.activeView === 'students_subject' && <StudentManager key="subject-manager" students={db.subjectStudents.data} onAddStudent={db.subjectStudents.add} onAddStudents={db.subjectStudents.addMany} onUpdateStudent={db.subjectStudents.update} onDeleteStudent={db.subjectStudents.remove} onUpdateStudentsMany={db.subjectStudents.updateMany} apiKey={store.apiKey} isHomeroomView={false} classPhotos={db.classPhotos.data} onAddClassPhoto={db.classPhotos.add} onUpdateClassPhoto={db.classPhotos.update} onDeleteClassPhoto={db.classPhotos.remove} />}
                 {store.activeView === 'lessons' && <LessonManager lessonGroups={db.lessonGroups.data} onAddGroup={db.lessonGroups.add} onUpdateGroup={db.lessonGroups.update} onDeleteGroup={db.lessonGroups.remove} />}
                 {store.activeView === 'consultation' && <ConsultationLog students={db.homeroomStudents.data} consultations={db.consultations.data} onAddConsultation={db.consultations.add} onDeleteConsultation={db.consultations.remove} onUpdateConsultation={db.consultations.update} />}
                 {store.activeView === 'tasks' && <TaskList todos={db.todos.data} onAddTodo={db.todos.add} onUpdateTodo={db.todos.update} onDeleteTodo={db.todos.remove} />}
@@ -165,13 +161,14 @@ export default function App() {
                 {store.activeView === 'edu_plan' && <EducationPlan apiKey={store.apiKey} planData={db.educationPlans.data} onSavePlan={db.educationPlans.add} onUpdatePlan={db.educationPlans.update} onDeletePlan={db.educationPlans.remove} />}
                 {store.activeView === 'meeting_logs' && <MeetingLogs logs={db.meetingLogs.data} onAddLog={db.meetingLogs.add} onUpdateLog={db.meetingLogs.update} onDeleteLog={db.meetingLogs.remove} />}
                 {store.activeView === 'my_timetable' && <MyTimetable timetableData={db.myTimetable.data} onAddTimetable={db.myTimetable.add} onUpdateTimetable={db.myTimetable.update} onDeleteTimetable={db.myTimetable.remove} />}
-                {store.activeView === 'apps' && <ExternalApps />}
               </>
             )}
           </div>
         </div>
       </main>
 
+      {/* 🔥 모달 렌더링 영역 */}
+      <UnifiedSettings isOpen={store.isUnifiedSettingsOpen} onClose={() => store.setIsUnifiedSettingsOpen(false)} store={store} />
       <SettingsModal isOpen={store.isSettingsOpen} onClose={() => store.setIsSettingsOpen(false)} settings={{ apiKey: store.apiKey, theme: store.theme, fontSize: store.fontSize }} setSettings={{ setApiKey: store.setApiKey, setTheme: store.setTheme, setFontSize: store.setFontSize }} onOpenSetupWizard={() => { store.setIsSettingsOpen(false); store.setIsSetupWizardOpen(true); }}/>
       <SetupWizardModal isOpen={store.isSetupWizardOpen} onClose={() => { store.setIsSetupWizardOpen(false); store.setHideApiPrompt(true); }} apiKey={store.apiKey} setApiKey={store.setApiKey} />
       <AddHandbookModal isOpen={store.isAddHandbookOpen} onClose={() => store.setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
