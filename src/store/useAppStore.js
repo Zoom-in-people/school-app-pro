@@ -23,10 +23,6 @@ export const useAppStore = create(
       isSetupWizardOpen: false,
       setIsSetupWizardOpen: (isOpen) => set({ isSetupWizardOpen: isOpen }),
 
-      // 🔥 통합 설정 팝업을 위한 상태 추가
-      isUnifiedSettingsOpen: false,
-      setIsUnifiedSettingsOpen: (isOpen) => set({ isUnifiedSettingsOpen: isOpen }),
-
       currentHandbook: null,
       setCurrentHandbook: (handbook) => set({ currentHandbook: handbook }),
 
@@ -48,11 +44,21 @@ export const useAppStore = create(
       fontSize: 16,
       setFontSize: (fontSize) => set({ fontSize }),
 
-      widgets: INITIAL_WIDGETS,
+      widgets: { ...INITIAL_WIDGETS, weather: true, dday: true, memo: true },
       setWidgets: (widgets) => set({ widgets }),
 
       lastHandbookId: null,
       setLastHandbookId: (lastHandbookId) => set({ lastHandbookId }),
+
+      // 🔥 메모장 및 디데이 데이터 저장소
+      memos: [],
+      addMemo: (memo) => set((state) => ({ memos: [{ id: Date.now(), color: 'bg-yellow-100', ...memo }, ...state.memos] })),
+      updateMemo: (id, text) => set((state) => ({ memos: state.memos.map(m => m.id === id ? { ...m, content: text } : m) })),
+      deleteMemo: (id) => set((state) => ({ memos: state.memos.filter(m => m.id !== id) })),
+
+      ddays: [],
+      addDday: (dday) => set((state) => ({ ddays: [...state.ddays, { id: Date.now(), ...dday }] })),
+      deleteDday: (id) => set((state) => ({ ddays: state.ddays.filter(d => d.id !== id) })),
     }),
     {
       name: 'school-app-storage',
@@ -63,6 +69,8 @@ export const useAppStore = create(
         fontSize: state.fontSize,
         widgets: state.widgets,
         lastHandbookId: state.lastHandbookId,
+        memos: state.memos,
+        ddays: state.ddays,
       }),
     }
   )

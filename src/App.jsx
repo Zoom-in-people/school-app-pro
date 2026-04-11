@@ -6,10 +6,8 @@ import { useAppData } from './hooks/useAppData';
 import { showToast } from './utils/alerts';
 
 import Sidebar from './components/layout/Sidebar';
-import SettingsModal from './components/modals/SettingsModal';
 import SetupWizardModal from './components/modals/SetupWizardModal';
 import AddHandbookModal from './components/modals/AddHandbookModal';
-import HandbookSettingsModal from './components/modals/HandbookSettingsModal';
 
 import Dashboard from './pages/Dashboard';
 import StudentManager from './pages/StudentManager';
@@ -22,46 +20,22 @@ import MonthlyEvents from './pages/MonthlyEvents';
 import MeetingLogs from './pages/MeetingLogs';
 import MyTimetable from './pages/MyTimetable';
 import AiRecord from './pages/AiRecord'; 
-
 import UnifiedSettings from './pages/UnifiedSettings';
+import MemoPage from './pages/MemoPage'; // 🔥 신규 추가
 
 export default function App() {
   const { user, loading, login, logout } = useAuth();
   const store = useAppStore(); 
 
-  useEffect(() => { 
-    if (user && !store.apiKey && !store.hideApiPrompt) {
-      store.setIsSetupWizardOpen(true);
-    }
-  }, [user, store.apiKey, store.hideApiPrompt]);
-
-  // 🔥 테마 시스템 모드 연동
+  useEffect(() => { if (user && !store.apiKey && !store.hideApiPrompt) store.setIsSetupWizardOpen(true); }, [user, store.apiKey, store.hideApiPrompt]);
   useEffect(() => {
     const root = document.documentElement;
-    const applyTheme = (theme) => {
-      if (theme === 'dark') root.classList.add('dark');
-      else if (theme === 'light') root.classList.remove('dark');
-      else {
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) root.classList.add('dark');
-        else root.classList.remove('dark');
-      }
-    };
+    const applyTheme = (theme) => { if (theme === 'dark') root.classList.add('dark'); else if (theme === 'light') root.classList.remove('dark'); else { if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) root.classList.add('dark'); else root.classList.remove('dark'); } };
     applyTheme(store.theme);
-    
-    if (store.theme === 'system' && window.matchMedia) {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handler = () => applyTheme('system');
-      mediaQuery.addEventListener('change', handler);
-      return () => mediaQuery.removeEventListener('change', handler);
-    }
   }, [store.theme]);
-
-  // 폰트 사이즈 적용
   useEffect(() => {
-    const root = document.documentElement;
-    let size = parseInt(store.fontSize);
-    if (isNaN(size) || size < 10) size = 16;
-    root.style.fontSize = `${size}px`;
+    const root = document.documentElement; let size = parseInt(store.fontSize);
+    if (isNaN(size) || size < 10) size = 16; root.style.fontSize = `${size}px`;
   }, [store.fontSize]);
 
   const userId = user ? user.uid : null;
@@ -70,99 +44,45 @@ export default function App() {
 
   useEffect(() => {
     if (handbooks.length > 0) {
-      if (store.lastHandbookId) {
-        const found = handbooks.find(h => h.id === store.lastHandbookId);
-        if (found) store.setCurrentHandbook(found);
-        else store.setCurrentHandbook(handbooks[0]);
-      } else {
-        store.setCurrentHandbook(handbooks[0]);
-      }
-    } else {
-      store.setCurrentHandbook(null);
-    }
+      if (store.lastHandbookId) { const found = handbooks.find(h => h.id === store.lastHandbookId); if (found) store.setCurrentHandbook(found); else store.setCurrentHandbook(handbooks[0]); } 
+      else store.setCurrentHandbook(handbooks[0]);
+    } else store.setCurrentHandbook(null);
   }, [handbooks, store.lastHandbookId]);
 
-  const handleCreateHandbook = async (data) => {
-    try {
-      const newId = await addHandbook(data);
-      if (newId) {
-        store.selectHandbook({ id: newId, ...data });
-        store.setIsAddHandbookOpen(false);
-      }
-    } catch (error) { showToast("교무수첩 생성 실패", 'error'); }
-  };
-
-  const handleUpdateHandbook = async (id, data) => {
-    await updateHandbook(id, data);
-    store.setCurrentHandbook({ ...store.currentHandbook, ...data });
-  };
-
-  const handleDeleteHandbook = async (id) => {
-    await removeHandbook(id); 
-    if (store.currentHandbook && store.currentHandbook.id === id) {
-      const remaining = handbooks.filter(h => h.id !== id);
-      if (remaining.length > 0) {
-        store.setCurrentHandbook(remaining[0]);
-        store.setLastHandbookId(remaining[0].id);
-      } else {
-        store.setCurrentHandbook(null);
-        store.setLastHandbookId(null);
-      }
-    }
-    store.setIsHandbookSettingsOpen(false);
-    store.setIsUnifiedSettingsOpen(false);
-  };
-
-  const handleUpdateAttendance = (id, data) => { if (id && !data) db.attendanceLog.remove(id); else if (id && data) db.attendanceLog.update(id, data); else db.attendanceLog.add(data); };
-  const handleUpdateEvent = (id, data) => { if (id && !data) db.events.remove(id); else if (id && data) db.events.update(id, data); else db.events.add(data); };
+  const handleCreateHandbook = async (data) => { try { const newId = await addHandbook(data); if (newId) { store.selectHandbook({ id: newId, ...data }); store.setIsAddHandbookOpen(false); } } catch (e) { showToast("실패", 'error'); } };
+  const handleUpdateHandbook = async (id, data) => { await updateHandbook(id, data); store.setCurrentHandbook({ ...store.currentHandbook, ...data }); };
+  const handleDeleteHandbook = async (id) => { await removeHandbook(id); store.setCurrentHandbook(handbooks.filter(h => h.id !== id)[0] || null); store.setActiveView('dashboard'); };
 
   if (loading) return <div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin text-4xl">⏳</div></div>;
-
-  if (!user) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900 transition-colors">
-        <div className="bg-white dark:bg-gray-800 p-10 rounded-2xl shadow-xl text-center max-w-md w-full border border-gray-200 dark:border-gray-700">
-           <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg"><LogIn className="text-white" size={32} /></div>
-           <h1 className="text-3xl font-bold mb-2 text-indigo-600 dark:text-indigo-400">교무수첩 Pro</h1>
-           <p className="text-gray-500 dark:text-gray-400 mb-8">선생님을 위한 스마트한 업무 파트너</p>
-           <button onClick={login} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-white py-3 rounded-xl flex items-center justify-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-600 transition shadow-sm font-medium">
-             <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5"/> Google 계정으로 시작하기
-           </button>
-        </div>
-      </div>
-    );
-  }
+  if (!user) return <div className="flex h-screen items-center justify-center"><button onClick={login} className="bg-indigo-600 text-white p-4 rounded font-bold">Google 로그인</button></div>;
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300 print:h-auto print:bg-white print:text-black">
       {store.isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm no-print" onClick={() => store.setIsSidebarOpen(false)} />}
 
-      <div className={`
-        no-print fixed md:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-2xl md:shadow-none
-        transform transition-all duration-300 ease-in-out shrink-0
-        ${store.isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-20'}
-      `}>
+      <div className={`no-print fixed md:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r shadow-2xl md:shadow-none transform transition-all duration-300 shrink-0 ${store.isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-20'}`}>
         <Sidebar user={user} logout={logout} handbooks={handbooks} />
       </div>
 
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative print:overflow-visible print:h-auto print:p-0">
-        <header className="md:hidden bg-white dark:bg-gray-800 p-4 flex items-center justify-between border-b dark:border-gray-700 sticky top-0 z-30 no-print">
-          <span className="font-bold text-lg">{store.currentHandbook ? store.currentHandbook.title : "교무수첩 Pro"}</span>
-          <button onClick={() => store.setIsSidebarOpen(true)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><Menu size={24}/></button>
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+        <header className="md:hidden bg-white p-4 flex items-center justify-between border-b sticky top-0 z-30">
+          <span className="font-bold text-lg">{store.currentHandbook?.title}</span>
+          <button onClick={() => store.setIsSidebarOpen(true)} className="p-2"><Menu size={24}/></button>
         </header>
 
-        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto print:p-0 print:overflow-visible print:h-auto">
-          <div className="max-w-7xl mx-auto h-full print:max-w-full">
-            
-            {store.activeView === 'ai_record' ? <AiRecord />
+        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
+          <div className="max-w-7xl mx-auto h-full">
+            {store.activeView === 'unified_settings' ? <UnifiedSettings store={store} handbook={store.currentHandbook} onUpdateHandbook={handleUpdateHandbook} onDeleteHandbook={handleDeleteHandbook} />
+            : store.activeView === 'ai_record' ? <AiRecord />
+            : store.activeView === 'memos' ? <MemoPage /> // 🔥 메모 페이지 연결
             : !store.currentHandbook ? (
-              <div className="flex flex-col items-center justify-center h-full text-center space-y-6 no-print"><Plus size={48} className="text-indigo-600 mx-auto"/><h2 className="text-2xl font-bold">시작하려면 교무수첩을 만드세요</h2><button onClick={() => store.setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-6"><button onClick={() => store.setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (
               <>
-                {store.activeView === 'dashboard' && <Dashboard students={db.homeroomStudents.data} todos={db.todos.data} setActiveView={store.setActiveView} isHomeroom={store.currentHandbook.isHomeroom} schoolInfo={store.currentHandbook.schoolInfo || {}} attendanceLog={db.attendanceLog.data} myTimetable={db.myTimetable.data} lessonGroups={db.lessonGroups.data} widgets={store.widgets} setWidgets={store.setWidgets} />}
+                {store.activeView === 'dashboard' && <Dashboard students={db.homeroomStudents.data} todos={db.todos.data} setActiveView={store.setActiveView} isHomeroom={store.currentHandbook.isHomeroom} schoolInfo={store.currentHandbook.schoolInfo || {}} attendanceLog={db.attendanceLog.data} myTimetable={db.myTimetable.data} lessonGroups={db.lessonGroups.data} events={db.events.data} widgets={store.widgets} setWidgets={store.setWidgets} />}
                 {store.activeView === 'monthly' && <MonthlyEvents handbook={store.currentHandbook} isHomeroom={store.currentHandbook.isHomeroom} students={db.homeroomStudents.data} attendanceLog={db.attendanceLog.data} onUpdateAttendance={handleUpdateAttendance} events={db.events.data} onUpdateEvent={handleUpdateEvent} />}
-                {store.activeView === 'students_homeroom' && <StudentManager key="homeroom-manager" students={db.homeroomStudents.data} onAddStudent={db.homeroomStudents.add} onAddStudents={db.homeroomStudents.addMany} onUpdateStudent={db.homeroomStudents.update} onDeleteStudent={db.homeroomStudents.remove} onUpdateStudentsMany={db.homeroomStudents.updateMany} apiKey={store.apiKey} isHomeroomView={true} />}
-                {store.activeView === 'students_subject' && <StudentManager key="subject-manager" students={db.subjectStudents.data} onAddStudent={db.subjectStudents.add} onAddStudents={db.subjectStudents.addMany} onUpdateStudent={db.subjectStudents.update} onDeleteStudent={db.subjectStudents.remove} onUpdateStudentsMany={db.subjectStudents.updateMany} apiKey={store.apiKey} isHomeroomView={false} classPhotos={db.classPhotos.data} onAddClassPhoto={db.classPhotos.add} onUpdateClassPhoto={db.classPhotos.update} onDeleteClassPhoto={db.classPhotos.remove} />}
+                {store.activeView === 'students_homeroom' && <StudentManager students={db.homeroomStudents.data} onAddStudents={db.homeroomStudents.addMany} onUpdateStudent={db.homeroomStudents.update} onDeleteStudent={db.homeroomStudents.remove} onUpdateStudentsMany={db.homeroomStudents.updateMany} apiKey={store.apiKey} isHomeroomView={true} />}
+                {store.activeView === 'students_subject' && <StudentManager students={db.subjectStudents.data} onAddStudents={db.subjectStudents.addMany} onUpdateStudent={db.subjectStudents.update} onDeleteStudent={db.subjectStudents.remove} onUpdateStudentsMany={db.subjectStudents.updateMany} apiKey={store.apiKey} isHomeroomView={false} classPhotos={db.classPhotos.data} onAddClassPhoto={db.classPhotos.add} onUpdateClassPhoto={db.classPhotos.update} onDeleteClassPhoto={db.classPhotos.remove} />}
                 {store.activeView === 'lessons' && <LessonManager lessonGroups={db.lessonGroups.data} onAddGroup={db.lessonGroups.add} onUpdateGroup={db.lessonGroups.update} onDeleteGroup={db.lessonGroups.remove} />}
                 {store.activeView === 'consultation' && <ConsultationLog students={db.homeroomStudents.data} consultations={db.consultations.data} onAddConsultation={db.consultations.add} onDeleteConsultation={db.consultations.remove} onUpdateConsultation={db.consultations.update} />}
                 {store.activeView === 'tasks' && <TaskList todos={db.todos.data} onAddTodo={db.todos.add} onUpdateTodo={db.todos.update} onDeleteTodo={db.todos.remove} />}
@@ -176,19 +96,8 @@ export default function App() {
         </div>
       </main>
 
-      {/* 🔥 모든 설정을 통합한 팝업창 모달 연결 */}
-      <UnifiedSettings 
-        isOpen={store.isUnifiedSettingsOpen} 
-        onClose={() => store.setIsUnifiedSettingsOpen(false)} 
-        store={store} 
-        handbook={store.currentHandbook}
-        onUpdateHandbook={handleUpdateHandbook}
-        onDeleteHandbook={handleDeleteHandbook}
-      />
-      
       <SetupWizardModal isOpen={store.isSetupWizardOpen} onClose={() => { store.setIsSetupWizardOpen(false); store.setHideApiPrompt(true); }} apiKey={store.apiKey} setApiKey={store.setApiKey} />
       <AddHandbookModal isOpen={store.isAddHandbookOpen} onClose={() => store.setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
-      {/* SettingsModal과 HandbookSettingsModal은 렌더링에서 제거해도 무방합니다. */}
     </div>
   );
 }
