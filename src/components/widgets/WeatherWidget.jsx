@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CloudRain, Sun, Cloud, Snowflake, Loader, ExternalLink } from 'lucide-react';
 
-// 🔥 상수 파일(data.js)의 상태에 의존하지 않도록, NEIS 교육청 고유 코드를 직접 하드코딩하여 버그 원천 차단!
+// 최후의 안전장치 (교육청 기준 좌표)
 const REGION_COORDS = {
   'B10': { name: "서울", lat: 37.5665, lon: 126.9780 },
   'C10': { name: "부산", lat: 35.1796, lon: 129.0756 },
@@ -33,54 +33,93 @@ export default function WeatherWidget({ schoolInfo }) {
     const fetchWeather = async () => {
       setLoading(true);
       let lat, lon;
-      let name = "우리 동네";
+      let displayName = "우리 동네";
       let googleQuery = "현재 날씨";
+      let targetAddress = schoolInfo?.address;
 
-      // 1. NEIS 코드 기반 기본(Fallback) 지역 설정 (이제 무조건 안전하게 가져옴)
-      const fallbackRegion = REGION_COORDS[schoolInfo?.officeCode] || REGION_COORDS['B10']; // 기본값 서울
-
-      // 2. 입력된 주소가 있다면 지오코딩으로 정확한 동네 좌표 탐색 시도
-      if (schoolInfo?.address) {
+      // 🔥 1. 만약 DB에 주소(address)가 없다면, NEIS API에서 학교 코드로 직접 주소를 조회해서 가져옵니다.
+      if (!targetAddress && schoolInfo?.officeCode && schoolInfo?.code) {
         try {
-          const addressParts = schoolInfo.address.split(' ');
-          const sido = addressParts[0] || '';
-          const sigungu = addressParts.length > 1 ? addressParts[1] : ''; 
-          
-          name = sigungu || sido;
-          googleQuery = `${sido} ${sigungu} 날씨`.trim();
-
-          const query = `${sido} ${sigungu}`.trim();
-          const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
-          const nomData = await nomRes.json();
-          
-          if (nomData && nomData.length > 0) {
-            lat = nomData[0].lat;
-            lon = nomData[0].lon;
+          const neisRes = await fetch(`https://open.neis.go.kr/hub/schoolInfo?Type=json&ATPT_OFCDC_SC_CODE=${schoolInfo.officeCode}&SD_SCHUL_CODE=${schoolInfo.code}`);
+          const neisData = await neisRes.json();
+          if (neisData.schoolInfo) {
+            targetAddress = neisData.schoolInfo[1].row[0].ORG_RDNMA; // 도로명 주소 획득
           }
-        } catch (e) { console.error("Geocoding failed", e); }
+        } catch (e) {
+          console.error("NEIS에서 주소를 가져오지 못했습니다.", e);
+        }
       }
 
-      // 3. 지오코딩 실패 또는 주소가 아예 없으면 안전한 교육청 기준(Fallback) 좌표 사용
+      // 🔥 2. 확보한 주소에서 "도"를 무시하고 오직 "시", "군", "구" 단어만 정규식으로 족집게 추출합니다.
+      if (targetAddress) {
+        try {
+          let targetArea = "";
+          
+          if (targetAddress.includes('세종')) {
+            targetArea = '세종특별자치시';
+          } else {
+            // "강원특별자치도 속초시 청봉로..." -> "속초시" 정확히 추출
+            const match = targetAddress.match(/([가-힣]+(?:시|군|구))\b/);
+            if (match) {
+              targetArea = match[0];
+            }
+          }
+
+          if (targetArea) {
+            displayName = targetArea;
+            googleQuery = `${targetArea} 날씨`;
+
+            // API 검색을 위해 '시/군/구' 접미사를 떼어냅니다. (예: 속초시 -> 속초)
+            const cleanName = targetArea.replace(/[시군구]$/, '');
+
+            // 1순위: Open-Meteo Geocoding (한국 데이터 우선 필터링)
+            const meteoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanName)}&language=ko&count=5`);
+            const meteoData = await meteoRes.json();
+            
+            if (meteoData.results && meteoData.results.length > 0) {
+              const krResult = meteoData.results.find(r => r.country_code === 'KR') || meteoData.results[0];
+              if (krResult) {
+                lat = krResult.latitude;
+                lon = krResult.longitude;
+              }
+            }
+
+            // 2순위: 실패 시 OpenStreetMap으로 "ㅇㅇ시 대한민국"으로 재검색
+            if (!lat || !lon) {
+              const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(targetArea + " 대한민국")}`);
+              const nomData = await nomRes.json();
+              if (nomData && nomData.length > 0) {
+                lat = nomData[0].lat;
+                lon = nomData[0].lon;
+              }
+            }
+          }
+        } catch (e) { console.error("Geocoding fetch failed", e); }
+      }
+
+      // 3. 주소가 없거나 모든 검색에 실패했을 경우, 최후의 수단으로 교육청 코드 기준 지역(Fallback)을 사용
       if (!lat || !lon) {
+        const fallbackRegion = REGION_COORDS[schoolInfo?.officeCode] || REGION_COORDS['B10'];
         lat = fallbackRegion.lat;
         lon = fallbackRegion.lon;
-        name = fallbackRegion.name;
+        displayName = fallbackRegion.name;
         googleQuery = `${fallbackRegion.name} 날씨`;
       }
 
-      setLocationName(name);
+      setLocationName(displayName);
       setSearchQueryForGoogle(googleQuery);
 
-      // 4. 최종 확보된 좌표로 날씨 호출
+      // 4. 최종 위도/경도로 날씨 API 및 주간 예보 데이터 호출
       try {
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto`);
         const data = await res.json();
         setWeather(data.current_weather);
         setDailyForecast(data.daily);
-      } catch (e) { console.error("날씨 로드 실패"); }
+      } catch (e) { console.error("날씨 API 호출 실패", e); }
       
       setLoading(false);
     };
+    
     fetchWeather();
   }, [schoolInfo]);
 
@@ -107,8 +146,6 @@ export default function WeatherWidget({ schoolInfo }) {
     <div className="h-full flex flex-col p-4 bg-gradient-to-br from-sky-400 to-blue-600 text-white relative group overflow-hidden">
       {loading ? <div className="flex-1 flex justify-center items-center"><Loader className="animate-spin text-white/50" size={32}/></div> : weather ? (
         <div className="flex flex-col h-full justify-between">
-          
-          {/* 상단 현재 날씨 */}
           <div className="flex flex-col items-center gap-1 mb-2 shrink-0">
             {getWeatherIcon(weather.weathercode, 44)}
             <div className="text-center">
@@ -116,8 +153,6 @@ export default function WeatherWidget({ schoolInfo }) {
               <div className="text-xs sm:text-sm font-medium opacity-90 truncate px-2">{locationName} · {getDesc(weather.weathercode)}</div>
             </div>
           </div>
-
-          {/* 🔥 2번 요청 반영: 7일 주간 예보 (좌우 여백을 꽉 채우도록 justify-between 적용) */}
           {dailyForecast && dailyForecast.time && (
             <div className="w-full flex justify-between items-center mt-auto pb-1 px-1">
               {dailyForecast.time.slice(0, 7).map((date, i) => (
@@ -134,8 +169,6 @@ export default function WeatherWidget({ schoolInfo }) {
               ))}
             </div>
           )}
-
-          {/* 구글 검색 버튼 */}
           <a href={`https://www.google.com/search?q=${searchQueryForGoogle}`} target="_blank" rel="noreferrer" className="absolute top-3 right-3 text-[10px] bg-black/20 hover:bg-black/40 px-2 py-1 rounded-md transition flex items-center gap-1 opacity-0 group-hover:opacity-100 font-bold shadow-sm">
             구글 날씨 <ExternalLink size={10}/>
           </a>
