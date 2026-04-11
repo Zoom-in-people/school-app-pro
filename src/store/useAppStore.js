@@ -23,6 +23,9 @@ export const useAppStore = create(
       isSetupWizardOpen: false,
       setIsSetupWizardOpen: (isOpen) => set({ isSetupWizardOpen: isOpen }),
 
+      isUnifiedSettingsOpen: false,
+      setIsUnifiedSettingsOpen: (isOpen) => set({ isUnifiedSettingsOpen: isOpen }),
+
       currentHandbook: null,
       setCurrentHandbook: (handbook) => set({ currentHandbook: handbook }),
 
@@ -34,6 +37,10 @@ export const useAppStore = create(
 
       apiKey: '',
       setApiKey: (apiKey) => set({ apiKey }),
+
+      // 🔥 Firebase 설정 상태 추가
+      firebaseConfig: '',
+      setFirebaseConfig: (config) => set({ firebaseConfig: config }),
 
       hideApiPrompt: false,
       setHideApiPrompt: (hideApiPrompt) => set({ hideApiPrompt }),
@@ -50,7 +57,6 @@ export const useAppStore = create(
       lastHandbookId: null,
       setLastHandbookId: (lastHandbookId) => set({ lastHandbookId }),
 
-      // 🔥 메모장 및 디데이 데이터 저장소
       memos: [],
       addMemo: (memo) => set((state) => ({ memos: [{ id: Date.now(), color: 'bg-yellow-100', ...memo }, ...state.memos] })),
       updateMemo: (id, text) => set((state) => ({ memos: state.memos.map(m => m.id === id ? { ...m, content: text } : m) })),
@@ -64,6 +70,7 @@ export const useAppStore = create(
       name: 'school-app-storage',
       partialize: (state) => ({
         apiKey: state.apiKey,
+        firebaseConfig: state.firebaseConfig,
         hideApiPrompt: state.hideApiPrompt,
         theme: state.theme,
         fontSize: state.fontSize,
