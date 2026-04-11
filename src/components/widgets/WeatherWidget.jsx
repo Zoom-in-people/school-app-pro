@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CloudRain, Sun, Cloud, Snowflake, Loader, ExternalLink } from 'lucide-react';
 
-// 최후의 안전장치 (교육청 기준 좌표)
+// 최후의 안전장치 (좌표용으로만 사용됨)
 const REGION_COORDS = {
   'B10': { name: "서울", lat: 37.5665, lon: 126.9780 },
   'C10': { name: "부산", lat: 35.1796, lon: 129.0756 },
@@ -33,46 +33,45 @@ export default function WeatherWidget({ schoolInfo }) {
     const fetchWeather = async () => {
       setLoading(true);
       let lat, lon;
-      let displayName = "우리 동네";
-      let googleQuery = "현재 날씨";
-      let targetAddress = schoolInfo?.address;
+      
+      // 🔥 선생님 요청 반영: 위젯에 표시되는 이름과 구글 검색어는 무조건 '학교명'으로 고정!
+      const displayName = schoolInfo?.name || "우리 동네";
+      const googleQuery = `${schoolInfo?.name || '우리 동네'} 날씨`;
 
-      // 🔥 1. 만약 DB에 주소(address)가 없다면, NEIS API에서 학교 코드로 직접 주소를 조회해서 가져옵니다.
+      setLocationName(displayName);
+      setSearchQueryForGoogle(googleQuery);
+
+      // 1. NEIS API에서 학교 상세 주소 획득 시도 (주소가 DB에 없는 경우 대비)
+      let targetAddress = schoolInfo?.address;
       if (!targetAddress && schoolInfo?.officeCode && schoolInfo?.code) {
         try {
           const neisRes = await fetch(`https://open.neis.go.kr/hub/schoolInfo?Type=json&ATPT_OFCDC_SC_CODE=${schoolInfo.officeCode}&SD_SCHUL_CODE=${schoolInfo.code}`);
           const neisData = await neisRes.json();
           if (neisData.schoolInfo) {
-            targetAddress = neisData.schoolInfo[1].row[0].ORG_RDNMA; // 도로명 주소 획득
+            targetAddress = neisData.schoolInfo[1].row[0].ORG_RDNMA;
           }
-        } catch (e) {
-          console.error("NEIS에서 주소를 가져오지 못했습니다.", e);
-        }
+        } catch (e) { console.error("NEIS Fetch Failed", e); }
       }
 
-      // 🔥 2. 확보한 주소에서 "도"를 무시하고 오직 "시", "군", "구" 단어만 정규식으로 족집게 추출합니다.
-      if (targetAddress) {
-        try {
-          let targetArea = "";
-          
-          if (targetAddress.includes('세종')) {
-            targetArea = '세종특별자치시';
-          } else {
-            // "강원특별자치도 속초시 청봉로..." -> "속초시" 정확히 추출
-            const match = targetAddress.match(/([가-힣]+(?:시|군|구))\b/);
-            if (match) {
-              targetArea = match[0];
-            }
+      // 2. 위도/경도 찾기
+      try {
+        // 1순위: 학교 이름으로 핀포인트 검색 시도 (예: "ㅇㅇ초등학교 대한민국")
+        if (schoolInfo?.name) {
+          const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(schoolInfo.name + " 대한민국")}`);
+          const nomData = await nomRes.json();
+          if (nomData && nomData.length > 0) {
+            lat = nomData[0].lat;
+            lon = nomData[0].lon;
           }
+        }
 
-          if (targetArea) {
-            displayName = targetArea;
-            googleQuery = `${targetArea} 날씨`;
+        // 2순위: 학교명으로 못 찾았다면, 주소에서 시/군/구 만 추출해서 재검색
+        if ((!lat || !lon) && targetAddress) {
+          const match = targetAddress.match(/([가-힣]+(?:시|군|구))\b/);
+          if (match) {
+            const sigungu = match[0];
+            const cleanName = sigungu.replace(/[시군구]$/, '');
 
-            // API 검색을 위해 '시/군/구' 접미사를 떼어냅니다. (예: 속초시 -> 속초)
-            const cleanName = targetArea.replace(/[시군구]$/, '');
-
-            // 1순위: Open-Meteo Geocoding (한국 데이터 우선 필터링)
             const meteoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanName)}&language=ko&count=5`);
             const meteoData = await meteoRes.json();
             
@@ -84,32 +83,27 @@ export default function WeatherWidget({ schoolInfo }) {
               }
             }
 
-            // 2순위: 실패 시 OpenStreetMap으로 "ㅇㅇ시 대한민국"으로 재검색
             if (!lat || !lon) {
-              const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(targetArea + " 대한민국")}`);
-              const nomData = await nomRes.json();
-              if (nomData && nomData.length > 0) {
-                lat = nomData[0].lat;
-                lon = nomData[0].lon;
+              const nomRes2 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(sigungu + " 대한민국")}`);
+              const nomData2 = await nomRes2.json();
+              if (nomData2 && nomData2.length > 0) {
+                lat = nomData2[0].lat;
+                lon = nomData2[0].lon;
               }
             }
           }
-        } catch (e) { console.error("Geocoding fetch failed", e); }
-      }
+        }
+      } catch (e) { console.error("Geocoding failed", e); }
 
-      // 3. 주소가 없거나 모든 검색에 실패했을 경우, 최후의 수단으로 교육청 코드 기준 지역(Fallback)을 사용
+      // 3. 모든 주소/학교명 검색이 실패했을 경우, 최후의 수단으로 좌표만 기본값(교육청 위치) 사용. 
+      // ⚠️ 과거 버그 해결: 여기서 화면 표시 이름(displayName)은 절대 덮어쓰지 않습니다!
       if (!lat || !lon) {
         const fallbackRegion = REGION_COORDS[schoolInfo?.officeCode] || REGION_COORDS['B10'];
         lat = fallbackRegion.lat;
         lon = fallbackRegion.lon;
-        displayName = fallbackRegion.name;
-        googleQuery = `${fallbackRegion.name} 날씨`;
       }
 
-      setLocationName(displayName);
-      setSearchQueryForGoogle(googleQuery);
-
-      // 4. 최종 위도/경도로 날씨 API 및 주간 예보 데이터 호출
+      // 4. 확보된 좌표로 최종 날씨 호출
       try {
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto`);
         const data = await res.json();
