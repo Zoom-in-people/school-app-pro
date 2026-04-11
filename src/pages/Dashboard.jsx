@@ -90,7 +90,7 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           onLayoutChange={handleLayoutChange} 
           draggableHandle=".drag-handle" 
           margin={[16, 16]}
-          measureBeforeMount={true} // 🔥 위젯 재배치 애니메이션 방지
+          measureBeforeMount={true} 
         >
           
           {currentWidgets.weather && (
@@ -165,7 +165,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
             </div>
           )}
 
-          {/* 🔥 2번 요청 해결: 진도 현황 요약의 내부 코드 복구 */}
           {currentWidgets.lessons && (
             <div key="lessons" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden">
               <WidgetHeader title="진도 현황 요약" icon={<BookOpen size={16}/>} colorClass="text-pink-500" linkAction={() => setActiveView('lessons')} linkText="전체보기" />
@@ -181,8 +180,9 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
                         const nextPending = firstPendingIdx >= 0 ? grp.progressItems[firstPendingIdx] : '모두 완료';
                         return (
                           <div key={cls.id} className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded truncate w-16">{cls.name}</span>
-                            <div className="flex items-center gap-2 flex-1 justify-end truncate">
+                            {/* 🔥 선생님 요청: 칸 너비를 w-16에서 w-40으로 2.5배 확대 적용 */}
+                            <span className="font-bold text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded truncate w-40 text-center shrink-0">{cls.name}</span>
+                            <div className="flex items-center gap-2 flex-1 justify-end truncate ml-2">
                               <span className="text-gray-500 dark:text-gray-400 shrink-0">완료: <span className="font-bold text-pink-600 dark:text-pink-400">{lastCompleted}</span></span>
                               <span className="text-gray-300 dark:text-gray-600 shrink-0">|</span>
                               <span className="text-gray-500 dark:text-gray-400 shrink-0">예정: <span className="font-bold text-indigo-600 dark:text-indigo-400">{nextPending}</span></span>
