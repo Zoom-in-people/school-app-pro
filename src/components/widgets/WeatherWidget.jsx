@@ -115,27 +115,35 @@ export default function WeatherWidget({ schoolInfo }) {
   };
 
   return (
-    <div className="h-full flex flex-col p-4 bg-gradient-to-br from-sky-400 to-blue-600 text-white relative group overflow-hidden">
-      {loading ? <div className="flex-1 flex justify-center items-center"><Loader className="animate-spin text-white/50" size={32}/></div> : weather ? (
+    <div className="h-full flex flex-col p-3 bg-gradient-to-br from-sky-400 to-blue-600 text-white relative group overflow-hidden">
+      {loading ? (
+        <div className="flex-1 flex justify-center items-center"><Loader className="animate-spin text-white/50" size={32}/></div>
+      ) : weather ? (
         <div className="flex flex-col h-full justify-between">
-          <div className="flex flex-col items-center gap-1 mb-3 shrink-0">
-            {getWeatherIcon(weather.weathercode, 52)}
-            <div className="text-center mt-1">
-              <div className="text-3xl sm:text-4xl font-black drop-shadow-sm">{Math.round(weather.temperature)}°C</div>
-              <div className="text-sm sm:text-base font-medium opacity-90 truncate max-w-[200px] mt-1">{locationName} · {getDesc(weather.weathercode)}</div>
+          
+          {/* 🔥 실시간 날씨 공간 최적화: 세로 배치 -> 가로 배치로 변경, 크기 축소 */}
+          <div className="flex flex-1 items-center justify-center gap-3 sm:gap-4 shrink-0">
+            {getWeatherIcon(weather.weathercode, 40, "shrink-0")}
+            <div className="flex flex-col justify-center text-left">
+              <div className="text-2xl sm:text-3xl font-black drop-shadow-sm leading-none tracking-tighter">
+                {Math.round(weather.temperature)}°C
+              </div>
+              <div className="text-[11px] sm:text-xs font-bold opacity-90 truncate max-w-[120px] sm:max-w-[160px] mt-1">
+                {locationName} · {getDesc(weather.weathercode)}
+              </div>
             </div>
           </div>
           
-          {/* 🔥 2번 요청 반영: 7일 주간 예보 카드 크기 및 글씨 대폭 확대 (꽉 차게 분배) */}
+          {/* 🔥 주간 예보 UI 개선: 좁은 영역에서도 안 깨지게 상단 구분선 추가 및 여백 최소화 */}
           {dailyForecast && dailyForecast.time && (
-            <div className="w-full flex justify-between items-center mt-auto pb-1 sm:pb-2">
+            <div className="w-full flex justify-between items-center shrink-0 border-t border-white/20 pt-2 mt-1">
               {dailyForecast.time.slice(0, 7).map((date, i) => (
-                <div key={date} className="flex flex-col items-center bg-black/15 rounded-xl py-2 px-1 sm:px-2 mx-0.5 hover:bg-black/30 transition cursor-default flex-1 min-w-0">
-                  <span className={`text-[10px] sm:text-xs font-extrabold mb-1 sm:mb-1.5 ${i === 0 ? 'text-yellow-300' : 'text-white/95'}`}>
+                <div key={date} className="flex flex-col items-center bg-black/10 rounded-lg py-1 px-0.5 sm:px-1 hover:bg-black/20 transition cursor-default flex-1 mx-[1px] min-w-0">
+                  <span className={`text-[8px] sm:text-[9px] font-extrabold mb-0.5 sm:mb-1 ${i === 0 ? 'text-yellow-300' : 'text-white/95'}`}>
                     {getDayName(date, i)}
                   </span>
-                  {getWeatherIcon(dailyForecast.weathercode[i], 22, "mb-1 sm:mb-1.5")}
-                  <div className="text-[9px] sm:text-[11px] font-bold flex flex-col xl:flex-row gap-0.5 xl:gap-1.5 text-center">
+                  {getWeatherIcon(dailyForecast.weathercode[i], 16, "mb-0.5 sm:mb-1")}
+                  <div className="text-[7px] sm:text-[8px] font-bold flex flex-col items-center leading-tight">
                     <span className="text-red-200" title="최고 기온">{Math.round(dailyForecast.temperature_2m_max[i])}°</span>
                     <span className="text-blue-200" title="최저 기온">{Math.round(dailyForecast.temperature_2m_min[i])}°</span>
                   </div>
@@ -144,11 +152,14 @@ export default function WeatherWidget({ schoolInfo }) {
             </div>
           )}
 
-          <a href={`https://www.google.com/search?q=${searchQueryForGoogle}`} target="_blank" rel="noreferrer" className="absolute top-3 right-3 text-[10px] bg-black/20 hover:bg-black/40 px-2 py-1 rounded-md transition flex items-center gap-1 opacity-0 group-hover:opacity-100 font-bold shadow-sm">
+          {/* 구글 검색 버튼 위치 및 크기 최적화 */}
+          <a href={`https://www.google.com/search?q=${searchQueryForGoogle}`} target="_blank" rel="noreferrer" className="absolute top-2 right-2 text-[9px] sm:text-[10px] bg-black/20 hover:bg-black/40 px-1.5 py-1 rounded transition flex items-center gap-1 opacity-0 group-hover:opacity-100 font-bold shadow-sm z-10">
             구글 날씨 <ExternalLink size={10}/>
           </a>
         </div>
-      ) : <div className="flex-1 flex justify-center items-center"><span className="text-sm font-bold opacity-80">날씨 정보 오류</span></div>}
+      ) : (
+        <div className="flex-1 flex justify-center items-center"><span className="text-sm font-bold opacity-80">날씨 정보 오류</span></div>
+      )}
     </div>
   );
 }
