@@ -39,30 +39,24 @@ export default function WeatherWidget({ schoolInfo }) {
 
       if (schoolInfo?.address) {
         try {
-          // 🔥 오픈스트리트맵 대신 더 빠르고 정확한 Open-Meteo 지오코딩 사용
           const addressParts = schoolInfo.address.split(' ');
-          const searchKeyword = addressParts.slice(0, 2).join(' '); // "서울특별시 강남구"
-          name = addressParts[1] || addressParts[0]; 
+          // "강원특별자치도 속초시 청봉로" -> "속초시" 추출 (통상 2번째 단어가 시/군/구)
+          const searchKeyword = addressParts.length > 1 ? addressParts[1] : addressParts[0]; 
+          name = searchKeyword;
           googleQuery = `${schoolInfo.address} 날씨`;
 
+          // 핵심 지역명(속초시 등)으로 정확하게 좌표 검색
           const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(searchKeyword)}&language=ko&count=1`);
           const data = await res.json();
           
           if (data.results && data.results.length > 0) {
             lat = data.results[0].latitude;
             lon = data.results[0].longitude;
-          } else {
-            // 실패 시 시/군/구 이름만으로 재검색
-            const fallbackRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&language=ko&count=1`);
-            const fallbackData = await fallbackRes.json();
-            if (fallbackData.results && fallbackData.results.length > 0) {
-              lat = fallbackData.results[0].latitude;
-              lon = fallbackData.results[0].longitude;
-            }
           }
         } catch (e) { console.error("Geocoding failed", e); }
       }
 
+      // 주소 검색 실패 시 교육청 기준 지역으로 Fallback
       if (!lat || !lon) {
         lat = fallbackRegion.lat;
         lon = fallbackRegion.lon;

@@ -28,6 +28,24 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
       { i: 'lunch', x: 0, y: 6, w: 4, h: 4, minW: 3, minH: 3 },
       { i: 'schoolSchedule', x: 4, y: 6, w: 4, h: 4, minW: 3, minH: 3 },
       { i: 'lessons', x: 8, y: 6, w: 4, h: 4, minW: 3, minH: 3 }
+    ],
+    md: [
+      { i: 'attendance', x: 0, y: 0, w: 10, h: 2, minW: 5, minH: 2 },
+      { i: 'tasks', x: 0, y: 2, w: 5, h: 4, minW: 3, minH: 3 },
+      { i: 'timetable', x: 5, y: 2, w: 5, h: 4, minW: 3, minH: 3 },
+      { i: 'classTimetable', x: 0, y: 6, w: 5, h: 4, minW: 3, minH: 3 },
+      { i: 'lunch', x: 5, y: 6, w: 5, h: 4, minW: 3, minH: 3 },
+      { i: 'schoolSchedule', x: 0, y: 10, w: 5, h: 4, minW: 3, minH: 3 },
+      { i: 'lessons', x: 5, y: 10, w: 5, h: 4, minW: 3, minH: 3 }
+    ],
+    sm: [
+      { i: 'attendance', x: 0, y: 0, w: 6, h: 2 },
+      { i: 'tasks', x: 0, y: 2, w: 6, h: 4 },
+      { i: 'timetable', x: 0, y: 6, w: 6, h: 4 },
+      { i: 'classTimetable', x: 0, y: 10, w: 6, h: 4 },
+      { i: 'lunch', x: 0, y: 14, w: 6, h: 4 },
+      { i: 'schoolSchedule', x: 0, y: 18, w: 6, h: 4 }, 
+      { i: 'lessons', x: 0, y: 22, w: 6, h: 4 }
     ]
   };
 
@@ -63,7 +81,17 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 pb-20">
-        <ResponsiveGridLayout className="layout" layouts={layouts} breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }} cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }} rowHeight={60} onLayoutChange={handleLayoutChange} draggableHandle=".drag-handle" margin={[16, 16]}>
+        <ResponsiveGridLayout 
+          className="layout" 
+          layouts={layouts} 
+          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }} 
+          cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }} 
+          rowHeight={60} 
+          onLayoutChange={handleLayoutChange} 
+          draggableHandle=".drag-handle" 
+          margin={[16, 16]}
+          measureBeforeMount={true} // 🔥 위젯 재배치 애니메이션 방지
+        >
           
           {currentWidgets.weather && (
             <div key="weather" className="rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden relative">
@@ -130,7 +158,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
             </div>
           )}
 
-          {/* 🔥 학사일정 + 월별행사 통합 위젯 사용 */}
           {currentWidgets.schoolSchedule && (
             <div key="schoolSchedule" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden relative">
               <div className="drag-handle cursor-move bg-teal-50 px-4 py-3 flex justify-between items-center border-b border-teal-100 group"><h3 className="font-bold flex items-center gap-2 text-teal-700 text-sm"><Calendar size={16}/> 이번 달 학사일정/행사</h3><GripHorizontal size={16} className="text-teal-400/50 group-hover:text-teal-600" /></div>
@@ -138,11 +165,39 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
             </div>
           )}
 
+          {/* 🔥 2번 요청 해결: 진도 현황 요약의 내부 코드 복구 */}
           {currentWidgets.lessons && (
             <div key="lessons" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden">
               <WidgetHeader title="진도 현황 요약" icon={<BookOpen size={16}/>} colorClass="text-pink-500" linkAction={() => setActiveView('lessons')} linkText="전체보기" />
               <div className="flex-1 overflow-y-auto p-3 grid grid-cols-1 gap-2 custom-scrollbar">
-                {lessonGroups?.length > 0 ? lessonGroups.map(grp => (<div key={grp.id} className="p-3 bg-white rounded-xl border border-pink-100 shadow-sm flex flex-col gap-2"><span className="font-bold text-gray-800 truncate border-b border-gray-100 pb-2">{grp.name}</span></div>)) : <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><BookOpen size={32} className="opacity-20"/><p className="text-sm font-bold">등록된 진도 그룹 없음.</p></div>}
+                {lessonGroups?.length > 0 ? lessonGroups.map(grp => (
+                  <div key={grp.id} className="p-3 bg-white dark:bg-gray-700/30 rounded-xl border border-pink-100 dark:border-pink-900/30 shadow-sm flex flex-col gap-2 hover:border-pink-300 transition">
+                    <span className="font-bold text-gray-800 dark:text-gray-200 truncate border-b border-gray-100 dark:border-gray-600 pb-2">{grp.name}</span>
+                    <div className="space-y-2 mt-1">
+                      {grp.classes?.map(cls => {
+                        const completedIdx = [...grp.progressItems].reverse().findIndex(item => grp.status[`${cls.id}_${item}`]);
+                        const lastCompleted = completedIdx >= 0 ? grp.progressItems[grp.progressItems.length - 1 - completedIdx] : '없음';
+                        const firstPendingIdx = grp.progressItems.findIndex(item => !grp.status[`${cls.id}_${item}`]);
+                        const nextPending = firstPendingIdx >= 0 ? grp.progressItems[firstPendingIdx] : '모두 완료';
+                        return (
+                          <div key={cls.id} className="flex justify-between items-center text-xs">
+                            <span className="font-bold text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded truncate w-16">{cls.name}</span>
+                            <div className="flex items-center gap-2 flex-1 justify-end truncate">
+                              <span className="text-gray-500 dark:text-gray-400 shrink-0">완료: <span className="font-bold text-pink-600 dark:text-pink-400">{lastCompleted}</span></span>
+                              <span className="text-gray-300 dark:text-gray-600 shrink-0">|</span>
+                              <span className="text-gray-500 dark:text-gray-400 shrink-0">예정: <span className="font-bold text-indigo-600 dark:text-indigo-400">{nextPending}</span></span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )) : (
+                  <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2">
+                    <BookOpen size={32} className="opacity-20"/>
+                    <p className="text-sm font-bold">등록된 진도 그룹이 없습니다.</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

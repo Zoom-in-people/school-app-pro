@@ -7,7 +7,6 @@ import UpdateHistory from './UpdateHistory';
 import HowToUse from './HowToUse';
 import RealtimeSetup from './RealtimeSetup';
 
-// 🔥 모달창 관련 속성(isOpen, onClose)을 싹 걷어냈습니다.
 export default function UnifiedSettings({ store, handbook, onUpdateHandbook, onDeleteHandbook, user, logout }) {
   const [activeTab, setActiveTab] = useState('handbook');
 
@@ -76,7 +75,6 @@ export default function UnifiedSettings({ store, handbook, onUpdateHandbook, onD
     { id: 'apps', label: '다른 교사용 사이트', icon: Grid },
   ];
 
-  // 🔥 팝업 모달창이 아닌, 전체화면을 채우는 페이지 컴포넌트로 변경
   return (
     <div className="h-full flex flex-col bg-white dark:bg-gray-900 overflow-hidden animate-in fade-in duration-300">
       
@@ -100,14 +98,15 @@ export default function UnifiedSettings({ store, handbook, onUpdateHandbook, onD
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 custom-scrollbar bg-gray-50/50 dark:bg-gray-900/50">
          
          {activeTab === 'handbook' && (
-            <div className="max-w-2xl mx-auto space-y-8 pb-10 animate-in slide-in-from-bottom-4">
+            // 🔥 3번 요청 해결: max-w 제한을 풀고 화면 크기에 유연하게 꽉 차도록 w-full로 변경
+            <div className="w-full space-y-8 pb-10 animate-in slide-in-from-bottom-4">
               <form onSubmit={handleHandbookSave} className="space-y-6">
                  <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 space-y-6">
                    <h3 className="font-bold text-lg dark:text-white border-b pb-3 dark:border-gray-700">🖥️ 앱 환경 설정</h3>
                    
                    <div className="space-y-3">
                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">테마 설정</label>
-                     <div className="grid grid-cols-3 gap-3">
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                        <button type="button" onClick={() => store.setTheme('light')} className={`py-3 rounded-xl flex flex-col items-center gap-1 transition border-2 ${store.theme === 'light' ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30' : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}><Sun size={20} className={store.theme === 'light' ? 'text-indigo-600' : ''}/> <span className="text-sm font-bold">라이트</span></button>
                        <button type="button" onClick={() => store.setTheme('dark')} className={`py-3 rounded-xl flex flex-col items-center gap-1 transition border-2 ${store.theme === 'dark' ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:text-indigo-400 dark:bg-indigo-900/30' : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}><Moon size={20} className={store.theme === 'dark' ? 'text-indigo-600 dark:text-indigo-400' : ''}/> <span className="text-sm font-bold">다크</span></button>
                        <button type="button" onClick={() => store.setTheme('system')} className={`py-3 rounded-xl flex flex-col items-center gap-1 transition border-2 ${store.theme === 'system' ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30' : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}><Monitor size={20} className={store.theme === 'system' ? 'text-indigo-600' : ''}/> <span className="text-sm font-bold">시스템</span></button>
@@ -157,7 +156,7 @@ export default function UnifiedSettings({ store, handbook, onUpdateHandbook, onD
          )}
 
          {activeTab === 'account' && (
-           <div className="max-w-2xl mx-auto space-y-8 pb-10 animate-in slide-in-from-bottom-4">
+           <div className="w-full space-y-8 pb-10 animate-in slide-in-from-bottom-4">
              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 text-center">
                {user?.photoURL ? (
                  <img src={user.photoURL} alt="Profile" className="w-20 h-20 rounded-full border-4 border-indigo-100 dark:border-indigo-900/50 mx-auto mb-4 shadow-sm" />
@@ -204,11 +203,11 @@ function QnASection() {
     { q: "동네 날씨가 이상하게 나와요.", a: "학교 설정 시 '주소'가 포함된 학교를 명확히 선택하시면 해당 주소를 기반으로 정확한 동네 날씨를 찾아옵니다. (주소가 없으면 교육청 소재지 기준)" }
   ];
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-in slide-in-from-bottom-4">
+    <div className="w-full space-y-6 animate-in slide-in-from-bottom-4">
       <h3 className="font-bold text-2xl mb-2 dark:text-white flex items-center gap-2"><HelpCircle className="text-indigo-500"/> 무엇을 도와드릴까요?</h3>
       <p className="text-gray-500 dark:text-gray-400 mb-6">자주 묻는 질문들을 모아두었습니다. 클릭해서 답변을 확인해보세요!</p>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {faqs.map((faq, idx) => (
           <details key={idx} className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer h-fit">
             <summary className="font-bold p-5 flex justify-between items-start text-gray-800 dark:text-white outline-none">
