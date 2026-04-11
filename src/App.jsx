@@ -57,9 +57,8 @@ export default function App() {
 
   const handleCreateHandbook = async (data) => { try { const newId = await addHandbook(data); if (newId) { store.selectHandbook({ id: newId, ...data }); store.setIsAddHandbookOpen(false); } } catch (e) { showToast("실패", 'error'); } };
   const handleUpdateHandbook = async (id, data) => { await updateHandbook(id, data); store.setCurrentHandbook({ ...store.currentHandbook, ...data }); };
-  const handleDeleteHandbook = async (id) => { await removeHandbook(id); store.setCurrentHandbook(handbooks.filter(h => h.id !== id)[0] || null); store.setActiveView('dashboard'); store.setIsUnifiedSettingsOpen(false); };
+  const handleDeleteHandbook = async (id) => { await removeHandbook(id); store.setCurrentHandbook(handbooks.filter(h => h.id !== id)[0] || null); store.setActiveView('dashboard'); };
 
-  // 🔥 오류의 원인이었던 이 함수들이 자식에게 정확히 전달되도록 보장
   const handleUpdateAttendance = (id, data) => { if (id && !data) db.attendanceLog.remove(id); else if (id && data) db.attendanceLog.update(id, data); else db.attendanceLog.add(data); };
   const handleUpdateEvent = (id, data) => { if (id && !data) db.events.remove(id); else if (id && data) db.events.update(id, data); else db.events.add(data); };
 
@@ -91,9 +90,12 @@ export default function App() {
           <button onClick={() => store.setIsSidebarOpen(true)} className="p-2"><Menu size={24}/></button>
         </header>
 
-        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
-          <div className="max-w-7xl mx-auto h-full">
-            {store.activeView === 'ai_record' ? <AiRecord />
+        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto print:p-0 print:overflow-visible print:h-auto">
+          <div className="max-w-7xl mx-auto h-full print:max-w-full">
+            
+            {/* 🔥 통합 설정을 다시 '페이지'로 렌더링되게 복구 */}
+            {store.activeView === 'unified_settings' ? <UnifiedSettings store={store} handbook={store.currentHandbook} onUpdateHandbook={handleUpdateHandbook} onDeleteHandbook={handleDeleteHandbook} user={user} logout={logout} />
+            : store.activeView === 'ai_record' ? <AiRecord />
             : store.activeView === 'memos' ? <MemoPage />
             : !store.currentHandbook ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6"><button onClick={() => store.setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
@@ -116,18 +118,6 @@ export default function App() {
         </div>
       </main>
 
-      {/* 🔥 user 객체와 logout 함수를 UnifiedSettings에 전달 */}
-      <UnifiedSettings 
-        isOpen={store.isUnifiedSettingsOpen} 
-        onClose={() => store.setIsUnifiedSettingsOpen(false)} 
-        store={store} 
-        handbook={store.currentHandbook}
-        onUpdateHandbook={handleUpdateHandbook}
-        onDeleteHandbook={handleDeleteHandbook}
-        user={user}
-        logout={logout}
-      />
-      
       <SetupWizardModal isOpen={store.isSetupWizardOpen} onClose={() => { store.setIsSetupWizardOpen(false); store.setHideApiPrompt(true); }} apiKey={store.apiKey} setApiKey={store.setApiKey} />
       <AddHandbookModal isOpen={store.isAddHandbookOpen} onClose={() => store.setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
     </div>

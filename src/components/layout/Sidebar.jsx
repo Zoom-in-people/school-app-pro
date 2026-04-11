@@ -60,8 +60,9 @@ export default function Sidebar({ user, logout, handbooks }) {
         ))}
       </nav>
 
+      {/* 🔥 통합 설정으로 이동하는 '페이지 라우팅' 버튼으로 복구 */}
       <div className="p-3 border-t shrink-0 space-y-2">
-        <button onClick={() => store.setActiveView('unified_settings')} title={!isSidebarOpen ? '통합 설정' : ''} className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold transition text-sm ${store.activeView === 'unified_settings' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}><Settings size={18}/>{isSidebarOpen && <span>통합 설정</span>}</button>
+        <button onClick={() => store.setActiveView('unified_settings')} title={!isSidebarOpen ? '통합 설정' : ''} className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold transition text-sm ${store.activeView === 'unified_settings' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'} ${isSidebarOpen ? 'px-4' : 'px-0'}`}><Settings size={18} className="shrink-0"/>{isSidebarOpen && <span>통합 설정</span>}</button>
       </div>
     </aside>
   );

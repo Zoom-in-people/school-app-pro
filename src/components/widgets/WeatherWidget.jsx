@@ -37,24 +37,32 @@ export default function WeatherWidget({ schoolInfo }) {
 
       const fallbackRegion = REGION_COORDS[schoolInfo?.officeCode] || REGION_COORDS[OFFICE_CODES.SEOUL];
 
-      // 🔥 1. 설정된 주소(address)가 있다면 그 주소를 기반으로 위도경도 추출 시도
       if (schoolInfo?.address) {
         try {
-          // 정확도를 높이기 위해 주소의 핵심 구역(시/구/동)까지만 잘라서 검색
-          const addressParts = schoolInfo.address.split(' ').slice(0, 3).join(' ');
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressParts)}`);
+          // 🔥 오픈스트리트맵 대신 더 빠르고 정확한 Open-Meteo 지오코딩 사용
+          const addressParts = schoolInfo.address.split(' ');
+          const searchKeyword = addressParts.slice(0, 2).join(' '); // "서울특별시 강남구"
+          name = addressParts[1] || addressParts[0]; 
+          googleQuery = `${schoolInfo.address} 날씨`;
+
+          const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(searchKeyword)}&language=ko&count=1`);
           const data = await res.json();
           
-          if (data && data.length > 0) {
-            lat = data[0].lat;
-            lon = data[0].lon;
-            name = addressParts.split(' ').pop(); // 마지막 '동'이나 '구' 이름 추출
-            googleQuery = `${schoolInfo.address} 날씨`; // 구글 검색은 원본 풀 주소 활용
+          if (data.results && data.results.length > 0) {
+            lat = data.results[0].latitude;
+            lon = data.results[0].longitude;
+          } else {
+            // 실패 시 시/군/구 이름만으로 재검색
+            const fallbackRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&language=ko&count=1`);
+            const fallbackData = await fallbackRes.json();
+            if (fallbackData.results && fallbackData.results.length > 0) {
+              lat = fallbackData.results[0].latitude;
+              lon = fallbackData.results[0].longitude;
+            }
           }
         } catch (e) { console.error("Geocoding failed", e); }
       }
 
-      // 2. 주소 검색이 실패했거나 주소가 아예 없다면 교육청 지역(Fallback) 사용
       if (!lat || !lon) {
         lat = fallbackRegion.lat;
         lon = fallbackRegion.lon;
@@ -65,7 +73,6 @@ export default function WeatherWidget({ schoolInfo }) {
       setLocationName(name);
       setSearchQueryForGoogle(googleQuery);
 
-      // 3. 획득한 위/경도로 실제 날씨 정보 가져오기
       try {
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
         const data = await res.json();
