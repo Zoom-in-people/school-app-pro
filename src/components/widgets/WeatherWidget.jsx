@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CloudRain, Sun, Cloud, Snowflake, Loader, ExternalLink } from 'lucide-react';
 
-// 최후의 안전장치 (좌표용으로만 사용됨)
 const REGION_COORDS = {
   'B10': { name: "서울", lat: 37.5665, lon: 126.9780 },
   'C10': { name: "부산", lat: 35.1796, lon: 129.0756 },
@@ -33,44 +32,23 @@ export default function WeatherWidget({ schoolInfo }) {
     const fetchWeather = async () => {
       setLoading(true);
       let lat, lon;
-      
-      // 🔥 선생님 요청 반영: 위젯에 표시되는 이름과 구글 검색어는 무조건 '학교명'으로 고정!
-      const displayName = schoolInfo?.name || "우리 동네";
-      const googleQuery = `${schoolInfo?.name || '우리 동네'} 날씨`;
+      let displayName = "우리 동네";
+      let googleQuery = "현재 날씨";
 
-      setLocationName(displayName);
-      setSearchQueryForGoogle(googleQuery);
-
-      // 1. NEIS API에서 학교 상세 주소 획득 시도 (주소가 DB에 없는 경우 대비)
-      let targetAddress = schoolInfo?.address;
-      if (!targetAddress && schoolInfo?.officeCode && schoolInfo?.code) {
+      if (schoolInfo?.address) {
         try {
-          const neisRes = await fetch(`https://open.neis.go.kr/hub/schoolInfo?Type=json&ATPT_OFCDC_SC_CODE=${schoolInfo.officeCode}&SD_SCHUL_CODE=${schoolInfo.code}`);
-          const neisData = await neisRes.json();
-          if (neisData.schoolInfo) {
-            targetAddress = neisData.schoolInfo[1].row[0].ORG_RDNMA;
+          let targetArea = "";
+          if (schoolInfo.address.includes('세종')) {
+            targetArea = '세종특별자치시';
+          } else {
+            const match = schoolInfo.address.match(/\S+(시|군)\b/) || schoolInfo.address.match(/\S+구\b/);
+            if (match) targetArea = match[0];
           }
-        } catch (e) { console.error("NEIS Fetch Failed", e); }
-      }
 
-      // 2. 위도/경도 찾기
-      try {
-        // 1순위: 학교 이름으로 핀포인트 검색 시도 (예: "ㅇㅇ초등학교 대한민국")
-        if (schoolInfo?.name) {
-          const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(schoolInfo.name + " 대한민국")}`);
-          const nomData = await nomRes.json();
-          if (nomData && nomData.length > 0) {
-            lat = nomData[0].lat;
-            lon = nomData[0].lon;
-          }
-        }
-
-        // 2순위: 학교명으로 못 찾았다면, 주소에서 시/군/구 만 추출해서 재검색
-        if ((!lat || !lon) && targetAddress) {
-          const match = targetAddress.match(/([가-힣]+(?:시|군|구))\b/);
-          if (match) {
-            const sigungu = match[0];
-            const cleanName = sigungu.replace(/[시군구]$/, '');
+          if (targetArea) {
+            displayName = targetArea;
+            googleQuery = `${targetArea} 날씨`;
+            const cleanName = targetArea.replace(/[시군구]$/, '');
 
             const meteoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanName)}&language=ko&count=5`);
             const meteoData = await meteoRes.json();
@@ -78,32 +56,32 @@ export default function WeatherWidget({ schoolInfo }) {
             if (meteoData.results && meteoData.results.length > 0) {
               const krResult = meteoData.results.find(r => r.country_code === 'KR') || meteoData.results[0];
               if (krResult) {
-                lat = krResult.latitude;
-                lon = krResult.longitude;
+                lat = krResult.latitude; lon = krResult.longitude;
               }
             }
 
             if (!lat || !lon) {
-              const nomRes2 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(sigungu + " 대한민국")}`);
-              const nomData2 = await nomRes2.json();
-              if (nomData2 && nomData2.length > 0) {
-                lat = nomData2[0].lat;
-                lon = nomData2[0].lon;
+              const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(targetArea + " 대한민국")}`);
+              const nomData = await nomRes.json();
+              if (nomData && nomData.length > 0) {
+                lat = nomData[0].lat; lon = nomData[0].lon;
               }
             }
           }
-        }
-      } catch (e) { console.error("Geocoding failed", e); }
+        } catch (e) { console.error("Geocoding fetch failed", e); }
+      }
 
-      // 3. 모든 주소/학교명 검색이 실패했을 경우, 최후의 수단으로 좌표만 기본값(교육청 위치) 사용. 
-      // ⚠️ 과거 버그 해결: 여기서 화면 표시 이름(displayName)은 절대 덮어쓰지 않습니다!
       if (!lat || !lon) {
         const fallbackRegion = REGION_COORDS[schoolInfo?.officeCode] || REGION_COORDS['B10'];
         lat = fallbackRegion.lat;
         lon = fallbackRegion.lon;
+        displayName = fallbackRegion.name;
+        googleQuery = `${fallbackRegion.name} 날씨`;
       }
 
-      // 4. 확보된 좌표로 최종 날씨 호출
+      setLocationName(displayName);
+      setSearchQueryForGoogle(googleQuery);
+
       try {
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto`);
         const data = await res.json();
@@ -140,22 +118,24 @@ export default function WeatherWidget({ schoolInfo }) {
     <div className="h-full flex flex-col p-4 bg-gradient-to-br from-sky-400 to-blue-600 text-white relative group overflow-hidden">
       {loading ? <div className="flex-1 flex justify-center items-center"><Loader className="animate-spin text-white/50" size={32}/></div> : weather ? (
         <div className="flex flex-col h-full justify-between">
-          <div className="flex flex-col items-center gap-1 mb-2 shrink-0">
-            {getWeatherIcon(weather.weathercode, 44)}
-            <div className="text-center">
-              <div className="text-2xl sm:text-3xl font-black drop-shadow-sm">{Math.round(weather.temperature)}°C</div>
-              <div className="text-xs sm:text-sm font-medium opacity-90 truncate px-2">{locationName} · {getDesc(weather.weathercode)}</div>
+          <div className="flex flex-col items-center gap-1 mb-3 shrink-0">
+            {getWeatherIcon(weather.weathercode, 52)}
+            <div className="text-center mt-1">
+              <div className="text-3xl sm:text-4xl font-black drop-shadow-sm">{Math.round(weather.temperature)}°C</div>
+              <div className="text-sm sm:text-base font-medium opacity-90 truncate max-w-[200px] mt-1">{locationName} · {getDesc(weather.weathercode)}</div>
             </div>
           </div>
+          
+          {/* 🔥 2번 요청 반영: 7일 주간 예보 카드 크기 및 글씨 대폭 확대 (꽉 차게 분배) */}
           {dailyForecast && dailyForecast.time && (
-            <div className="w-full flex justify-between items-center mt-auto pb-1 px-1">
+            <div className="w-full flex justify-between items-center mt-auto pb-1 sm:pb-2">
               {dailyForecast.time.slice(0, 7).map((date, i) => (
-                <div key={date} className="flex flex-col items-center bg-black/10 rounded-lg py-1.5 px-1 sm:px-2 hover:bg-black/20 transition cursor-default">
-                  <span className={`text-[9px] sm:text-[10px] font-extrabold mb-1 ${i === 0 ? 'text-yellow-300' : 'text-white/90'}`}>
+                <div key={date} className="flex flex-col items-center bg-black/15 rounded-xl py-2 px-1 sm:px-2 mx-0.5 hover:bg-black/30 transition cursor-default flex-1 min-w-0">
+                  <span className={`text-[10px] sm:text-xs font-extrabold mb-1 sm:mb-1.5 ${i === 0 ? 'text-yellow-300' : 'text-white/95'}`}>
                     {getDayName(date, i)}
                   </span>
-                  {getWeatherIcon(dailyForecast.weathercode[i], 18, "mb-1")}
-                  <div className="text-[8px] sm:text-[9px] font-bold flex flex-col sm:flex-row gap-0.5 sm:gap-1 text-center">
+                  {getWeatherIcon(dailyForecast.weathercode[i], 22, "mb-1 sm:mb-1.5")}
+                  <div className="text-[9px] sm:text-[11px] font-bold flex flex-col xl:flex-row gap-0.5 xl:gap-1.5 text-center">
                     <span className="text-red-200" title="최고 기온">{Math.round(dailyForecast.temperature_2m_max[i])}°</span>
                     <span className="text-blue-200" title="최저 기온">{Math.round(dailyForecast.temperature_2m_min[i])}°</span>
                   </div>
@@ -163,6 +143,7 @@ export default function WeatherWidget({ schoolInfo }) {
               ))}
             </div>
           )}
+
           <a href={`https://www.google.com/search?q=${searchQueryForGoogle}`} target="_blank" rel="noreferrer" className="absolute top-3 right-3 text-[10px] bg-black/20 hover:bg-black/40 px-2 py-1 rounded-md transition flex items-center gap-1 opacity-0 group-hover:opacity-100 font-bold shadow-sm">
             구글 날씨 <ExternalLink size={10}/>
           </a>
