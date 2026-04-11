@@ -75,9 +75,17 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
 
   return (
     <div className="h-full flex flex-col relative overflow-hidden">
-      <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 shrink-0 mb-4 z-10">
-        <div><h2 className="text-2xl font-bold dark:text-white flex items-center gap-2"><LayoutDashboard className="text-indigo-600"/> 대시보드</h2><p className="text-sm text-gray-500 mt-1">위젯을 자유롭게 배치해보세요.</p></div>
-        <button onClick={() => setIsWidgetModalOpen(true)} className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-white px-4 py-2.5 rounded-xl font-bold shadow-sm"><Settings2 size={18}/> 설정</button>
+      {/* 🔥 컴팩트하게 수정한 상단 헤더 영역 */}
+      <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 shrink-0 mb-3 z-10">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg sm:text-xl font-bold dark:text-white flex items-center gap-2">
+            <LayoutDashboard className="text-indigo-600" size={20}/> 대시보드
+          </h2>
+          <p className="text-xs text-gray-500 hidden sm:block mt-0.5">위젯을 자유롭게 배치해보세요.</p>
+        </div>
+        <button onClick={() => setIsWidgetModalOpen(true)} className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm transition">
+          <Settings2 size={16}/> 설정
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 pb-20">
@@ -180,7 +188,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
                         const nextPending = firstPendingIdx >= 0 ? grp.progressItems[firstPendingIdx] : '모두 완료';
                         return (
                           <div key={cls.id} className="flex justify-between items-center text-xs">
-                            {/* 🔥 선생님 요청: 칸 너비를 w-16에서 w-40으로 2.5배 확대 적용 */}
                             <span className="font-bold text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded truncate w-40 text-center shrink-0">{cls.name}</span>
                             <div className="flex items-center gap-2 flex-1 justify-end truncate ml-2">
                               <span className="text-gray-500 dark:text-gray-400 shrink-0">완료: <span className="font-bold text-pink-600 dark:text-pink-400">{lastCompleted}</span></span>
