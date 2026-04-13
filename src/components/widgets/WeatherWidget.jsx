@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { CloudRain, Sun, Cloud, Snowflake, Loader, ExternalLink, Search, X, Wind, Droplets, MapPin } from 'lucide-react';
+import { CloudRain, Sun, Cloud, Snowflake, Loader, ExternalLink, Search, X, Wind, Droplets, MapPin, Clock } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 
 const REGION_COORDS = {
@@ -26,8 +26,8 @@ const REGION_COORDS = {
 const getWeatherIcon = (code, size = 48, className = "") => {
   if (code <= 3) return <Sun size={size} className={`text-yellow-400 drop-shadow-md ${className}`} />;
   if (code <= 48) return <Cloud size={size} className={`text-gray-200 drop-shadow-md ${className}`} />;
-  if (code <= 67 || (code >= 80 && code <= 82)) return <CloudRain size={size} className={`text-blue-200 drop-shadow-md ${className}`} />;
-  return <Snowflake size={size} className={`text-cyan-100 drop-shadow-md ${className}`} />;
+  if (code <= 67 || (code >= 80 && code <= 82)) return <CloudRain size={size} className={`text-blue-300 drop-shadow-md ${className}`} />;
+  return <Snowflake size={size} className={`text-cyan-200 drop-shadow-md ${className}`} />;
 };
 
 const getDesc = (code) => {
@@ -35,18 +35,19 @@ const getDesc = (code) => {
   if (code <= 67 || (code >= 80 && code <= 82)) return "비"; return "눈";
 };
 
+// 미세먼지 디자인을 다크 모드(시계 위젯)에 맞게 세련되게 변경
 const getAQString = (val, type) => {
-  if (val === undefined || val === null) return { text: "-", color: "text-gray-400", bg: "bg-gray-100/10" };
+  if (val === undefined || val === null) return { text: "-", color: "text-slate-300", bg: "bg-slate-700/50" };
   if (type === 'pm10') {
-    if (val <= 30) return { text: "좋음", color: "text-blue-300", bg: "bg-blue-500/20" };
-    if (val <= 80) return { text: "보통", color: "text-green-300", bg: "bg-green-500/20" };
-    if (val <= 150) return { text: "나쁨", color: "text-yellow-300", bg: "bg-yellow-500/20" };
-    return { text: "매우나쁨", color: "text-red-300", bg: "bg-red-500/20" };
+    if (val <= 30) return { text: "좋음", color: "text-blue-300", bg: "bg-blue-900/40" };
+    if (val <= 80) return { text: "보통", color: "text-green-300", bg: "bg-green-900/40" };
+    if (val <= 150) return { text: "나쁨", color: "text-yellow-300", bg: "bg-yellow-900/40" };
+    return { text: "매우나쁨", color: "text-red-300", bg: "bg-red-900/40" };
   } else {
-    if (val <= 15) return { text: "좋음", color: "text-blue-300", bg: "bg-blue-500/20" };
-    if (val <= 35) return { text: "보통", color: "text-green-300", bg: "bg-green-500/20" };
-    if (val <= 75) return { text: "나쁨", color: "text-yellow-300", bg: "bg-yellow-500/20" };
-    return { text: "매우나쁨", color: "text-red-300", bg: "bg-red-500/20" };
+    if (val <= 15) return { text: "좋음", color: "text-blue-300", bg: "bg-blue-900/40" };
+    if (val <= 35) return { text: "보통", color: "text-green-300", bg: "bg-green-900/40" };
+    if (val <= 75) return { text: "나쁨", color: "text-yellow-300", bg: "bg-yellow-900/40" };
+    return { text: "매우나쁨", color: "text-red-300", bg: "bg-red-900/40" };
   }
 };
 
@@ -56,7 +57,7 @@ const getDayName = (dateStr, index) => {
   return ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
 };
 
-// 🔥 상세 날씨 팝업 (모달) 컴포넌트
+// 🔥 지역 검색이 가능한 상세 날씨 팝업 모달
 function DetailedWeatherModal({ isOpen, onClose, initialLocation, initialLat, initialLon }) {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -81,7 +82,6 @@ function DetailedWeatherModal({ isOpen, onClose, initialLocation, initialLat, in
       setAq(dataA.current);
       setCurrentLocation(locName);
 
-      // 시간별 날씨는 현재 시간부터 24시간만 필터링
       const currentMs = Date.now();
       let startIndex = 0;
       for (let i = 0; i < dataW.hourly.time.length; i++) {
@@ -132,27 +132,22 @@ function DetailedWeatherModal({ isOpen, onClose, initialLocation, initialLat, in
         alert("지역을 찾을 수 없습니다.");
         setLoading(false);
       }
-    } catch (e) { 
-      console.error(e); 
-      setLoading(false); 
-    }
+    } catch (e) { console.error(e); setLoading(false); }
   };
 
   if (!isOpen) return null;
 
-  // 🔥 팝업이 위젯 밖으로 벗어날 수 있도록 createPortal 사용
   return createPortal(
     <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in" onClick={onClose}>
       <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
         
         <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shrink-0">
-          <h2 className="text-xl font-bold dark:text-white flex items-center gap-2"><MapPin className="text-indigo-500"/> 지역별 상세 날씨</h2>
+          <h2 className="text-xl font-bold dark:text-white flex items-center gap-2"><MapPin className="text-indigo-500"/> 상세 날씨 정보</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition"><X className="text-gray-500"/></button>
         </div>
 
         <div className="p-4 sm:p-6 flex flex-col flex-1 overflow-hidden bg-gray-50/50 dark:bg-gray-900/30">
           
-          {/* 다른 지역 검색 바 */}
           <div className="flex gap-2 mb-6 shrink-0">
             <input 
               type="text" 
@@ -172,8 +167,7 @@ function DetailedWeatherModal({ isOpen, onClose, initialLocation, initialLat, in
           ) : weather && aq && hourly && daily ? (
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6 pb-6">
               
-              {/* 현재 날씨 요약 카드 */}
-              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-2xl p-6 shadow-md flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
+              <div className="bg-gradient-to-br from-sky-400 to-blue-600 text-white rounded-2xl p-6 shadow-md flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
                 <div className="flex items-center gap-4">
                   {getWeatherIcon(weather.weather_code, 80, "drop-shadow-lg")}
                   <div>
@@ -182,7 +176,7 @@ function DetailedWeatherModal({ isOpen, onClose, initialLocation, initialLat, in
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm font-bold bg-black/20 p-4 rounded-xl backdrop-blur-sm w-full sm:w-auto">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm font-bold bg-black/15 p-4 rounded-xl backdrop-blur-sm w-full sm:w-auto">
                   <div className="flex flex-col"><span className="text-white/70 text-xs">습도</span><span><Droplets size={14} className="inline mr-1"/>{weather.relative_humidity_2m}%</span></div>
                   <div className="flex flex-col"><span className="text-white/70 text-xs">바람</span><span><Wind size={14} className="inline mr-1"/>{weather.wind_speed_10m}km/h</span></div>
                   <div className="flex flex-col"><span className="text-white/70 text-xs">미세먼지</span><span className={getAQString(aq.pm10, 'pm10').color}>{getAQString(aq.pm10, 'pm10').text} ({Math.round(aq.pm10)}㎍/㎥)</span></div>
@@ -190,7 +184,6 @@ function DetailedWeatherModal({ isOpen, onClose, initialLocation, initialLat, in
                 </div>
               </div>
 
-              {/* 시간대별 예보 (가로 스크롤) */}
               <div>
                 <h4 className="font-bold text-gray-800 dark:text-white mb-3 text-lg">오늘의 시간별 날씨</h4>
                 <div className="flex overflow-x-auto custom-scrollbar pb-3 gap-3">
@@ -208,7 +201,6 @@ function DetailedWeatherModal({ isOpen, onClose, initialLocation, initialLat, in
                 </div>
               </div>
 
-              {/* 7일 주간 예보 (세로 리스트) */}
               <div>
                 <h4 className="font-bold text-gray-800 dark:text-white mb-3 text-lg">7일 주간 예보</h4>
                 <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-2 shadow-sm">
@@ -234,11 +226,12 @@ function DetailedWeatherModal({ isOpen, onClose, initialLocation, initialLat, in
         </div>
       </div>
     </div>,
-    document.body // <- 포탈을 이용해 body에 렌더링
+    document.body
   );
 }
 
-// 🔥 메인 시계/날씨 위젯
+
+// 🔥 대시보드의 시계 중심 메인 위젯
 export default function WeatherWidget({ schoolInfo }) {
   const { weatherCache, setWeatherCache } = useAppStore();
   const [weather, setWeather] = useState(null);
@@ -247,7 +240,6 @@ export default function WeatherWidget({ schoolInfo }) {
   const [locationName, setLocationName] = useState("");
   const [coords, setCoords] = useState({ lat: null, lon: null });
   const [now, setNow] = useState(new Date());
-  
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
@@ -335,7 +327,6 @@ export default function WeatherWidget({ schoolInfo }) {
           locationName: displayName,
           lat, lon
         });
-
       } catch (e) { console.error("API 호출 실패", e); }
       
       setLoading(false);
@@ -351,55 +342,57 @@ export default function WeatherWidget({ schoolInfo }) {
     <>
       <div 
         onClick={() => { if(!loading && weather) setIsModalOpen(true); }}
-        className="h-full flex flex-col p-2 bg-gradient-to-br from-indigo-500 to-purple-600 text-white relative group overflow-hidden cursor-pointer hover:shadow-lg transition-all select-none"
+        className="h-full flex flex-col p-3 sm:p-4 bg-gradient-to-br from-slate-800 to-gray-900 text-white relative group overflow-hidden cursor-pointer hover:shadow-xl transition-all select-none border border-slate-700/50 rounded-2xl"
         title="클릭하여 상세 날씨 보기"
       >
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition">
-          <ExternalLink size={14} className="text-white/70" />
+        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition z-10">
+          <ExternalLink size={16} className="text-slate-400 hover:text-white" />
         </div>
 
         {loading && !weather ? (
-          <div className="flex-1 flex justify-center items-center"><Loader className="animate-spin text-white/50" size={32}/></div>
+          <div className="flex-1 flex justify-center items-center"><Loader className="animate-spin text-slate-400" size={32}/></div>
         ) : weather && aq ? (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full justify-between gap-2">
             
-            {/* ⏰ 시계 중심 뷰 (공간을 시원하게 사용) */}
-            <div className="flex-1 flex flex-col items-center justify-center pt-2 pb-4 shrink-0">
-              <div className="text-5xl sm:text-6xl md:text-7xl font-black tracking-widest font-mono drop-shadow-lg leading-none">
-                {timeStr}
+            {/* ⏰ 시계 영역 (SVG를 활용해 가로세로 어떤 비율이든 꽉 차게 반응형 적용) */}
+            <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0">
+              <div className="w-full flex-1 flex justify-center items-center min-h-[40px] max-h-[120px]">
+                <svg viewBox="0 0 300 80" className="w-full h-full drop-shadow-lg" preserveAspectRatio="xMidYMid meet">
+                  <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" fill="currentColor" className="font-black font-mono tracking-widest" fontSize="68">
+                    {timeStr}
+                  </text>
+                </svg>
               </div>
-              <div className="text-xs sm:text-sm font-bold text-white/90 mt-3 flex items-center gap-2">
-                <span>{dateStr}</span>
-                <span className="opacity-50">|</span>
-                <span>{locationName}</span>
+              <div className="text-[11px] sm:text-sm font-bold text-slate-300 mt-1 sm:mt-2 text-center truncate w-full px-2">
+                {dateStr} <span className="mx-1 sm:mx-2 opacity-40">|</span> {locationName}
               </div>
             </div>
 
-            {/* 🌤️ 간결한 날씨 & 미세먼지 정보바 */}
-            <div className="bg-black/20 backdrop-blur-md rounded-xl p-2 sm:p-3 mx-1 sm:mx-2 mb-1 sm:mb-2 flex items-center justify-between shrink-0 shadow-inner border border-white/10">
+            {/* 🌤️ 하단 간략 날씨 및 미세먼지 정보 (flex-wrap으로 너비에 따라 유연하게 배치) */}
+            <div className="flex flex-wrap items-center justify-evenly gap-3 sm:gap-4 bg-white/5 border border-white/10 rounded-2xl p-2 sm:p-3 w-full shrink-0 backdrop-blur-sm">
               
-              <div className="flex items-center gap-2 flex-1 justify-center border-r border-white/20">
-                {getWeatherIcon(weather.weather_code, 26, "shrink-0")}
-                <div className="flex flex-col text-left leading-tight">
-                  <span className="text-sm font-black">{Math.round(weather.temperature_2m)}°C</span>
-                  <span className="text-[10px] font-bold opacity-80 mt-0.5">{getDesc(weather.weather_code)}</span>
+              <div className="flex items-center justify-center gap-2 sm:gap-3 min-w-[80px]">
+                {getWeatherIcon(weather.weather_code, 36, "shrink-0 drop-shadow-md")}
+                <div className="flex flex-col text-left leading-none">
+                  <span className="text-xl sm:text-2xl font-black">{Math.round(weather.temperature_2m)}°</span>
+                  <span className="text-[10px] sm:text-xs font-bold text-slate-300 mt-1">{getDesc(weather.weather_code)}</span>
                 </div>
               </div>
               
-              <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-center">
+              <div className="flex items-center gap-3 sm:gap-5 flex-wrap justify-center">
                 <div className="flex flex-col items-center">
-                  <span className="text-[9px] text-white/60 font-bold mb-0.5">습도</span>
-                  <span className="text-[11px] font-bold">{weather.relative_humidity_2m}%</span>
+                  <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold mb-0.5 sm:mb-1">습도</span>
+                  <span className="text-[11px] sm:text-sm font-bold text-slate-100">{weather.relative_humidity_2m}%</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-[9px] text-white/60 font-bold mb-0.5">미세</span>
-                  <span className={`text-[10px] font-bold px-1.5 rounded ${getAQString(aq.pm10, 'pm10').bg} ${getAQString(aq.pm10, 'pm10').color}`}>
+                  <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold mb-0.5 sm:mb-1">미세먼지</span>
+                  <span className={`text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-md ${getAQString(aq.pm10, 'pm10').bg} ${getAQString(aq.pm10, 'pm10').color}`}>
                     {getAQString(aq.pm10, 'pm10').text}
                   </span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-[9px] text-white/60 font-bold mb-0.5">초미세</span>
-                  <span className={`text-[10px] font-bold px-1.5 rounded ${getAQString(aq.pm2_5, 'pm25').bg} ${getAQString(aq.pm2_5, 'pm25').color}`}>
+                  <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold mb-0.5 sm:mb-1">초미세먼지</span>
+                  <span className={`text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-md ${getAQString(aq.pm2_5, 'pm25').bg} ${getAQString(aq.pm2_5, 'pm25').color}`}>
                     {getAQString(aq.pm2_5, 'pm25').text}
                   </span>
                 </div>

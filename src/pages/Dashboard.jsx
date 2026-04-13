@@ -18,9 +18,9 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
 
   const defaultLayouts = {
     lg: [
-      { i: 'weather', x: 0, y: 0, w: 2, h: 2, minW: 2, minH: 2 },
-      { i: 'dday', x: 2, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
-      { i: 'memo', x: 5, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
+      { i: 'weather', x: 0, y: 0, w: 4, h: 2, minW: 3, minH: 2 }, // 시계 위젯 기본 크기 확대
+      { i: 'dday', x: 4, y: 0, w: 2, h: 2, minW: 2, minH: 2 },
+      { i: 'memo', x: 6, y: 0, w: 2, h: 2, minW: 2, minH: 2 },
       { i: 'attendance', x: 8, y: 0, w: 4, h: 2, minW: 4, minH: 2 },
       { i: 'tasks', x: 0, y: 2, w: 4, h: 4, minW: 3, minH: 3 },
       { i: 'timetable', x: 4, y: 2, w: 4, h: 4, minW: 3, minH: 3 },
@@ -30,22 +30,28 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
       { i: 'lessons', x: 8, y: 6, w: 4, h: 4, minW: 3, minH: 3 }
     ],
     md: [
-      { i: 'attendance', x: 0, y: 0, w: 10, h: 2, minW: 5, minH: 2 },
-      { i: 'tasks', x: 0, y: 2, w: 5, h: 4, minW: 3, minH: 3 },
-      { i: 'timetable', x: 5, y: 2, w: 5, h: 4, minW: 3, minH: 3 },
-      { i: 'classTimetable', x: 0, y: 6, w: 5, h: 4, minW: 3, minH: 3 },
-      { i: 'lunch', x: 5, y: 6, w: 5, h: 4, minW: 3, minH: 3 },
-      { i: 'schoolSchedule', x: 0, y: 10, w: 5, h: 4, minW: 3, minH: 3 },
-      { i: 'lessons', x: 5, y: 10, w: 5, h: 4, minW: 3, minH: 3 }
+      { i: 'weather', x: 0, y: 0, w: 4, h: 2, minW: 3, minH: 2 },
+      { i: 'dday', x: 4, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
+      { i: 'memo', x: 7, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
+      { i: 'attendance', x: 0, y: 2, w: 10, h: 2, minW: 5, minH: 2 },
+      { i: 'tasks', x: 0, y: 4, w: 5, h: 4, minW: 3, minH: 3 },
+      { i: 'timetable', x: 5, y: 4, w: 5, h: 4, minW: 3, minH: 3 },
+      { i: 'classTimetable', x: 0, y: 8, w: 5, h: 4, minW: 3, minH: 3 },
+      { i: 'lunch', x: 5, y: 8, w: 5, h: 4, minW: 3, minH: 3 },
+      { i: 'schoolSchedule', x: 0, y: 12, w: 5, h: 4, minW: 3, minH: 3 },
+      { i: 'lessons', x: 5, y: 12, w: 5, h: 4, minW: 3, minH: 3 }
     ],
     sm: [
-      { i: 'attendance', x: 0, y: 0, w: 6, h: 2 },
-      { i: 'tasks', x: 0, y: 2, w: 6, h: 4 },
-      { i: 'timetable', x: 0, y: 6, w: 6, h: 4 },
-      { i: 'classTimetable', x: 0, y: 10, w: 6, h: 4 },
-      { i: 'lunch', x: 0, y: 14, w: 6, h: 4 },
-      { i: 'schoolSchedule', x: 0, y: 18, w: 6, h: 4 }, 
-      { i: 'lessons', x: 0, y: 22, w: 6, h: 4 }
+      { i: 'weather', x: 0, y: 0, w: 6, h: 2 },
+      { i: 'dday', x: 0, y: 2, w: 3, h: 2 },
+      { i: 'memo', x: 3, y: 2, w: 3, h: 2 },
+      { i: 'attendance', x: 0, y: 4, w: 6, h: 2 },
+      { i: 'tasks', x: 0, y: 6, w: 6, h: 4 },
+      { i: 'timetable', x: 0, y: 10, w: 6, h: 4 },
+      { i: 'classTimetable', x: 0, y: 14, w: 6, h: 4 },
+      { i: 'lunch', x: 0, y: 18, w: 6, h: 4 },
+      { i: 'schoolSchedule', x: 0, y: 22, w: 6, h: 4 }, 
+      { i: 'lessons', x: 0, y: 26, w: 6, h: 4 }
     ]
   };
 
@@ -110,7 +116,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           {isHomeroom && currentWidgets.attendance && (
             <div key="attendance" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
               <WidgetHeader title="우리 반 출결 현황 (오늘)" icon={<Users size={16}/>} colorClass="text-indigo-500" linkAction={() => setActiveView('monthly')} linkText="출결 관리 가기" />
-              {/* 🔥 원클릭 화면 전환 기능 적용 */}
               <div onClick={() => setActiveView('monthly')} className="flex-1 p-2 sm:p-4 flex items-center justify-between overflow-x-auto custom-scrollbar cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                 <div className="flex-1 text-center border-r border-gray-100 dark:border-gray-700"><p className="text-[10px] sm:text-xs font-bold text-gray-500">총원</p><p className="text-lg sm:text-2xl font-black text-indigo-600">{students?.length || 0}</p></div>
                 <div className="flex-1 text-center border-r border-gray-100 dark:border-gray-700"><p className="text-[10px] sm:text-xs font-bold text-gray-500">결석</p><p className={`text-lg sm:text-2xl font-black ${absentCount > 0 ? 'text-red-500' : 'text-gray-300 dark:text-gray-600'}`}>{absentCount}</p></div>
@@ -123,7 +128,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           {currentWidgets.tasks && (
             <div key="tasks" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
               <WidgetHeader title={`나의 업무 (${pendingTasks.length})`} icon={<CheckSquare size={16}/>} colorClass="text-green-500" linkAction={() => setActiveView('tasks')} linkText="전체보기" />
-              {/* 🔥 원클릭 화면 전환 기능 적용 */}
               <div onClick={() => setActiveView('tasks')} className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                 {pendingTasks.length > 0 ? pendingTasks.map(t => (<div key={t.id} className="p-3 bg-white dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600 rounded-xl text-sm font-medium flex items-center gap-2 shadow-sm"><div className="w-2 h-2 rounded-full bg-green-500 shrink-0"></div> <span className="truncate">{t.title}</span></div>)) : <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><CheckSquare size={32} className="opacity-20"/><p className="text-sm font-bold">남은 업무가 없습니다.</p></div>}
               </div>
@@ -133,7 +137,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           {currentWidgets.timetable && (
             <div key="timetable" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
               <WidgetHeader title={`나의 수업 (${todayDay}요일)`} icon={<Clock size={16}/>} colorClass="text-blue-500" linkAction={() => setActiveView('my_timetable')} linkText="시간표로" />
-              {/* 🔥 원클릭 화면 전환 기능 적용 */}
               <div onClick={() => setActiveView('my_timetable')} className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                 {todayTimetable.length > 0 ? todayTimetable.map(cls => (<div key={cls.period} className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50"><span className="font-extrabold text-blue-600 dark:text-blue-400 w-12 shrink-0 text-center">{cls.period}교시</span><div className="flex-1 font-bold text-gray-800 dark:text-gray-200 truncate">{cls.subject}</div></div>)) : <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><Clock size={32} className="opacity-20"/><p className="text-sm font-bold">오늘은 수업이 없습니다.</p></div>}
               </div>
@@ -157,7 +160,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           {currentWidgets.schoolSchedule && (
             <div key="schoolSchedule" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden relative">
               <div className="drag-handle cursor-move bg-teal-50 dark:bg-teal-900/30 px-4 py-3 flex justify-between items-center border-b border-teal-100 dark:border-teal-800/50 group"><h3 className="font-bold flex items-center gap-2 text-teal-700 dark:text-teal-400 text-sm"><Calendar size={16}/> 이번 달 학사일정/행사</h3><GripHorizontal size={16} className="text-teal-400/50 group-hover:text-teal-600" /></div>
-              {/* 🔥 원클릭 화면 전환 기능 적용 */}
               <div onClick={() => setActiveView('monthly')} className="flex-1 h-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition"><MonthlyWidget schoolInfo={schoolInfo} customEvents={events} /></div>
             </div>
           )}
@@ -165,7 +167,6 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           {currentWidgets.lessons && (
             <div key="lessons" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
               <WidgetHeader title="진도 현황 요약" icon={<BookOpen size={16}/>} colorClass="text-pink-500" linkAction={() => setActiveView('lessons')} linkText="전체보기" />
-              {/* 🔥 원클릭 화면 전환 기능 적용 */}
               <div onClick={() => setActiveView('lessons')} className="flex-1 overflow-y-auto p-3 grid grid-cols-1 gap-2 custom-scrollbar cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                 {lessonGroups?.length > 0 ? lessonGroups.map(grp => (
                   <div key={grp.id} className="p-3 bg-white dark:bg-gray-700/30 rounded-xl border border-pink-100 dark:border-pink-900/30 shadow-sm flex flex-col gap-2">
@@ -209,7 +210,7 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
             <button onClick={() => { localStorage.removeItem('dashboardLayouts'); window.location.reload(); }} className="w-full bg-red-50 text-red-600 font-bold py-3 rounded-xl mb-4">크기 및 배치 초기화하기</button>
             <div className="space-y-3 mb-6 overflow-y-auto custom-scrollbar flex-1 pr-1 border-t border-gray-100 dark:border-gray-700 pt-4">
               {[
-                { key: 'weather', icon: CloudSun, color: 'text-sky-500', label: '실시간 날씨 및 대기질' },
+                { key: 'weather', icon: CloudSun, color: 'text-sky-500', label: '시계 및 날씨' },
                 { key: 'dday', icon: Target, color: 'text-red-500', label: 'D-Day 디데이' },
                 { key: 'memo', icon: StickyNote, color: 'text-yellow-600', label: '포스트잇 메모 모음' },
                 { key: 'attendance', icon: Users, color: 'text-indigo-500', label: '우리 반 출결' },
