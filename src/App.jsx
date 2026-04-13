@@ -91,10 +91,19 @@ export default function App() {
         </header>
 
         <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto print:p-0 print:overflow-visible print:h-auto">
-          {/* 🔥 1번 요청: 최대 너비 제한(max-w-7xl)을 삭제하고 전체 화면(w-full)으로 설정 */}
           <div className="w-full h-full print:max-w-full">
             
-            {store.activeView === 'ai_record' ? <AiRecord />
+            {/* 🔥 통합 설정창을 화면 전환 라우팅 로직 안으로 정확하게 배치했습니다! */}
+            {store.activeView === 'unified_settings' ? (
+              <UnifiedSettings 
+                store={store} 
+                handbook={store.currentHandbook} 
+                onUpdateHandbook={handleUpdateHandbook} 
+                onDeleteHandbook={handleDeleteHandbook} 
+                user={user} 
+                logout={logout} 
+              />
+            ) : store.activeView === 'ai_record' ? <AiRecord />
             : store.activeView === 'memos' ? <MemoPage />
             : !store.currentHandbook ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6"><button onClick={() => store.setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
@@ -117,16 +126,7 @@ export default function App() {
         </div>
       </main>
 
-      <UnifiedSettings 
-        isOpen={store.isUnifiedSettingsOpen} 
-        onClose={() => store.setIsUnifiedSettingsOpen(false)} 
-        store={store} 
-        handbook={store.currentHandbook}
-        onUpdateHandbook={handleUpdateHandbook}
-        onDeleteHandbook={handleDeleteHandbook}
-        user={user}
-        logout={logout}
-      />
+      {/* 🔥 문제의 원인: 여기에 영원히 떠 있던 <UnifiedSettings /> 팝업 코드를 완전히 삭제했습니다! */}
       
       <SetupWizardModal isOpen={store.isSetupWizardOpen} onClose={() => { store.setIsSetupWizardOpen(false); store.setHideApiPrompt(true); }} apiKey={store.apiKey} setApiKey={store.setApiKey} />
       <AddHandbookModal isOpen={store.isAddHandbookOpen} onClose={() => store.setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
