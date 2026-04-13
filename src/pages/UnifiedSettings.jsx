@@ -137,12 +137,6 @@ export default function UnifiedSettings({ store, handbook, onUpdateHandbook, onD
                        {searchResults.length > 0 && (<div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 absolute z-50 w-full shadow-xl custom-scrollbar">{searchResults.map((s, idx) => (<div key={idx} onClick={() => handleSelectSchool(s)} className="p-3 hover:bg-indigo-50 dark:hover:bg-gray-600 cursor-pointer text-sm border-b dark:border-gray-600 transition"><p className="font-bold dark:text-white">{s.name}</p><p className="text-xs text-gray-500 dark:text-gray-400">{s.address}</p></div>))}</div>)}
                        {formData.schoolInfo.code && <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 font-bold">✅ 선택됨: {formData.schoolInfo.name} ({formData.schoolInfo.address})</p>}
                      </div>
-                     {formData.isHomeroom && (
-                       <div className="grid grid-cols-2 gap-4">
-                         <div><label className="block text-sm font-bold mb-1 dark:text-white">학년</label><select value={String(formData.schoolInfo.grade)} onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, grade: e.target.value}})} className="w-full p-3 border rounded-xl outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white appearance-none">{[1,2,3,4,5,6].map(g=><option key={g} value={String(g)}>{g}학년</option>)}</select></div>
-                         <div><label className="block text-sm font-bold mb-1 dark:text-white">반</label><select value={String(formData.schoolInfo.class)} onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, class: e.target.value}})} className="w-full p-3 border rounded-xl outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white appearance-none">{Array.from({length: 20}, (_, i) => i + 1).map(c=><option key={c} value={String(c)}>{c}반</option>)}</select></div>
-                       </div>
-                     )}
                    </div>
                  </div>
                  )}
@@ -168,14 +162,6 @@ export default function UnifiedSettings({ store, handbook, onUpdateHandbook, onD
                  <LogOut size={18}/> 시스템 로그아웃
                </button>
              </div>
-             <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 space-y-4">
-               <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-3">
-                 <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2"><Sparkles className="text-yellow-500" size={18}/> Gemini API Key 설정</h3>
-                 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 flex items-center gap-1 hover:underline font-bold">API 키 발급 <ExternalLink size={12}/></a>
-               </div>
-               <input type="password" value={store.apiKey} onChange={(e) => store.setApiKey(e.target.value)} placeholder="AI 기능을 사용하려면 API 키를 입력하세요" className="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-yellow-500 outline-none" />
-               <p className="text-xs text-gray-500 dark:text-gray-400">명렬표의 AI 세특 생성 기능 등에 사용됩니다. (키는 브라우저에만 안전하게 저장됩니다.)</p>
-             </div>
            </div>
          )}
 
@@ -192,16 +178,12 @@ export default function UnifiedSettings({ store, handbook, onUpdateHandbook, onD
 function QnASection() {
   const faqs = [
     { q: "대시보드 위젯이 화면 밖으로 나갔어요!", a: "대시보드 우측 상단의 [설정] 버튼을 누른 뒤, 빨간색 글씨로 된 [크기 및 배치 초기화하기] 버튼을 누르시면 처음 예쁜 상태로 돌아옵니다." },
-    { q: "AI 세특 자동 작성은 어떻게 쓰나요?", a: "통합 설정 > 계정 관리 탭에서 발급받은 'Gemini API Key'를 입력하신 후, 학생 명렬표에서 학생의 '태그'나 '특기사항'을 입력하고 우측 하단의 [AI 세특] 버튼을 누르시면 3문장으로 깔끔하게 요약해 줍니다." },
-    { q: "학사일정 달력에 NEIS 일정이 안 떠요.", a: "통합 설정 > 교무수첩 설정 탭에서 '학교 설정' 검색을 통해 소속 학교를 정확히 선택하고 저장해 주셔야 NEIS 서버에서 데이터를 가져올 수 있습니다." },
     { q: "앱 데이터를 다른 컴퓨터로 옮길 수 있나요?", a: "네! 사이드바 좌측 하단의 [드라이브 백업] 버튼을 누르시면 선생님의 Google Drive에 데이터가 안전하게 저장됩니다. 다른 컴퓨터에서 로그인 후 동일하게 백업을 불러오실 수 있습니다." },
-    { q: "시간표 엑셀 연동이 자꾸 실패합니다.", a: "나이스에서 시간표를 다운로드하실 때 반드시 '교사별 시간표 조회' 메뉴에서 다운로드하신 기본 엑셀(XLSX) 양식을 그대로 올려주셔야 합니다. 양식을 임의로 수정하시면 인식이 어렵습니다." },
-    { q: "동네 날씨가 이상하게 나와요.", a: "학교 설정 시 '주소'가 포함된 학교를 명확히 선택하시면 해당 주소를 기반으로 정확한 동네 날씨를 찾아옵니다. (주소가 없으면 교육청 소재지 기준)" }
+    { q: "시간표 엑셀 연동이 자꾸 실패합니다.", a: "나이스에서 시간표를 다운로드하실 때 반드시 '교사별 시간표 조회' 메뉴에서 다운로드하신 기본 엑셀(XLSX) 양식을 그대로 올려주셔야 합니다. 양식을 임의로 수정하시면 인식이 어렵습니다." }
   ];
   return (
     <div className="w-full space-y-6 animate-in slide-in-from-bottom-4">
       <h3 className="font-bold text-2xl mb-2 dark:text-white flex items-center gap-2"><HelpCircle className="text-indigo-500"/> 무엇을 도와드릴까요?</h3>
-      <p className="text-gray-500 dark:text-gray-400 mb-6">자주 묻는 질문들을 모아두었습니다. 클릭해서 답변을 확인해보세요!</p>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {faqs.map((faq, idx) => (
           <details key={idx} className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer h-fit">

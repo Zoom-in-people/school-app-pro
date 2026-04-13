@@ -86,12 +86,12 @@ export default function WeatherWidget({ schoolInfo }) {
       setLocationName(displayName);
 
       try {
-        // 날씨 및 습도 API
+        // 날씨 및 습도 가져오기
         const resW = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=auto`);
         const dataW = await resW.json();
         setWeather(dataW.current);
 
-        // 미세먼지 및 초미세먼지 대기질 API
+        // 대기질 (미세먼지, 초미세먼지) 가져오기
         const resA = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5&timezone=auto`);
         const dataA = await resA.json();
         setAq(dataA.current);
@@ -100,7 +100,7 @@ export default function WeatherWidget({ schoolInfo }) {
       setLoading(false);
     };
     
-    fetchWeather();
+    fetchAllData();
   }, [schoolInfo]);
 
   const getWeatherIcon = (code, size = 48, className = "") => {

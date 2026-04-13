@@ -107,61 +107,65 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
             </div>
           )}
 
-          {/* 🔥 원클릭 페이지 이동 적용 */}
           {isHomeroom && currentWidgets.attendance && (
             <div key="attendance" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
               <WidgetHeader title="우리 반 출결 현황 (오늘)" icon={<Users size={16}/>} colorClass="text-indigo-500" linkAction={() => setActiveView('monthly')} linkText="출결 관리 가기" />
+              {/* 🔥 원클릭 화면 전환 기능 적용 */}
               <div onClick={() => setActiveView('monthly')} className="flex-1 p-2 sm:p-4 flex items-center justify-between overflow-x-auto custom-scrollbar cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                <div className="flex-1 text-center border-r border-gray-100"><p className="text-[10px] sm:text-xs font-bold text-gray-500">총원</p><p className="text-lg sm:text-2xl font-black text-indigo-600">{students?.length || 0}</p></div>
-                <div className="flex-1 text-center border-r border-gray-100"><p className="text-[10px] sm:text-xs font-bold text-gray-500">결석</p><p className={`text-lg sm:text-2xl font-black ${absentCount > 0 ? 'text-red-500' : 'text-gray-300'}`}>{absentCount}</p></div>
-                <div className="flex-1 text-center border-r border-gray-100"><p className="text-[10px] sm:text-xs font-bold text-gray-500">지각</p><p className={`text-lg sm:text-2xl font-black ${lateCount > 0 ? 'text-yellow-500' : 'text-gray-300'}`}>{lateCount}</p></div>
-                <div className="flex-1 text-center"><p className="text-[10px] sm:text-xs font-bold text-gray-500">조퇴</p><p className={`text-lg sm:text-2xl font-black ${earlyCount > 0 ? 'text-blue-500' : 'text-gray-300'}`}>{earlyCount}</p></div>
+                <div className="flex-1 text-center border-r border-gray-100 dark:border-gray-700"><p className="text-[10px] sm:text-xs font-bold text-gray-500">총원</p><p className="text-lg sm:text-2xl font-black text-indigo-600">{students?.length || 0}</p></div>
+                <div className="flex-1 text-center border-r border-gray-100 dark:border-gray-700"><p className="text-[10px] sm:text-xs font-bold text-gray-500">결석</p><p className={`text-lg sm:text-2xl font-black ${absentCount > 0 ? 'text-red-500' : 'text-gray-300 dark:text-gray-600'}`}>{absentCount}</p></div>
+                <div className="flex-1 text-center border-r border-gray-100 dark:border-gray-700"><p className="text-[10px] sm:text-xs font-bold text-gray-500">지각</p><p className={`text-lg sm:text-2xl font-black ${lateCount > 0 ? 'text-yellow-500' : 'text-gray-300 dark:text-gray-600'}`}>{lateCount}</p></div>
+                <div className="flex-1 text-center"><p className="text-[10px] sm:text-xs font-bold text-gray-500">조퇴</p><p className={`text-lg sm:text-2xl font-black ${earlyCount > 0 ? 'text-blue-500' : 'text-gray-300 dark:text-gray-600'}`}>{earlyCount}</p></div>
               </div>
             </div>
           )}
 
           {currentWidgets.tasks && (
-            <div key="tasks" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden">
+            <div key="tasks" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
               <WidgetHeader title={`나의 업무 (${pendingTasks.length})`} icon={<CheckSquare size={16}/>} colorClass="text-green-500" linkAction={() => setActiveView('tasks')} linkText="전체보기" />
+              {/* 🔥 원클릭 화면 전환 기능 적용 */}
               <div onClick={() => setActiveView('tasks')} className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                {pendingTasks.length > 0 ? pendingTasks.map(t => (<div key={t.id} className="p-3 bg-white border border-gray-100 dark:bg-gray-700 dark:border-gray-600 rounded-xl text-sm font-medium flex items-center gap-2 shadow-sm"><div className="w-2 h-2 rounded-full bg-green-500 shrink-0"></div> <span className="truncate">{t.title}</span></div>)) : <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><CheckSquare size={32} className="opacity-20"/><p className="text-sm font-bold">남은 업무가 없습니다.</p></div>}
+                {pendingTasks.length > 0 ? pendingTasks.map(t => (<div key={t.id} className="p-3 bg-white dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600 rounded-xl text-sm font-medium flex items-center gap-2 shadow-sm"><div className="w-2 h-2 rounded-full bg-green-500 shrink-0"></div> <span className="truncate">{t.title}</span></div>)) : <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><CheckSquare size={32} className="opacity-20"/><p className="text-sm font-bold">남은 업무가 없습니다.</p></div>}
               </div>
             </div>
           )}
 
           {currentWidgets.timetable && (
-            <div key="timetable" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden">
+            <div key="timetable" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
               <WidgetHeader title={`나의 수업 (${todayDay}요일)`} icon={<Clock size={16}/>} colorClass="text-blue-500" linkAction={() => setActiveView('my_timetable')} linkText="시간표로" />
+              {/* 🔥 원클릭 화면 전환 기능 적용 */}
               <div onClick={() => setActiveView('my_timetable')} className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                {todayTimetable.length > 0 ? todayTimetable.map(cls => (<div key={cls.period} className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-100 dark:border-blue-800"><span className="font-extrabold text-blue-600 dark:text-blue-400 w-12 shrink-0 text-center">{cls.period}교시</span><div className="flex-1 font-bold text-gray-800 dark:text-gray-200 truncate">{cls.subject}</div></div>)) : <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><Clock size={32} className="opacity-20"/><p className="text-sm font-bold">오늘은 수업이 없습니다.</p></div>}
+                {todayTimetable.length > 0 ? todayTimetable.map(cls => (<div key={cls.period} className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50"><span className="font-extrabold text-blue-600 dark:text-blue-400 w-12 shrink-0 text-center">{cls.period}교시</span><div className="flex-1 font-bold text-gray-800 dark:text-gray-200 truncate">{cls.subject}</div></div>)) : <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><Clock size={32} className="opacity-20"/><p className="text-sm font-bold">오늘은 수업이 없습니다.</p></div>}
               </div>
             </div>
           )}
 
           {currentWidgets.classTimetable && (
-            <div key="classTimetable" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden relative">
+            <div key="classTimetable" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden relative">
               <div className="drag-handle cursor-move bg-gradient-to-r from-blue-600 to-indigo-700 px-4 py-3 flex justify-between items-center group"><h3 className="font-bold flex items-center gap-2 text-white text-sm"><Calendar size={16}/> 각 반 시간표 (NEIS)</h3><GripHorizontal size={16} className="text-white/50 group-hover:text-white" /></div>
               <div className="flex-1 h-full relative"><ClassTimetableWidget schoolInfo={schoolInfo} /></div>
             </div>
           )}
 
           {currentWidgets.lunch && (
-            <div key="lunch" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden relative">
-              <div className="drag-handle cursor-move bg-orange-50 dark:bg-orange-900/40 px-4 py-3 flex justify-between items-center border-b border-orange-100 dark:border-orange-800 group"><h3 className="font-bold flex items-center gap-2 text-orange-700 dark:text-orange-400 text-sm">🍽️ 오늘의 급식</h3><GripHorizontal size={16} className="text-orange-400/50 group-hover:text-orange-600" /></div>
+            <div key="lunch" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden relative">
+              <div className="drag-handle cursor-move bg-orange-50 dark:bg-orange-900/30 px-4 py-3 flex justify-between items-center border-b border-orange-100 dark:border-orange-800/50 group"><h3 className="font-bold flex items-center gap-2 text-orange-700 dark:text-orange-400 text-sm">🍽️ 오늘의 급식</h3><GripHorizontal size={16} className="text-orange-400/50 group-hover:text-orange-600" /></div>
               <div className="flex-1 h-full p-2"><LunchWidget schoolInfo={schoolInfo} /></div>
             </div>
           )}
 
           {currentWidgets.schoolSchedule && (
-            <div key="schoolSchedule" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden relative">
-              <div className="drag-handle cursor-move bg-teal-50 dark:bg-teal-900/30 px-4 py-3 flex justify-between items-center border-b border-teal-100 dark:border-teal-800 group"><h3 className="font-bold flex items-center gap-2 text-teal-700 dark:text-teal-400 text-sm"><Calendar size={16}/> 이번 달 학사일정/행사</h3><GripHorizontal size={16} className="text-teal-400/50 group-hover:text-teal-600" /></div>
-              <div className="flex-1 h-full"><MonthlyWidget schoolInfo={schoolInfo} customEvents={events} /></div>
+            <div key="schoolSchedule" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden relative">
+              <div className="drag-handle cursor-move bg-teal-50 dark:bg-teal-900/30 px-4 py-3 flex justify-between items-center border-b border-teal-100 dark:border-teal-800/50 group"><h3 className="font-bold flex items-center gap-2 text-teal-700 dark:text-teal-400 text-sm"><Calendar size={16}/> 이번 달 학사일정/행사</h3><GripHorizontal size={16} className="text-teal-400/50 group-hover:text-teal-600" /></div>
+              {/* 🔥 원클릭 화면 전환 기능 적용 */}
+              <div onClick={() => setActiveView('monthly')} className="flex-1 h-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition"><MonthlyWidget schoolInfo={schoolInfo} customEvents={events} /></div>
             </div>
           )}
 
           {currentWidgets.lessons && (
-            <div key="lessons" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden">
+            <div key="lessons" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
               <WidgetHeader title="진도 현황 요약" icon={<BookOpen size={16}/>} colorClass="text-pink-500" linkAction={() => setActiveView('lessons')} linkText="전체보기" />
+              {/* 🔥 원클릭 화면 전환 기능 적용 */}
               <div onClick={() => setActiveView('lessons')} className="flex-1 overflow-y-auto p-3 grid grid-cols-1 gap-2 custom-scrollbar cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                 {lessonGroups?.length > 0 ? lessonGroups.map(grp => (
                   <div key={grp.id} className="p-3 bg-white dark:bg-gray-700/30 rounded-xl border border-pink-100 dark:border-pink-900/30 shadow-sm flex flex-col gap-2">
