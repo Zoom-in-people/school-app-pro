@@ -68,8 +68,8 @@ export default function UnifiedSettings({ store, handbook, onUpdateHandbook, onD
 
   const tabs = [
     { id: 'handbook', label: '환경/교무수첩 설정', icon: Book },
-    { id: 'account', label: '계정 및 연동 관리', icon: UserCircle },
-    { id: 'qa', label: '자주 묻는 질문 (Q&A)', icon: HelpCircle },
+    { id: 'account', label: '계정/연동 관리', icon: UserCircle },
+    { id: 'qa', label: '자주 묻는 질문(Q&A)', icon: HelpCircle },
     { id: 'realtime_setup', label: '실시간 버전 안내', icon: Database },
     { id: 'update_history', label: '업데이트 내역', icon: Info },
     { id: 'apps', label: '다른 교사용 사이트', icon: Grid },
@@ -82,15 +82,16 @@ export default function UnifiedSettings({ store, handbook, onUpdateHandbook, onD
         <h2 className="text-2xl font-bold dark:text-white flex items-center gap-2"><Settings className="text-indigo-600"/> 통합 설정</h2>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 px-4 sm:px-6 pt-2 sm:pt-4 border-b border-gray-200 dark:border-gray-700 flex gap-2 overflow-x-auto custom-scrollbar shrink-0">
+      {/* 🔥 공간을 줄이고 flex-wrap을 적용하여 여러 줄로 넘어가도록 개선 */}
+      <div className="bg-white dark:bg-gray-800 px-2 sm:px-4 pt-2 sm:pt-3 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-1 sm:gap-1.5 shrink-0">
          {tabs.map(tab => (
            <button 
              key={tab.id} onClick={() => setActiveTab(tab.id)}
-             className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl font-bold transition whitespace-nowrap text-sm sm:text-base border-b-2 ${
+             className={`flex items-center gap-1.5 px-3 py-2 rounded-t-lg font-bold transition text-xs sm:text-sm border-b-2 ${
                activeTab === tab.id ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30' : 'border-transparent text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700'
              }`}
            >
-             <tab.icon size={18}/> {tab.label}
+             <tab.icon size={16}/> {tab.label}
            </button>
          ))}
       </div>
@@ -137,6 +138,12 @@ export default function UnifiedSettings({ store, handbook, onUpdateHandbook, onD
                        {searchResults.length > 0 && (<div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 absolute z-50 w-full shadow-xl custom-scrollbar">{searchResults.map((s, idx) => (<div key={idx} onClick={() => handleSelectSchool(s)} className="p-3 hover:bg-indigo-50 dark:hover:bg-gray-600 cursor-pointer text-sm border-b dark:border-gray-600 transition"><p className="font-bold dark:text-white">{s.name}</p><p className="text-xs text-gray-500 dark:text-gray-400">{s.address}</p></div>))}</div>)}
                        {formData.schoolInfo.code && <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 font-bold">✅ 선택됨: {formData.schoolInfo.name} ({formData.schoolInfo.address})</p>}
                      </div>
+                     {formData.isHomeroom && (
+                       <div className="grid grid-cols-2 gap-4">
+                         <div><label className="block text-sm font-bold mb-1 dark:text-white">학년</label><select value={String(formData.schoolInfo.grade)} onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, grade: e.target.value}})} className="w-full p-3 border rounded-xl outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white appearance-none">{[1,2,3,4,5,6].map(g=><option key={g} value={String(g)}>{g}학년</option>)}</select></div>
+                         <div><label className="block text-sm font-bold mb-1 dark:text-white">반</label><select value={String(formData.schoolInfo.class)} onChange={(e) => setFormData({...formData, schoolInfo: {...formData.schoolInfo, class: e.target.value}})} className="w-full p-3 border rounded-xl outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white appearance-none">{Array.from({length: 20}, (_, i) => i + 1).map(c=><option key={c} value={String(c)}>{c}반</option>)}</select></div>
+                       </div>
+                     )}
                    </div>
                  </div>
                  )}
@@ -161,6 +168,14 @@ export default function UnifiedSettings({ store, handbook, onUpdateHandbook, onD
                <button onClick={logout} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-6 py-2.5 rounded-xl font-bold hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition flex items-center justify-center gap-2 mx-auto shadow-sm">
                  <LogOut size={18}/> 시스템 로그아웃
                </button>
+             </div>
+             <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 space-y-4">
+               <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-3">
+                 <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2"><Sparkles className="text-yellow-500" size={18}/> Gemini API Key 설정</h3>
+                 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 flex items-center gap-1 hover:underline font-bold">API 키 발급 <ExternalLink size={12}/></a>
+               </div>
+               <input type="password" value={store.apiKey} onChange={(e) => store.setApiKey(e.target.value)} placeholder="AI 기능을 사용하려면 API 키를 입력하세요" className="w-full p-3 border border-gray-300 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-yellow-500 outline-none" />
+               <p className="text-xs text-gray-500 dark:text-gray-400">명렬표의 AI 세특 일괄 생성 기능 등에 사용됩니다. (키는 브라우저에만 안전하게 저장됩니다.)</p>
              </div>
            </div>
          )}

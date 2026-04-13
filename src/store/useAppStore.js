@@ -38,7 +38,6 @@ export const useAppStore = create(
       apiKey: '',
       setApiKey: (apiKey) => set({ apiKey }),
 
-      // 🔥 Firebase 설정 상태 추가
       firebaseConfig: '',
       setFirebaseConfig: (config) => set({ firebaseConfig: config }),
 
@@ -65,6 +64,10 @@ export const useAppStore = create(
       ddays: [],
       addDday: (dday) => set((state) => ({ ddays: [...state.ddays, { id: Date.now(), ...dday }] })),
       deleteDday: (id) => set((state) => ({ ddays: state.ddays.filter(d => d.id !== id) })),
+
+      // 🔥 날씨 로딩 방지용 캐시 저장소 신설
+      weatherCache: null,
+      setWeatherCache: (cache) => set({ weatherCache: cache }),
     }),
     {
       name: 'school-app-storage',
@@ -78,6 +81,7 @@ export const useAppStore = create(
         lastHandbookId: state.lastHandbookId,
         memos: state.memos,
         ddays: state.ddays,
+        weatherCache: state.weatherCache, // 날씨 캐시 유지
       }),
     }
   )

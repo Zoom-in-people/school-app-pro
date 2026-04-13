@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { CloudRain, Sun, Cloud, Snowflake, Loader } from 'lucide-react';
+import { CloudRain, Sun, Cloud, Snowflake, Loader, ExternalLink } from 'lucide-react';
+import { useAppStore } from '../../store/useAppStore';
 
 const REGION_COORDS = {
   'B10': { name: "서울", lat: 37.5665, lon: 126.9780 },
@@ -22,12 +23,16 @@ const REGION_COORDS = {
 };
 
 export default function WeatherWidget({ schoolInfo }) {
+  const { weatherCache, setWeatherCache } = useAppStore();
   const [weather, setWeather] = useState(null);
   const [aq, setAq] = useState(null);
+  const [dailyForecast, setDailyForecast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [locationName, setLocationName] = useState("");
+  const [searchQueryForGoogle, setSearchQueryForGoogle] = useState("");
   const [now, setNow] = useState(new Date());
 
+  // 1초마다 시계 렌더링
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
@@ -35,9 +40,22 @@ export default function WeatherWidget({ schoolInfo }) {
 
   useEffect(() => {
     const fetchAllData = async () => {
+      // 🔥 캐시 확인: 30분 이내에 로딩한 데이터면 API 호출을 생략하고 즉시 화면에 뿌립니다.
+      const nowTime = Date.now();
+      if (weatherCache && weatherCache.schoolCode === schoolInfo?.code && (nowTime - weatherCache.timestamp < 1800000)) {
+        setWeather(weatherCache.weather);
+        setAq(weatherCache.aq);
+        setDailyForecast(weatherCache.daily);
+        setLocationName(weatherCache.locationName);
+        setSearchQueryForGoogle(weatherCache.searchQuery);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       let lat, lon;
       let displayName = "우리 동네";
+      let googleQuery = "현재 날씨";
       
       let targetAddress = schoolInfo?.address;
       if (!targetAddress && schoolInfo?.officeCode && schoolInfo?.code) {
@@ -59,6 +77,7 @@ export default function WeatherWidget({ schoolInfo }) {
 
           if (targetArea) {
             displayName = targetArea;
+            googleQuery = `${targetArea} 날씨`;
             const cleanName = targetArea.replace(/[시군구]$/, '');
 
             const meteoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanName)}&language=ko&count=5`);
@@ -81,27 +100,42 @@ export default function WeatherWidget({ schoolInfo }) {
       if (!lat || !lon) {
         const fallbackRegion = REGION_COORDS[schoolInfo?.officeCode] || REGION_COORDS['B10'];
         lat = fallbackRegion.lat; lon = fallbackRegion.lon; displayName = fallbackRegion.name;
+        googleQuery = `${fallbackRegion.name} 날씨`;
       }
 
-      setLocationName(displayName);
-
       try {
-        // 날씨 및 습도 가져오기
-        const resW = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=auto`);
+        // 🔥 날씨, 주간예보, 습도를 한 방에 가져옵니다.
+        const resW = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto`);
         const dataW = await resW.json();
-        setWeather(dataW.current);
-
-        // 대기질 (미세먼지, 초미세먼지) 가져오기
+        
+        // 대기질(미세먼지, 초미세먼지) 가져오기
         const resA = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5&timezone=auto`);
         const dataA = await resA.json();
+
+        // 상태 업데이트 및 캐시에 저장
+        setWeather(dataW.current);
+        setDailyForecast(dataW.daily);
         setAq(dataA.current);
+        setLocationName(displayName);
+        setSearchQueryForGoogle(googleQuery);
+
+        setWeatherCache({
+          schoolCode: schoolInfo?.code,
+          timestamp: Date.now(),
+          weather: dataW.current,
+          daily: dataW.daily,
+          aq: dataA.current,
+          locationName: displayName,
+          searchQuery: googleQuery
+        });
+
       } catch (e) { console.error("API 호출 실패", e); }
       
       setLoading(false);
     };
     
     fetchAllData();
-  }, [schoolInfo]);
+  }, [schoolInfo, weatherCache, setWeatherCache]);
 
   const getWeatherIcon = (code, size = 48, className = "") => {
     if (code <= 3) return <Sun size={size} className={`text-yellow-400 drop-shadow-md ${className}`} />;
@@ -130,61 +164,89 @@ export default function WeatherWidget({ schoolInfo }) {
     }
   };
 
+  const getDayName = (dateStr, index) => {
+    if (index === 0) return '오늘';
+    const d = new Date(dateStr);
+    return ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
+  };
+
   const timeStr = now.toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateStr = now.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
 
   return (
-    <div className="h-full flex flex-col p-4 bg-gradient-to-br from-sky-400 to-blue-600 text-white relative group overflow-hidden">
-      
-      {/* ⏰ 상단: 시계 및 날짜 영역 */}
-      <div className="text-center mb-2 shrink-0 border-b border-white/20 pb-2">
-        <div className="text-[10px] sm:text-xs font-medium opacity-90">{dateStr}</div>
-        <div className="text-2xl sm:text-3xl font-black tracking-widest drop-shadow-sm font-mono mt-0.5">{timeStr}</div>
-      </div>
-
-      {loading ? (
+    <div className="h-full flex flex-col p-2 bg-gradient-to-br from-sky-400 to-blue-600 text-white relative group overflow-hidden select-none">
+      {loading && !weather ? (
         <div className="flex-1 flex justify-center items-center"><Loader className="animate-spin text-white/50" size={32}/></div>
       ) : weather && aq ? (
-        <div className="flex flex-col flex-1 justify-between gap-2">
+        <div className="flex flex-col h-full justify-between">
           
-          {/* ☀️ 중단: 실시간 날씨 및 기온 */}
-          <div className="flex flex-1 items-center justify-center gap-3 sm:gap-5">
-            {getWeatherIcon(weather.weather_code, 48, "shrink-0")}
-            <div className="flex flex-col justify-center text-left">
-              <div className="text-3xl sm:text-4xl font-black drop-shadow-sm leading-none tracking-tighter">
-                {Math.round(weather.temperature_2m)}°C
+          {/* 1. 상단: 날짜/시간 & 구글링크 */}
+          <div className="flex justify-between items-center shrink-0 mb-0.5 px-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold opacity-90">{dateStr}</span>
+              <span className="text-sm font-black tracking-widest font-mono">{timeStr}</span>
+            </div>
+            <div className="flex items-center gap-1 z-10">
+              <span className="text-[10px] font-bold text-white/90">{locationName}</span>
+              <a href={`https://www.google.com/search?q=${searchQueryForGoogle}`} target="_blank" rel="noreferrer" className="opacity-0 group-hover:opacity-100 hover:text-yellow-200 transition" title="구글 날씨 검색">
+                <ExternalLink size={12}/>
+              </a>
+            </div>
+          </div>
+
+          {/* 2. 중단: 실시간 온도/날씨 + 미세먼지/습도 팩 (오밀조밀하게!) */}
+          <div className="flex flex-1 items-center justify-between gap-1 px-1">
+            {/* 좌측: 메인 날씨 */}
+            <div className="flex items-center gap-1.5">
+              {getWeatherIcon(weather.weather_code, 36, "shrink-0")}
+              <div className="flex flex-col text-left">
+                <div className="text-2xl font-black leading-none tracking-tighter">
+                  {Math.round(weather.temperature_2m)}°C
+                </div>
+                <div className="text-[9px] font-bold opacity-90 mt-0.5">
+                  {getDesc(weather.weather_code)}
+                </div>
               </div>
-              <div className="text-[11px] sm:text-xs font-bold opacity-90 truncate max-w-[120px] sm:max-w-[150px] mt-1.5">
-                {locationName} · {getDesc(weather.weather_code)}
+            </div>
+            
+            {/* 우측: 습도 및 대기질 인포박스 */}
+            <div className="flex flex-col gap-0.5 text-[9px] font-bold bg-black/15 p-1.5 rounded-lg shrink-0 w-24">
+              <div className="flex justify-between">
+                <span className="text-white/70">습도</span>
+                <span>{weather.relative_humidity_2m}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/70">미세</span>
+                <span className={getAQString(aq.pm10, 'pm10').color}>{getAQString(aq.pm10, 'pm10').text}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/70">초미세</span>
+                <span className={getAQString(aq.pm2_5, 'pm25').color}>{getAQString(aq.pm2_5, 'pm25').text}</span>
               </div>
             </div>
           </div>
 
-          {/* 🌬️ 하단: 습도, 미세먼지, 초미세먼지 정보 */}
-          <div className="flex justify-between items-center bg-black/15 rounded-xl p-2 sm:p-3 shrink-0">
-            <div className="flex flex-col items-center flex-1">
-              <span className="text-[9px] sm:text-[10px] text-white/70 font-bold mb-0.5">습도</span>
-              <span className="text-xs sm:text-sm font-black">{weather.relative_humidity_2m}%</span>
+          {/* 3. 하단: 7일 주간 예보 가로 팩 */}
+          {dailyForecast && dailyForecast.time && (
+            <div className="flex justify-between items-center border-t border-white/20 pt-1 shrink-0 mt-0.5">
+              {dailyForecast.time.slice(0, 7).map((date, i) => (
+                <div key={date} className="flex flex-col items-center bg-black/10 rounded py-0.5 px-0.5 sm:px-1 hover:bg-black/20 transition flex-1 mx-[1px] min-w-0">
+                  <span className={`text-[8px] sm:text-[9px] font-extrabold mb-0.5 ${i === 0 ? 'text-yellow-300' : 'text-white/90'}`}>
+                    {getDayName(date, i)}
+                  </span>
+                  {getWeatherIcon(dailyForecast.weathercode[i], 14, "mb-0.5")}
+                  <div className="text-[7px] sm:text-[8px] font-bold flex flex-col items-center leading-none">
+                    <span className="text-red-200">{Math.round(dailyForecast.temperature_2m_max[i])}°</span>
+                    <span className="text-blue-200">{Math.round(dailyForecast.temperature_2m_min[i])}°</span>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="w-px h-6 bg-white/20 mx-1"></div>
-            <div className="flex flex-col items-center flex-1">
-              <span className="text-[9px] sm:text-[10px] text-white/70 font-bold mb-0.5">미세먼지</span>
-              <span className={`text-xs sm:text-sm font-black ${getAQString(aq.pm10, 'pm10').color}`}>
-                {getAQString(aq.pm10, 'pm10').text}
-              </span>
-            </div>
-            <div className="w-px h-6 bg-white/20 mx-1"></div>
-            <div className="flex flex-col items-center flex-1">
-              <span className="text-[9px] sm:text-[10px] text-white/70 font-bold mb-0.5">초미세먼지</span>
-              <span className={`text-xs sm:text-sm font-black ${getAQString(aq.pm2_5, 'pm25').color}`}>
-                {getAQString(aq.pm2_5, 'pm25').text}
-              </span>
-            </div>
-          </div>
+          )}
 
         </div>
       ) : (
-        <div className="flex-1 flex justify-center items-center"><span className="text-sm font-bold opacity-80">데이터 오류</span></div>
+        <div className="flex-1 flex justify-center items-center"><span className="text-sm font-bold opacity-80">오류 발생</span></div>
       )}
     </div>
   );
