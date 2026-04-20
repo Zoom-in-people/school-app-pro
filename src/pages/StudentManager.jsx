@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, Search, Plus, Trash2, Save, X } from 'lucide-react';
+import { Users, Search, Plus, Trash2, Save, X, Filter } from 'lucide-react';
 import { showToast, showConfirm } from '../utils/alerts';
 
 export default function StudentManager({ students = [], onAddStudents, onUpdateStudent, onDeleteStudent, isHomeroomView }) {
@@ -7,15 +7,37 @@ export default function StudentManager({ students = [], onAddStudents, onUpdateS
   const [searchQuery, setSearchQuery] = useState('');
   const [showBulkAdd, setShowBulkAdd] = useState(false);
   const [bulkText, setBulkText] = useState('');
+  
+  // 🔥 교과 모드용 반/그룹 선택 상태
+  const [selectedGroup, setSelectedGroup] = useState('전체');
 
+  // 등록된 학생들로부터 고유한 반/그룹명 추출 (교과 모드일 때만)
+  const groups = useMemo(() => {
+    if (isHomeroomView) return [];
+    const groupSet = new Set(students.map(s => s.className).filter(Boolean));
+    return ['전체', ...Array.from(groupSet).sort(), '미지정'];
+  }, [students, isHomeroomView]);
+
+  // 검색 및 그룹 필터링 적용
   const filteredStudents = useMemo(() => {
-    return students
+    let result = students;
+    if (!isHomeroomView && selectedGroup !== '전체') {
+      if (selectedGroup === '미지정') {
+        result = result.filter(s => !s.className);
+      } else {
+        result = result.filter(s => s.className === selectedGroup);
+      }
+    }
+    return result
       .filter(s => s.name.includes(searchQuery) || (s.number && s.number.toString().includes(searchQuery)))
       .sort((a, b) => Number(a.number) - Number(b.number));
-  }, [students, searchQuery]);
+  }, [students, searchQuery, isHomeroomView, selectedGroup]);
 
   const handleCreateNew = () => {
-    setSelectedStudent({ number: '', name: '', gender: '남', tags: '', note: '', phone: '', parentPhone: '' });
+    setSelectedStudent({ 
+      number: '', name: '', gender: '남', tags: '', note: '', phone: '', parentPhone: '',
+      className: (!isHomeroomView && selectedGroup !== '전체' && selectedGroup !== '미지정') ? selectedGroup : ''
+    });
   };
 
   const handleSaveStudent = (data) => {
@@ -50,7 +72,8 @@ export default function StudentManager({ students = [], onAddStudents, onUpdateS
         id: (Date.now() + idx).toString(),
         number: isNaN(num) ? '' : num, 
         name: name || parts[0], 
-        gender: '남', tags: '', note: '' 
+        gender: '남', tags: '', note: '',
+        className: (!isHomeroomView && selectedGroup !== '전체' && selectedGroup !== '미지정') ? selectedGroup : ''
       };
     });
     if (onAddStudents) onAddStudents(newStudents);
@@ -62,15 +85,35 @@ export default function StudentManager({ students = [], onAddStudents, onUpdateS
   return (
     <div className="h-full flex flex-col md:flex-row gap-4 animate-in fade-in">
       
-      {/* 🔹 왼쪽: 학생 목록 리스트 */}
+      {/* 🔹 왼쪽: 학생 목록 리스트 (검색, 필터링 및 추가) */}
       <div className="w-full md:w-1/3 lg:w-1/4 flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0 h-1/2 md:h-full">
         <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex flex-col gap-3 shrink-0">
           <div className="flex justify-between items-center">
-            <h3 className="font-bold text-lg dark:text-white flex items-center gap-2"><Users className="text-indigo-500" size={20}/> 명렬표</h3>
-            <span className="text-xs font-bold text-indigo-600 bg-indigo-100 dark:bg-indigo-900/50 dark:text-indigo-300 px-2 py-1 rounded-full">총 {students.length}명</span>
+            <h3 className="font-bold text-lg dark:text-white flex items-center gap-2">
+              <Users className="text-indigo-500" size={20}/> 
+              {isHomeroomView ? '우리 반 명렬표' : '교과 명렬표'}
+            </h3>
+            <span className="text-xs font-bold text-indigo-600 bg-indigo-100 dark:bg-indigo-900/50 dark:text-indigo-300 px-2 py-1 rounded-full">
+              총 {filteredStudents.length}명
+            </span>
           </div>
-          <div className="relative">
-            <input type="text" placeholder="이름 또는 번호 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full p-2.5 pl-9 border border-gray-200 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" />
+
+          {/* 🔥 교과 모드일 때만 나타나는 반/그룹 탭 */}
+          {!isHomeroomView && groups.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
+              {groups.map(g => (
+                <button 
+                  key={g} onClick={() => setSelectedGroup(g)} 
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${selectedGroup === g ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="relative mt-1">
+            <input type="text" placeholder="이름 또는 번호 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full p-2.5 pl-9 border border-gray-200 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-sm" />
             <Search size={16} className="absolute left-3 top-3 text-gray-400" />
           </div>
           <div className="flex gap-2">
@@ -84,20 +127,28 @@ export default function StudentManager({ students = [], onAddStudents, onUpdateS
             <div key={s.id} onClick={() => setSelectedStudent(s)} className={`p-3 rounded-xl cursor-pointer transition flex items-center gap-3 border ${selectedStudent?.id === s.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white dark:bg-gray-800 border-transparent hover:bg-gray-50 hover:border-gray-200 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:text-gray-200'}`}>
               <span className={`w-8 h-8 flex items-center justify-center rounded-full text-xs font-black shrink-0 ${selectedStudent?.id === s.id ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>{s.number}</span>
               <div className="flex-1 min-w-0">
-                <div className="font-bold truncate">{s.name}</div>
+                <div className="font-bold truncate flex items-center gap-2">
+                  {s.name}
+                  {/* 교과 모드에서 반 정보가 있으면 태그로 표시 */}
+                  {!isHomeroomView && s.className && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${selectedStudent?.id === s.id ? 'bg-indigo-500 text-indigo-100' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'}`}>
+                      {s.className}
+                    </span>
+                  )}
+                </div>
                 {s.tags && <div className={`text-[10px] truncate mt-0.5 ${selectedStudent?.id === s.id ? 'text-indigo-200' : 'text-gray-400'}`}>{s.tags}</div>}
               </div>
             </div>
           )) : (
             <div className="h-full flex flex-col justify-center items-center text-gray-400 p-4 text-center">
               <Users size={32} className="opacity-20 mb-2"/>
-              <p className="text-sm font-bold">검색 결과가 없습니다.</p>
+              <p className="text-sm font-bold">학생 데이터가 없습니다.</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* 🔹 오른쪽: 상세 정보 입력 폼 (모달 대체) */}
+      {/* 🔹 오른쪽: 상세 정보 입력 폼 */}
       <div className="flex-1 flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden h-1/2 md:h-full">
         {selectedStudent ? (
           <StudentDetailForm student={selectedStudent} onSave={handleSaveStudent} onDelete={handleDelete} isHomeroomView={isHomeroomView} onCancel={() => setSelectedStudent(null)} />
@@ -124,6 +175,9 @@ export default function StudentManager({ students = [], onAddStudents, onUpdateS
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
               번호와 이름을 띄어쓰기로 구분하여 한 줄에 한 명씩 입력하세요.<br/>(예: 1 홍길동)
+              {!isHomeroomView && selectedGroup !== '전체' && selectedGroup !== '미지정' && (
+                <span className="block mt-1 text-indigo-600 dark:text-indigo-400 font-bold">※ 현재 선택된 '{selectedGroup}'에 일괄 추가됩니다.</span>
+              )}
             </p>
             <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} className="w-full h-48 p-3 border border-gray-200 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm outline-none resize-none mb-4 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 custom-scrollbar" placeholder="1 김철수&#10;2 이영희&#10;3 박민수"></textarea>
             <button onClick={handleBulkSave} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition shadow-md">일괄 저장하기</button>
@@ -152,6 +206,7 @@ function StudentDetailForm({ student, onSave, onDelete, isHomeroomView, onCancel
       </div>
       
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar bg-gray-50/30 dark:bg-gray-900/20">
+        
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-extrabold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">번호</label>
@@ -161,6 +216,14 @@ function StudentDetailForm({ student, onSave, onDelete, isHomeroomView, onCancel
             <label className="block text-xs font-extrabold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">이름</label>
             <input type="text" name="name" value={form.name || ''} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-sm" placeholder="예: 홍길동" />
           </div>
+          
+          {/* 🔥 교과 모드일 때 그룹 입력 칸 활성화 */}
+          {!isHomeroomView && (
+            <div className="col-span-2">
+              <label className="block text-xs font-extrabold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">소속 반 / 그룹명</label>
+              <input type="text" name="className" value={form.className || ''} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-sm" placeholder="예: 1반, 2반, 동아리A" />
+            </div>
+          )}
         </div>
 
         <div>
