@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Menu, LogIn, Plus } from 'lucide-react';
+import { Menu, LogIn } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import { useAppStore } from './store/useAppStore'; 
 import { useAppData } from './hooks/useAppData';   
@@ -92,24 +92,15 @@ export default function App() {
 
         <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto print:p-0 print:overflow-visible print:h-auto">
           <div className="w-full h-full print:max-w-full">
-            
-            {/* 🔥 통합 설정창을 화면 전환 라우팅 로직 안으로 정확하게 배치했습니다! */}
             {store.activeView === 'unified_settings' ? (
-              <UnifiedSettings 
-                store={store} 
-                handbook={store.currentHandbook} 
-                onUpdateHandbook={handleUpdateHandbook} 
-                onDeleteHandbook={handleDeleteHandbook} 
-                user={user} 
-                logout={logout} 
-              />
+              <UnifiedSettings store={store} handbook={store.currentHandbook} onUpdateHandbook={handleUpdateHandbook} onDeleteHandbook={handleDeleteHandbook} user={user} logout={logout} />
             ) : store.activeView === 'ai_record' ? <AiRecord />
-            : store.activeView === 'memos' ? <MemoPage />
+            : store.activeView === 'memos' ? <MemoPage memos={db.memos.data} onAddMemo={db.memos.add} onUpdateMemo={db.memos.update} onDeleteMemo={db.memos.remove} />
             : !store.currentHandbook ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-6"><button onClick={() => store.setIsAddHandbookOpen(true)} className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold">새 교무수첩 만들기</button></div>
             ) : (
               <>
-                {store.activeView === 'dashboard' && <Dashboard students={db.homeroomStudents.data} todos={db.todos.data} setActiveView={store.setActiveView} isHomeroom={store.currentHandbook.isHomeroom} schoolInfo={store.currentHandbook.schoolInfo || {}} attendanceLog={db.attendanceLog.data} myTimetable={db.myTimetable.data} lessonGroups={db.lessonGroups.data} events={db.events.data} widgets={store.widgets} setWidgets={store.setWidgets} />}
+                {store.activeView === 'dashboard' && <Dashboard students={db.homeroomStudents.data} todos={db.todos.data} setActiveView={store.setActiveView} isHomeroom={store.currentHandbook.isHomeroom} schoolInfo={store.currentHandbook.schoolInfo || {}} attendanceLog={db.attendanceLog.data} myTimetable={db.myTimetable.data} lessonGroups={db.lessonGroups.data} events={db.events.data} widgets={store.widgets} setWidgets={store.setWidgets} memos={db.memos.data} ddays={db.ddays.data} onAddDday={db.ddays.add} onDeleteDday={db.ddays.remove} />}
                 {store.activeView === 'monthly' && <MonthlyEvents handbook={store.currentHandbook} isHomeroom={store.currentHandbook.isHomeroom} students={db.homeroomStudents.data} attendanceLog={db.attendanceLog.data} onUpdateAttendance={handleUpdateAttendance} events={db.events.data} onUpdateEvent={handleUpdateEvent} />}
                 {store.activeView === 'students_homeroom' && <StudentManager students={db.homeroomStudents.data} onAddStudents={db.homeroomStudents.addMany} onUpdateStudent={db.homeroomStudents.update} onDeleteStudent={db.homeroomStudents.remove} onUpdateStudentsMany={db.homeroomStudents.updateMany} apiKey={store.apiKey} isHomeroomView={true} />}
                 {store.activeView === 'students_subject' && <StudentManager students={db.subjectStudents.data} onAddStudents={db.subjectStudents.addMany} onUpdateStudent={db.subjectStudents.update} onDeleteStudent={db.subjectStudents.remove} onUpdateStudentsMany={db.subjectStudents.updateMany} apiKey={store.apiKey} isHomeroomView={false} classPhotos={db.classPhotos.data} onAddClassPhoto={db.classPhotos.add} onUpdateClassPhoto={db.classPhotos.update} onDeleteClassPhoto={db.classPhotos.remove} />}
@@ -126,8 +117,6 @@ export default function App() {
         </div>
       </main>
 
-      {/* 🔥 문제의 원인: 여기에 영원히 떠 있던 <UnifiedSettings /> 팝업 코드를 완전히 삭제했습니다! */}
-      
       <SetupWizardModal isOpen={store.isSetupWizardOpen} onClose={() => { store.setIsSetupWizardOpen(false); store.setHideApiPrompt(true); }} apiKey={store.apiKey} setApiKey={store.setApiKey} />
       <AddHandbookModal isOpen={store.isAddHandbookOpen} onClose={() => store.setIsAddHandbookOpen(false)} onSave={handleCreateHandbook} />
     </div>

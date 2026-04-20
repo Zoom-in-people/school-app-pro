@@ -84,9 +84,9 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
             return (
               <div key={day} 
                    onClick={() => { setSelectedDate(dateStr); setActiveTab('date'); }}
-                   className={`p-1 border border-gray-100 dark:border-gray-700 rounded-lg min-h-[80px] flex flex-col items-stretch transition cursor-pointer hover:border-indigo-400 ${isToday ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : 'bg-white dark:bg-gray-800'}`}>
+                   className={`p-1 border rounded-lg min-h-[80px] flex flex-col items-stretch transition cursor-pointer hover:border-indigo-400 ${isToday ? 'bg-indigo-50/80 dark:bg-indigo-900/40 border-indigo-300 dark:border-indigo-700 shadow-sm z-10' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
                 
-                <span className={`text-center font-bold text-[11px] mb-1 ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'}`}>{day}</span>
+                <span className={`text-center font-bold text-[11px] mb-1 ${isToday ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/60 rounded-full w-5 h-5 mx-auto flex items-center justify-center' : 'text-gray-700 dark:text-gray-300'}`}>{day}</span>
                 
                 <div className="flex flex-col gap-[2px]">
                   {dayTodos.map(t => {
@@ -97,7 +97,6 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
                     
                     const isCompletedDay = t.done && (t.completedDate === dateStr || (!t.completedDate && isEnd)); 
 
-                    // 🔥 파스텔톤 배경 및 진한 글자색 적용
                     let bgClass = 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200';
                     if (t.done) bgClass = 'bg-gray-100 text-gray-400 line-through dark:bg-gray-800/50 dark:text-gray-500';
                     else if (t.priority === 'high') bgClass = 'bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200';
@@ -129,6 +128,8 @@ export default function TaskList({ todos, onAddTodo, onUpdateTodo, onDeleteTodo 
       </div>
     );
   };
+
+  // ... (나머지 탭 렌더링 코드는 생략)
 
   return (
     <div className="flex flex-col gap-4 pb-12">

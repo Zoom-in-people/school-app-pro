@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Copy, Loader, Settings, BookOpen, UserCheck, Edit3, Send, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Sparkles, Copy, Loader, Settings, BookOpen, UserCheck, Edit3, Send, CheckCircle2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
-import { showToast, showAlert } from '../utils/alerts';
+import { showToast } from '../utils/alerts';
 
 const CHARACTERISTIC_CATEGORIES = {
   "학업 및 탐구 역량": [
@@ -32,8 +32,6 @@ const CHARACTERISTIC_CATEGORIES = {
 
 export default function AiRecord() {
   const store = useAppStore();
-  const apiKey = store.apiKey;
-
   const [schoolLevel, setSchoolLevel] = useState('중학교');
   
   useEffect(() => {
@@ -61,11 +59,7 @@ export default function AiRecord() {
     }
   };
 
-  const handleGenerate = async () => {
-    if (!apiKey) {
-      showAlert("API 키 누락", "교무수첩 설정 메뉴에서 Gemini API 키를 먼저 등록해주세요.", "error");
-      return;
-    }
+  const handleGenerate = () => {
     if (!observation.trim()) {
       showToast("학생 관찰 사실 및 활동 내용을 필수로 입력해주세요.", "warning");
       return;
@@ -89,14 +83,14 @@ export default function AiRecord() {
    - 초등학교: 학생의 흥미, 참여도, 기초적인 이해도와 바른 인성을 강조하는 발달 중심의 서술.
    - 중학교: 학생의 진로 탐색, 자기주도적 학습 능력, 개념에 대한 이해와 적용, 협력적 태도를 강조.
    - 고등학교: 전공 적합성, 심화 탐구 역량, 학업적 우수성, 문제 해결 능력을 보여주는 학술적이고 깊이 있는 서술.
-2. 팩트 기반 서술: 제공된 '학생 관찰 사실 및 활동 내용'에 대해서만 작성하며, 입력되지 않은 사실을 AI가 임의로 지어내거나 과장·축소하지 마십시오.
-3. 다양한 베리에이션: 입력된 '학생 행동 양식 및 특성'을 다각도로 녹여내어, 각기 다른 뉘앙스와 초점을 가진 세특 내용을 최소 5가지 버전으로 작성하세요. (단, 학생 특성이 '입력되지 않음'일 경우 관찰 사실만을 다각도로 분석하여 5가지 버전을 만드세요)
-4. 글자 수 엄수: 작성되는 5개의 버전은 각각 반드시 입력된 '최소 글자 수' 이상이어야 합니다.
+2. 팩트 기반 서술: 제공된 '학생 관찰 사실 및 활동 내용'에 대해서만 작성하며, 입력되지 않은 사실을 임의로 지어내거나 과장·축소하지 마십시오.
+3. 다양한 베리에이션: 입력된 '학생 행동 양식 및 특성'을 다각도로 녹여내어, 각기 다른 뉘앙스와 초점을 가진 세특 내용을 최소 3가지 버전으로 작성하세요. (학생 특성이 '입력되지 않음'일 경우 관찰 사실만을 다각도로 분석)
+4. 글자 수 엄수: 작성되는 3개의 버전은 각각 반드시 입력된 '최소 글자 수' 이상이어야 합니다.
 5. 추가 요청 반영: '추가 요청 사항'이 있을 경우 모든 버전에 해당 내용을 자연스럽게 반영하세요.
 6. 문체: 학교생활기록부 표준 기재 방식인 객관적이고 명료한 문어체(예: ~함. ~하는 모습이 인상적임. ~하는 역량을 보여줌.)를 사용하세요.
 
 # [출력 형식]
-제시한 5가지 버전을 명확히 구분하여 아래와 같은 형식으로 출력해 주세요. (추가적인 인사말 없이 바로 버전 1부터 출력하세요)
+제시한 3가지 버전을 명확히 구분하여 아래와 같은 형식으로 출력해 주세요. (인사말 등 군더더기 없이 바로 출력하세요)
 
 [버전 1: (이 버전의 핵심 강조 포인트 짧게 요약)]
 (세특 내용 작성 - 최소 글자 수 이상)
@@ -106,37 +100,21 @@ export default function AiRecord() {
 (세특 내용 작성 - 최소 글자 수 이상)
 - 공백 포함 글자 수: 000자
 
-... (버전 5까지 반복)`;
+[버전 3: (이 버전의 핵심 강조 포인트 짧게 요약)]
+(세특 내용 작성 - 최소 글자 수 이상)
+- 공백 포함 글자 수: 000자`;
 
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      });
-
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-
-      const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (generatedText) {
-        setResultText(generatedText);
-        showToast("세특 작성이 완료되었습니다!", "success");
-      } else {
-        throw new Error("결과를 받아오지 못했습니다.");
-      }
-    } catch (error) {
-      console.error(error);
-      showAlert("생성 오류", "AI 생성 중 문제가 발생했습니다. API 키나 네트워크 상태를 확인해주세요.", "error");
-    } finally {
+    setTimeout(() => {
+      setResultText(prompt);
       setIsLoading(false);
-    }
+      showToast("LLM용 프롬프트가 완성되었습니다!", "success");
+    }, 500);
   };
 
   const handleCopy = () => {
     if (!resultText) return;
     navigator.clipboard.writeText(resultText);
-    showToast("결과가 클립보드에 복사되었습니다.", "success");
+    showToast("프롬프트가 클립보드에 복사되었습니다.", "success");
   };
 
   return (
@@ -144,31 +122,18 @@ export default function AiRecord() {
       <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 shrink-0">
         <div>
           <h2 className="text-2xl font-bold dark:text-white flex items-center gap-2">
-            <Sparkles className="text-yellow-500" size={28}/> AI 세특 작성 도우미
+            <Sparkles className="text-yellow-500" size={28}/> AI 세특 프롬프트 메이커
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">교육과정과 생기부 기재 요령이 반영된 5가지 버전의 세특을 생성합니다.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">ChatGPT나 다른 AI에게 붙여넣을 수 있는 '완벽한 맞춤형 지시문(프롬프트)'을 만들어 줍니다.</p>
         </div>
       </div>
-
-      {!apiKey && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-xl flex items-center justify-between shadow-sm shrink-0">
-          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold">
-            <AlertTriangle size={20} />
-            <span>API 키가 등록되지 않았습니다. AI 기능을 사용하려면 키를 입력해주세요.</span>
-          </div>
-          {/* 🔥 1번 요청 해결: setIsSettingsOpen 대신 setIsHandbookSettingsOpen 호출 */}
-          <button onClick={() => store.setIsHandbookSettingsOpen(true)} className="text-xs bg-red-100 hover:bg-red-200 dark:bg-red-800 dark:hover:bg-red-700 text-red-700 dark:text-red-300 px-3 py-1.5 rounded-lg font-bold transition">
-            교무수첩 설정 열기
-          </button>
-        </div>
-      )}
 
       <div className="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden min-h-[600px]">
         
         {/* 좌측: 입력 폼 영역 */}
         <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
           <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 shrink-0">
-            <h3 className="font-bold flex items-center gap-2 text-indigo-700 dark:text-indigo-300"><Edit3 size={18}/> 입력 정보</h3>
+            <h3 className="font-bold flex items-center gap-2 text-indigo-700 dark:text-indigo-300"><Edit3 size={18}/> 학생 정보 및 조건 입력</h3>
           </div>
           
           <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
@@ -188,7 +153,7 @@ export default function AiRecord() {
               <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"><BookOpen size={14}/> 2. 교과목 및 교육과정 내용 (선택)</label>
               <textarea 
                 value={achievementStandard} onChange={(e) => setAchievementStandard(e.target.value)} 
-                placeholder="예: 역사 - 조선 후기의 정치 변동과 사회 변화를 이해하고..." 
+                placeholder="예: 과학 - 전기장과 자기장의 관계를 이해하고 실생활 예시를 찾을 수 있다." 
                 className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none h-20 custom-scrollbar"
               />
             </div>
@@ -199,7 +164,7 @@ export default function AiRecord() {
               </label>
               <textarea 
                 value={observation} onChange={(e) => setObservation(e.target.value)} 
-                placeholder="학생이 수업 중 보여준 구체적인 활동, 참여도, 결과물 등을 자유롭게 작성해주세요. (예: 모둠 활동에서 자료 조사를 주도적으로 수행함. 보고서의 완성도가 높음.)" 
+                placeholder="학생이 수업 중 보여준 구체적인 활동, 참여도, 결과물 등을 자유롭게 작성해주세요." 
                 className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none h-32 custom-scrollbar"
               />
             </div>
@@ -244,8 +209,8 @@ export default function AiRecord() {
           </div>
 
           <div className="p-4 border-t border-gray-100 dark:border-gray-700 shrink-0">
-            <button onClick={handleGenerate} disabled={isLoading || !apiKey} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition shadow-lg shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-2 disabled:opacity-70">
-              {isLoading ? <><Loader className="animate-spin" size={20}/> AI가 5가지 버전을 생성 중입니다...</> : <><Send size={20}/> 세특 생성하기</>}
+            <button onClick={handleGenerate} disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition shadow-lg shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-2 disabled:opacity-70">
+              {isLoading ? <><Loader className="animate-spin" size={20}/> 프롬프트를 구성 중입니다...</> : <><Send size={20}/> LLM용 프롬프트 생성하기</>}
             </button>
           </div>
         </div>
@@ -253,10 +218,10 @@ export default function AiRecord() {
         {/* 우측: 결과 출력 영역 */}
         <div className="flex-1 bg-gray-900 rounded-2xl shadow-xl border border-gray-700 flex flex-col overflow-hidden relative">
           <div className="p-4 border-b border-gray-700 bg-gray-800 flex justify-between items-center shrink-0">
-            <h3 className="font-bold flex items-center gap-2 text-indigo-400"><Sparkles size={18}/> AI 생성 결과</h3>
+            <h3 className="font-bold flex items-center gap-2 text-indigo-400"><Sparkles size={18}/> 생성된 프롬프트</h3>
             {resultText && (
-              <button onClick={handleCopy} className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition font-bold">
-                <Copy size={14}/> 전체 복사
+              <button onClick={handleCopy} className="text-xs bg-indigo-500 hover:bg-indigo-400 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition font-bold shadow-md">
+                <Copy size={14}/> 텍스트 전체 복사
               </button>
             )}
           </div>
@@ -265,7 +230,7 @@ export default function AiRecord() {
             {isLoading ? (
               <div className="h-full flex flex-col items-center justify-center text-indigo-400 space-y-4">
                 <Loader className="animate-spin" size={40}/>
-                <p className="font-bold animate-pulse">학생의 특성을 분석하여 문장을 다듬고 있습니다...</p>
+                <p className="font-bold animate-pulse">명령어를 조합하고 있습니다...</p>
               </div>
             ) : resultText ? (
               <div className="whitespace-pre-wrap leading-relaxed text-sm lg:text-base selection:bg-indigo-500 selection:text-white">
@@ -274,7 +239,7 @@ export default function AiRecord() {
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-600 space-y-4 text-center">
                 <Edit3 size={48} className="opacity-20"/>
-                <p>좌측에 학생의 활동 내용을 입력하고<br/>생성 버튼을 누르면 이곳에 결과가 나타납니다.</p>
+                <p>좌측에 학생의 활동 내용을 입력하고<br/>버튼을 누르면 이곳에 AI용 명령어가 완성됩니다.<br/>복사하여 평소 쓰시는 AI(ChatGPT 등)에 붙여넣어보세요!</p>
               </div>
             )}
           </div>

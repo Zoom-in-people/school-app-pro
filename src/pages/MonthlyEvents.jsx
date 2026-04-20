@@ -249,14 +249,22 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
             const isSunday = (firstDayOfMonth + day - 1) % 7 === 0;
             const isSaturday = (firstDayOfMonth + day - 1) % 7 === 6;
             
-            // NEIS 일정에 포함된 휴업일(holiday)만 체크하여 빨간색으로 표시
             const isRedDay = isSunday || dayNeisEvents.some(e => e.holiday); 
+            
+            // 🔥 '오늘 날짜' 강조 효과 적용
+            const today = new Date();
+            const isToday = (currentYear === today.getFullYear() && currentMonth === today.getMonth() + 1 && day === today.getDate());
+            
+            let bgClass = 'bg-white dark:bg-gray-800';
+            if (isToday) {
+               bgClass = 'bg-indigo-50 dark:bg-indigo-900/30 ring-2 ring-indigo-500 ring-inset shadow-sm z-10';
+            }
 
             return (
-              <div key={day} onClick={() => openAddEvent(day)} className="min-h-[100px] border-b border-r border-gray-100 dark:border-gray-700 p-1 relative hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer group flex flex-col">
+              <div key={day} onClick={() => openAddEvent(day)} className={`min-h-[100px] border-b border-r border-gray-100 dark:border-gray-700 p-1 relative hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer group flex flex-col ${bgClass}`}>
                 <div className="flex justify-between items-start mb-1 shrink-0">
                   <div className="flex flex-col items-start">
-                    <span className={`text-sm font-bold p-1 rounded-full w-7 h-7 flex items-center justify-center ${isRedDay ? 'text-red-500' : isSaturday ? 'text-blue-500' : 'dark:text-gray-300'}`}>{day}</span>
+                    <span className={`text-sm font-bold p-1 rounded-full w-7 h-7 flex items-center justify-center ${isToday ? 'bg-indigo-500 text-white shadow-md' : isRedDay ? 'text-red-500' : isSaturday ? 'text-blue-500' : 'dark:text-gray-300'}`}>{day}</span>
                   </div>
                   {attSummary && <span className="text-[10px] font-bold text-gray-600 bg-gray-100 dark:bg-gray-600 dark:text-gray-200 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-500 shadow-sm mr-1">{attSummary}</span>}
                 </div>
@@ -295,8 +303,12 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                     const dayNeisEvents = getNeisEventsForDay(d);
                     const isRedDay = isSunday || dayNeisEvents.some(e => e.holiday);
                     
+                    const today = new Date();
+                    const isToday = (currentYear === today.getFullYear() && currentMonth === today.getMonth() + 1 && d === today.getDate());
+
                     let headerClass = '';
-                    if (isRedDay) headerClass = 'text-red-500 bg-red-50 dark:bg-red-900/20';
+                    if (isToday) headerClass = 'text-indigo-700 bg-indigo-100 dark:bg-indigo-900/40 dark:text-indigo-300 font-extrabold';
+                    else if (isRedDay) headerClass = 'text-red-500 bg-red-50 dark:bg-red-900/20';
                     else if (isSaturday) headerClass = 'text-blue-500 bg-blue-50 dark:bg-blue-900/20';
 
                     return <th key={d} rowSpan="2" className={`p-1 border border-gray-200 dark:border-gray-600 min-w-[24px] ${headerClass}`}>{d}</th>
@@ -340,8 +352,12 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
                         const dayNeisEvents = getNeisEventsForDay(day);
                         const isRedDay = isSunday || dayNeisEvents.some(e => e.holiday);
                         
+                        const today = new Date();
+                        const isToday = (currentYear === today.getFullYear() && currentMonth === today.getMonth() + 1 && day === today.getDate());
+                        
                         let colorClass = "hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer";
-                        if (isRedDay) colorClass = "bg-red-50/50 dark:bg-red-900/10 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30";
+                        if (isToday) colorClass = "bg-indigo-50 dark:bg-indigo-900/30 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border-x-indigo-200 dark:border-x-indigo-800";
+                        else if (isRedDay) colorClass = "bg-red-50/50 dark:bg-red-900/10 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30";
                         else if (isSaturday) colorClass = "bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30";
 
                         let hasNote = false;
@@ -391,6 +407,8 @@ export default function MonthlyEvents({ handbook, isHomeroom, students, attendan
           </div>
         </div>
       )}
+
+      {/* ... (나머지 팝업 코드는 생략) */}
 
       {/* 이벤트 입력 팝업 */}
       {isEventModalOpen && (

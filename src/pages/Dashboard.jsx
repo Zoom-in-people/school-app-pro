@@ -12,13 +12,13 @@ import MemoWidget from '../components/widgets/MemoWidget';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
-export default function Dashboard({ students, todos, setActiveView, schoolInfo, isHomeroom, attendanceLog, myTimetable, lessonGroups, events, widgets, setWidgets }) {
+export default function Dashboard({ students, todos, setActiveView, schoolInfo, isHomeroom, attendanceLog, myTimetable, lessonGroups, events, widgets, setWidgets, memos, ddays, onAddDday, onDeleteDday }) {
   const [isWidgetModalOpen, setIsWidgetModalOpen] = useState(false); 
   const currentWidgets = widgets || { attendance: true, tasks: true, timetable: true, classTimetable: true, lunch: true, lessons: true, schoolSchedule: true, weather: true, dday: true, memo: true };
 
   const defaultLayouts = {
     lg: [
-      { i: 'weather', x: 0, y: 0, w: 4, h: 2, minW: 3, minH: 2 }, // 시계 위젯 기본 크기 확대
+      { i: 'weather', x: 0, y: 0, w: 4, h: 2, minW: 3, minH: 2 },
       { i: 'dday', x: 4, y: 0, w: 2, h: 2, minW: 2, minH: 2 },
       { i: 'memo', x: 6, y: 0, w: 2, h: 2, minW: 2, minH: 2 },
       { i: 'attendance', x: 8, y: 0, w: 4, h: 2, minW: 4, minH: 2 },
@@ -102,14 +102,14 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
           {currentWidgets.dday && (
             <div key="dday" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden relative">
               <div className="drag-handle cursor-move bg-gray-50 dark:bg-gray-700/50 px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center group"><h3 className="font-bold flex items-center gap-1.5 text-red-500 text-xs"><Target size={14}/> D-Day</h3><GripHorizontal size={14} className="text-gray-400 group-hover:text-red-400" /></div>
-              <DdayWidget />
+              <DdayWidget ddays={ddays} onAddDday={onAddDday} onDeleteDday={onDeleteDday} />
             </div>
           )}
 
           {currentWidgets.memo && (
             <div key="memo" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden relative">
               <div className="drag-handle cursor-move bg-gray-50 dark:bg-gray-700/50 px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center group"><h3 className="font-bold flex items-center gap-1.5 text-yellow-600 text-xs"><StickyNote size={14}/> 포스트잇 메모</h3><GripHorizontal size={14} className="text-gray-400 group-hover:text-yellow-500" /></div>
-              <MemoWidget setActiveView={setActiveView} />
+              <MemoWidget setActiveView={setActiveView} memos={memos} />
             </div>
           )}
 
@@ -138,7 +138,16 @@ export default function Dashboard({ students, todos, setActiveView, schoolInfo, 
             <div key="timetable" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden">
               <WidgetHeader title={`나의 수업 (${todayDay}요일)`} icon={<Clock size={16}/>} colorClass="text-blue-500" linkAction={() => setActiveView('my_timetable')} linkText="시간표로" />
               <div onClick={() => setActiveView('my_timetable')} className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                {todayTimetable.length > 0 ? todayTimetable.map(cls => (<div key={cls.period} className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50"><span className="font-extrabold text-blue-600 dark:text-blue-400 w-12 shrink-0 text-center">{cls.period}교시</span><div className="flex-1 font-bold text-gray-800 dark:text-gray-200 truncate">{cls.subject}</div></div>)) : <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><Clock size={32} className="opacity-20"/><p className="text-sm font-bold">오늘은 수업이 없습니다.</p></div>}
+                {todayTimetable.length > 0 ? todayTimetable.map(cls => (
+                  <div key={cls.period} className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50">
+                    <span className="font-extrabold text-blue-600 dark:text-blue-400 w-12 shrink-0 text-center">{cls.period}교시</span>
+                    <div className="flex-1 flex flex-col min-w-0">
+                      <span className="font-bold text-gray-800 dark:text-gray-200 truncate">{cls.subject}</span>
+                      {/* 🔥 수업 장소(room) 표시 추가 */}
+                      {cls.room && <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 truncate">{cls.room}</span>}
+                    </div>
+                  </div>
+                )) : <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><Clock size={32} className="opacity-20"/><p className="text-sm font-bold">오늘은 수업이 없습니다.</p></div>}
               </div>
             </div>
           )}

@@ -1,10 +1,7 @@
 import React from 'react';
 import { StickyNote } from 'lucide-react';
-import { useAppStore } from '../../store/useAppStore';
 
-export default function MemoWidget({ setActiveView }) {
-  const { memos } = useAppStore();
-
+export default function MemoWidget({ setActiveView, memos = [] }) {
   return (
     <div className="h-full flex flex-col bg-white dark:bg-gray-800 p-3 relative cursor-pointer group" onClick={() => setActiveView('memos')}>
       <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">

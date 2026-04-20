@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { Target, Plus, Trash2, X } from 'lucide-react';
-import { useAppStore } from '../../store/useAppStore';
+import { Target, Plus, X } from 'lucide-react';
 
-export default function DdayWidget() {
-  const { ddays, addDday, deleteDday } = useAppStore();
+export default function DdayWidget({ ddays = [], onAddDday, onDeleteDday }) {
   const [isAdding, setIsAdding] = useState(false);
   const [form, setForm] = useState({ title: '', date: '' });
 
@@ -16,7 +14,11 @@ export default function DdayWidget() {
   };
 
   const handleAdd = () => {
-    if (form.title && form.date) { addDday(form); setForm({title:'', date:''}); setIsAdding(false); }
+    if (form.title && form.date) { 
+      onAddDday(form); 
+      setForm({title:'', date:''}); 
+      setIsAdding(false); 
+    }
   };
 
   return (
@@ -45,7 +47,7 @@ export default function DdayWidget() {
                    <div className="text-[9px] text-gray-400">{d.date}</div>
                  </div>
                  <div className={`font-black ml-2 ${isImminent ? 'text-red-500' : 'text-indigo-600 dark:text-indigo-400'}`}>{dStr}</div>
-                 <button onClick={() => deleteDday(d.id)} className="ml-1 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition"><X size={12}/></button>
+                 <button onClick={() => onDeleteDday(d.id)} className="ml-1 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition"><X size={12}/></button>
                </div>
              )
           }) : <div className="h-full flex flex-col items-center justify-center text-gray-400"><Target size={24} className="opacity-20 mb-1"/><span className="text-xs font-bold">등록된 D-Day 없음</span></div>}

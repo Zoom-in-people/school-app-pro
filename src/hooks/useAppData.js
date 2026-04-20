@@ -18,5 +18,8 @@ export function useAppData(userId, currentHandbookId) {
     classPhotos: useGoogleDriveDB(`class_photos${prefix}`, userId, isLoaded),
     academicSchedule: useGoogleDriveDB(`academic_schedule${prefix}`, userId, isLoaded),
     educationPlans: useGoogleDriveDB(`education_plans${prefix}`, userId, isLoaded),
+    // 🔥 아래 2줄이 추가되었습니다. 이제 기기 간 연동이 됩니다!
+    memos: useGoogleDriveDB(`memos${prefix}`, userId, isLoaded),
+    ddays: useGoogleDriveDB(`ddays${prefix}`, userId, isLoaded),
   };
 }
