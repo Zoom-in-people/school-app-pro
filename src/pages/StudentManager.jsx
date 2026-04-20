@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, Search, Plus, Trash2, Save, X, Filter } from 'lucide-react';
+import { Users, Search, Plus, Trash2, Save, X } from 'lucide-react';
 import { showToast, showConfirm } from '../utils/alerts';
 
 export default function StudentManager({ students = [], onAddStudents, onUpdateStudent, onDeleteStudent, isHomeroomView }) {
@@ -8,35 +8,75 @@ export default function StudentManager({ students = [], onAddStudents, onUpdateS
   const [showBulkAdd, setShowBulkAdd] = useState(false);
   const [bulkText, setBulkText] = useState('');
   
-  // 🔥 교과 모드용 반/그룹 선택 상태
-  const [selectedGroup, setSelectedGroup] = useState('전체');
+  // 🔥 원상복구: 기존에 사용하던 '학년-반', '수강과목' 필터 상태 부활
+  const [activeClassFilter, setActiveClassFilter] = useState(null);
+  const [activeSubjectFilter, setActiveSubjectFilter] = useState(null);
 
-  // 등록된 학생들로부터 고유한 반/그룹명 추출 (교과 모드일 때만)
-  const groups = useMemo(() => {
-    if (isHomeroomView) return [];
-    const groupSet = new Set(students.map(s => s.className).filter(Boolean));
-    return ['전체', ...Array.from(groupSet).sort(), '미지정'];
-  }, [students, isHomeroomView]);
+  const safeStudents = Array.isArray(students) ? students : [];
 
-  // 검색 및 그룹 필터링 적용
+  // 🔥 원상복구: DB에 있는 기존 [학년-반] 조합을 읽어와서 탭으로 만듦
+  const existingClasses = useMemo(() => {
+    const classes = new Set(safeStudents.map(s => {
+      if (s.grade && s.class) return `${s.grade}-${s.class}`;
+      if (s.grade) return `${s.grade}학년`;
+      if (s.class) return `${s.class}반`;
+      return '';
+    }).filter(Boolean));
+    return Array.from(classes).sort();
+  }, [safeStudents]);
+
+  // 🔥 원상복구: DB에 있는 기존 [과목] 조합을 읽어와서 탭으로 만듦
+  const existingSubjects = useMemo(() => {
+    const subjects = new Set(safeStudents.map(s => s.creditSubject).filter(Boolean));
+    return Array.from(subjects).sort();
+  }, [safeStudents]);
+
+  // 🔥 원상복구: 학년-반, 과목, 검색어 필터링 로직 완벽 적용
   const filteredStudents = useMemo(() => {
-    let result = students;
-    if (!isHomeroomView && selectedGroup !== '전체') {
-      if (selectedGroup === '미지정') {
-        result = result.filter(s => !s.className);
-      } else {
-        result = result.filter(s => s.className === selectedGroup);
-      }
+    let result = safeStudents;
+    
+    if (activeClassFilter) {
+      result = result.filter(s => {
+        const clsStr = (s.grade && s.class) ? `${s.grade}-${s.class}` : (s.grade ? `${s.grade}학년` : (s.class ? `${s.class}반` : ''));
+        return clsStr === activeClassFilter;
+      });
     }
-    return result
-      .filter(s => s.name.includes(searchQuery) || (s.number && s.number.toString().includes(searchQuery)))
-      .sort((a, b) => Number(a.number) - Number(b.number));
-  }, [students, searchQuery, isHomeroomView, selectedGroup]);
+    
+    if (!isHomeroomView && activeSubjectFilter) {
+      result = result.filter(s => s.creditSubject === activeSubjectFilter);
+    }
+    
+    if (searchQuery) {
+      result = result.filter(s => 
+        s.name.includes(searchQuery) || 
+        (s.number && s.number.toString().includes(searchQuery)) ||
+        (s.tags && s.tags.includes(searchQuery)) ||
+        (s.creditSubject && s.creditSubject.includes(searchQuery))
+      );
+    }
+
+    return result.sort((a, b) => {
+      if (a.grade !== b.grade) return Number(a.grade || 0) - Number(b.grade || 0);
+      if (a.class !== b.class) return Number(a.class || 0) - Number(b.class || 0);
+      return Number(a.number || 0) - Number(b.number || 0);
+    });
+  }, [safeStudents, searchQuery, activeClassFilter, activeSubjectFilter, isHomeroomView]);
 
   const handleCreateNew = () => {
+    let defaultGrade = '';
+    let defaultClass = '';
+    if (activeClassFilter) {
+      const parts = activeClassFilter.split('-');
+      if (parts.length === 2) {
+        defaultGrade = parts[0];
+        defaultClass = parts[1];
+      }
+    }
     setSelectedStudent({ 
+      grade: defaultGrade,
+      class: defaultClass,
       number: '', name: '', gender: '남', tags: '', note: '', phone: '', parentPhone: '',
-      className: (!isHomeroomView && selectedGroup !== '전체' && selectedGroup !== '미지정') ? selectedGroup : ''
+      creditSubject: (!isHomeroomView && activeSubjectFilter) ? activeSubjectFilter : ''
     });
   };
 
@@ -64,16 +104,29 @@ export default function StudentManager({ students = [], onAddStudents, onUpdateS
   const handleBulkSave = () => {
     const lines = bulkText.split('\n').filter(l => l.trim());
     if (lines.length === 0) return;
+    
+    let defaultGrade = '';
+    let defaultClass = '';
+    if (activeClassFilter) {
+      const parts = activeClassFilter.split('-');
+      if (parts.length === 2) {
+        defaultGrade = parts[0];
+        defaultClass = parts[1];
+      }
+    }
+
     const newStudents = lines.map((line, idx) => {
       const parts = line.trim().split(/\s+/);
       const num = parseInt(parts[0]);
       const name = isNaN(num) ? line.trim() : parts.slice(1).join(' ');
       return { 
         id: (Date.now() + idx).toString(),
+        grade: defaultGrade,
+        class: defaultClass,
         number: isNaN(num) ? '' : num, 
         name: name || parts[0], 
         gender: '남', tags: '', note: '',
-        className: (!isHomeroomView && selectedGroup !== '전체' && selectedGroup !== '미지정') ? selectedGroup : ''
+        creditSubject: (!isHomeroomView && activeSubjectFilter) ? activeSubjectFilter : ''
       };
     });
     if (onAddStudents) onAddStudents(newStudents);
@@ -85,7 +138,7 @@ export default function StudentManager({ students = [], onAddStudents, onUpdateS
   return (
     <div className="h-full flex flex-col md:flex-row gap-4 animate-in fade-in">
       
-      {/* 🔹 왼쪽: 학생 목록 리스트 (검색, 필터링 및 추가) */}
+      {/* 🔹 왼쪽: 학생 목록 리스트 및 필터 영역 */}
       <div className="w-full md:w-1/3 lg:w-1/4 flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0 h-1/2 md:h-full">
         <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex flex-col gap-3 shrink-0">
           <div className="flex justify-between items-center">
@@ -98,24 +151,42 @@ export default function StudentManager({ students = [], onAddStudents, onUpdateS
             </span>
           </div>
 
-          {/* 🔥 교과 모드일 때만 나타나는 반/그룹 탭 */}
-          {!isHomeroomView && groups.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
-              {groups.map(g => (
-                <button 
-                  key={g} onClick={() => setSelectedGroup(g)} 
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${selectedGroup === g ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* 🔥 잃어버렸던 반/과목 탭 UI 완벽 복구 */}
+          <div className="flex flex-col gap-2 mb-1">
+            {existingClasses.length > 0 && (
+              <div className="flex gap-1 overflow-x-auto custom-scrollbar pb-1">
+                <span className="text-[11px] font-extrabold text-gray-400 flex items-center shrink-0 pr-1">반 필터:</span>
+                {existingClasses.map(cls => (
+                  <button 
+                    key={cls} onClick={() => setActiveClassFilter(activeClassFilter === cls ? null : cls)} 
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold whitespace-nowrap transition ${activeClassFilter === cls ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
+                  >
+                    {cls}
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            {!isHomeroomView && existingSubjects.length > 0 && (
+              <div className="flex gap-1 overflow-x-auto custom-scrollbar pb-1">
+                <span className="text-[11px] font-extrabold text-orange-400 flex items-center shrink-0 pr-1">과목 필터:</span>
+                {existingSubjects.map(sub => (
+                  <button 
+                    key={sub} onClick={() => setActiveSubjectFilter(activeSubjectFilter === sub ? null : sub)} 
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold whitespace-nowrap transition ${activeSubjectFilter === sub ? 'bg-orange-500 text-white shadow-sm' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-orange-200 dark:border-orange-800/50 hover:bg-orange-50 dark:hover:bg-gray-600'}`}
+                  >
+                    {sub}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-          <div className="relative mt-1">
-            <input type="text" placeholder="이름 또는 번호 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full p-2.5 pl-9 border border-gray-200 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-sm" />
+          <div className="relative">
+            <input type="text" placeholder="이름, 번호, 태그 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full p-2.5 pl-9 border border-gray-200 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-sm" />
             <Search size={16} className="absolute left-3 top-3 text-gray-400" />
           </div>
+          
           <div className="flex gap-2">
             <button onClick={handleCreateNew} className="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-white py-2 rounded-xl font-bold text-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition flex items-center justify-center gap-1 shadow-sm"><Plus size={14}/> 1명 추가</button>
             <button onClick={() => setShowBulkAdd(true)} className="flex-1 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 py-2 rounded-xl font-bold text-sm hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition shadow-sm">일괄 추가</button>
@@ -129,14 +200,18 @@ export default function StudentManager({ students = [], onAddStudents, onUpdateS
               <div className="flex-1 min-w-0">
                 <div className="font-bold truncate flex items-center gap-2">
                   {s.name}
-                  {/* 교과 모드에서 반 정보가 있으면 태그로 표시 */}
-                  {!isHomeroomView && s.className && (
+                  {/* 이름 옆에 학년-반 표시 */}
+                  {(s.grade || s.class) && (
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${selectedStudent?.id === s.id ? 'bg-indigo-500 text-indigo-100' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'}`}>
-                      {s.className}
+                      {s.grade && `${s.grade}-`}{s.class}
                     </span>
                   )}
                 </div>
-                {s.tags && <div className={`text-[10px] truncate mt-0.5 ${selectedStudent?.id === s.id ? 'text-indigo-200' : 'text-gray-400'}`}>{s.tags}</div>}
+                {/* 태그 및 수강과목 표시 */}
+                <div className={`text-[10px] truncate mt-0.5 flex gap-1 ${selectedStudent?.id === s.id ? 'text-indigo-200' : 'text-gray-400'}`}>
+                  {!isHomeroomView && s.creditSubject && <span className="font-bold text-orange-400">[{s.creditSubject}]</span>}
+                  {s.tags}
+                </div>
               </div>
             </div>
           )) : (
@@ -159,13 +234,13 @@ export default function StudentManager({ students = [], onAddStudents, onUpdateS
             </div>
             <div>
               <h3 className="font-bold text-lg text-gray-600 dark:text-gray-300 mb-1">학생을 선택해주세요</h3>
-              <p className="text-sm">왼쪽 명단에서 학생을 클릭하거나 상단의 추가 버튼을 눌러 상세 정보를 관리하세요.</p>
+              <p className="text-sm">왼쪽 명단에서 학생을 클릭하거나 추가 버튼을 눌러 정보를 등록하세요.</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* 🔹 학생 일괄 추가 모달 (여러 명 복붙 전용) */}
+      {/* 🔹 학생 일괄 추가 모달 */}
       {showBulkAdd && (
         <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95">
@@ -175,8 +250,8 @@ export default function StudentManager({ students = [], onAddStudents, onUpdateS
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
               번호와 이름을 띄어쓰기로 구분하여 한 줄에 한 명씩 입력하세요.<br/>(예: 1 홍길동)
-              {!isHomeroomView && selectedGroup !== '전체' && selectedGroup !== '미지정' && (
-                <span className="block mt-1 text-indigo-600 dark:text-indigo-400 font-bold">※ 현재 선택된 '{selectedGroup}'에 일괄 추가됩니다.</span>
+              {activeClassFilter && (
+                <span className="block mt-1 text-indigo-600 dark:text-indigo-400 font-bold">※ 현재 선택된 '{activeClassFilter}'반에 자동 배정됩니다.</span>
               )}
             </p>
             <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} className="w-full h-48 p-3 border border-gray-200 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm outline-none resize-none mb-4 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 custom-scrollbar" placeholder="1 김철수&#10;2 이영희&#10;3 박민수"></textarea>
@@ -207,21 +282,33 @@ function StudentDetailForm({ student, onSave, onDelete, isHomeroomView, onCancel
       
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar bg-gray-50/30 dark:bg-gray-900/20">
         
-        <div className="grid grid-cols-2 gap-4">
+        {/* 🔥 잃어버렸던 학년, 반, 번호 입력창 완벽 복구 */}
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-extrabold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">학년</label>
+            <input type="text" name="grade" value={form.grade || ''} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-sm" placeholder="예: 1" />
+          </div>
+          <div>
+            <label className="block text-xs font-extrabold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">반</label>
+            <input type="text" name="class" value={form.class || ''} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-sm" placeholder="예: 3" />
+          </div>
           <div>
             <label className="block text-xs font-extrabold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">번호</label>
-            <input type="number" name="number" value={form.number || ''} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-sm" placeholder="예: 1" />
+            <input type="number" name="number" value={form.number || ''} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-sm" placeholder="예: 15" />
           </div>
+        </div>
+
+        {/* 🔥 잃어버렸던 수강과목 입력창 완벽 복구 */}
+        <div className={`grid ${!isHomeroomView ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
           <div>
             <label className="block text-xs font-extrabold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">이름</label>
             <input type="text" name="name" value={form.name || ''} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-sm" placeholder="예: 홍길동" />
           </div>
           
-          {/* 🔥 교과 모드일 때 그룹 입력 칸 활성화 */}
           {!isHomeroomView && (
-            <div className="col-span-2">
-              <label className="block text-xs font-extrabold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">소속 반 / 그룹명</label>
-              <input type="text" name="className" value={form.className || ''} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-sm" placeholder="예: 1반, 2반, 동아리A" />
+            <div>
+              <label className="block text-xs font-extrabold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">수강 과목</label>
+              <input type="text" name="creditSubject" value={form.creditSubject || ''} onChange={handleChange} className="w-full p-3 border border-orange-200 rounded-xl bg-orange-50/50 dark:bg-orange-900/10 dark:border-orange-800/50 dark:text-white outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition shadow-sm" placeholder="예: 물리학I" />
             </div>
           )}
         </div>
